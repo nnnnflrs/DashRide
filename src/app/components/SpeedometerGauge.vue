@@ -61,7 +61,7 @@
       <!-- Speed Text -->
       <text
         x="150"
-        y="125"
+        y="120"
         text-anchor="middle"
         class="speed-text"
         :fill="gaugeColor"
@@ -69,7 +69,7 @@
       >
         {{ Math.round(displaySpeed) }}
       </text>
-      <text x="150" y="155" text-anchor="middle" class="unit-text">
+      <text x="150" y="145" text-anchor="middle" class="unit-text">
         {{ unit === 'mph' ? 'MPH' : 'km/h' }}
       </text>
       
@@ -213,7 +213,7 @@ const animateTestSpeed = () => {
 .gauge-container {
   position: relative;
   width: 100%;
-  max-width: 28rem;
+  max-width: 600px;
   aspect-ratio: 5/3;
   display: flex;
   align-items: center;
@@ -242,7 +242,7 @@ const animateTestSpeed = () => {
 }
 
 .speed-text {
-  font-size: 60px;
+  font-size: 55px;
   font-weight: 700;
   font-family: system-ui, -apple-system, sans-serif;
   transition: fill 0.3s ease, filter 0.3s ease;
@@ -271,6 +271,7 @@ const animateTestSpeed = () => {
   font-size: 12px;
   font-weight: 600;
   animation: pulse 2s infinite;
+  z-index: 2;
 }
 
 @keyframes pulse {
