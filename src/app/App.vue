@@ -23,7 +23,7 @@
               </div>
 
               <div class="column-center">
-                <SemiCircularGauge :speed="speed" :unit="unit" />
+                <SpeedometerGauge :speed="speed" :unit="unit" />
               </div>
 
               <div class="column-right">
@@ -147,7 +147,7 @@ import { toast } from 'vue-sonner'
 import { Clock, Bell } from 'lucide-vue-next'
 import { ScreenOrientation } from '@capacitor/screen-orientation'
 import { StatusBar as CapStatusBar } from '@capacitor/status-bar'
-import SemiCircularGauge from './components/SemiCircularGauge.vue'
+import SpeedometerGauge from './components/SpeedometerGauge.vue'
 import StatusBar from './components/StatusBar.vue'
 import MiniMap from './components/MiniMap.vue'
 import InfoPanel from './components/InfoPanel.vue'
@@ -209,6 +209,9 @@ onMounted(async () => {
   } catch (error) {
     console.log('Status bar hide not supported:', error)
   }
+
+  // Start GPS tracking automatically
+  startTracking()
 
   timeInterval = window.setInterval(() => {
     currentTime.value = new Date().toLocaleTimeString('en-US', {

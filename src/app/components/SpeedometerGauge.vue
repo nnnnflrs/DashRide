@@ -1,6 +1,6 @@
 <template>
    <!-- @dblclick="toggleTestMode" -->
-  <div class="gauge-container">
+  <div class="gauge-container" @dblclick="toggleTestMode" >
     <svg class="gauge-svg" viewBox="0 0 300 180" :style="{ filter: gaugeGlow }">
       <defs>
         <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">

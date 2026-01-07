@@ -1,7 +1,8 @@
 {
-  "name": "Dashride",
+  "name": "dashride",
   "private": true,
-  "version": "0.0.1",
+  "version": "1.0.0",
+  "description": "Cross-platform motorcycle dashboard app with real-time speedometer and navigation",
   "type": "module",
   "scripts": {
     "dev": "vite",
