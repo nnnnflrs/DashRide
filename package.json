@@ -1,0 +1,42 @@
+{
+  "name": "Dashride",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "android": "bun run build && bunx cap sync android && bunx cap run android --target=Pixel_9_Pro_XL",
+    "ios": "bun run build && bunx cap sync ios && bunx cap run ios --target=40BFA551-0C44-4975-8B1D-8993EF3BC65A",
+    "sync": "bunx cap sync"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/device": "^8.0.0",
+    "@capacitor/geolocation": "^8.0.0",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/network": "^8.0.0",
+    "@capacitor/screen-orientation": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
+    "@googlemaps/js-api-loader": "^2.0.2",
+    "@ionic/vue": "^8.7.16",
+    "@ionic/vue-router": "^8.7.16",
+    "@vueuse/core": "^10.9.0",
+    "date-fns": "3.6.0",
+    "lucide-vue-next": "^0.344.0",
+    "vue": "^3.4.21",
+    "vue-router": "^4.6.4",
+    "vue-sonner": "^1.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "typescript": "^5.4.2",
+    "vite": "6.3.5",
+    "vue-tsc": "^2.0.6"
+  }
+}
