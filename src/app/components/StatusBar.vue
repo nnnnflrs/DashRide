@@ -1,5 +1,5 @@
 <template>
-  <div class="status-bar">
+  <div class="status-bar" :data-theme="theme">
     <div class="left">
       <span class="time-label">{{ currentTime }}</span>
       <template v-if="isGpsActive">
@@ -13,22 +13,24 @@
       <Signal :class="['icon', networkConnected ? 'connected' : '']" />
       <Wifi :class="['icon', wifiConnected ? 'connected' : '']" />
       <div class="battery">
-        <Battery :class="['icon', batteryLevel > 20 ? 'battery-icon' : 'battery-low']" />
+        <component :is="batteryIcon" :class="['icon', batteryLevel > 20 ? 'battery-icon' : 'battery-low']" />
         <span class="label">{{ batteryLevel }}%</span>
       </div>
-      <Bluetooth :class="['icon', 'bluetooth-icon']" />
+      <Bluetooth v-if="bluetoothEnabled" :class="['icon', 'bluetooth-icon']" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { Wifi, Bluetooth, Navigation2, Battery, Signal } from 'lucide-vue-next'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { Wifi, Bluetooth, Navigation2, BatteryFull, BatteryMedium, BatteryLow, Signal } from 'lucide-vue-next'
 import { Device } from '@capacitor/device'
 import { Network } from '@capacitor/network'
+import { BleClient } from '@capacitor-community/bluetooth-le'
 
 interface Props {
   isGpsActive: boolean
+  theme?: 'light' | 'dark'
 }
 
 defineProps<Props>()
@@ -36,8 +38,27 @@ defineProps<Props>()
 const batteryLevel = ref(80)
 const networkConnected = ref(false)
 const wifiConnected = ref(false)
+const bluetoothEnabled = ref(false)
 
 let networkListener: any = null
+
+// Select battery icon based on level
+const batteryIcon = computed(() => {
+  if (batteryLevel.value > 60) return BatteryFull
+  if (batteryLevel.value > 20) return BatteryMedium
+  return BatteryLow
+})
+
+const checkBluetoothStatus = async () => {
+  try {
+    await BleClient.initialize()
+    const isEnabled = await BleClient.isEnabled()
+    bluetoothEnabled.value = isEnabled
+  } catch (error) {
+    console.log('Bluetooth status check failed:', error)
+    bluetoothEnabled.value = false
+  }
+}
 
 const updateBatteryInfo = async () => {
   try {
@@ -68,6 +89,7 @@ onMounted(async () => {
   // Initial updates
   await updateBatteryInfo()
   await updateNetworkStatus()
+  await checkBluetoothStatus()
 
   // Update time every second
   const timeInterval = setInterval(() => {
@@ -80,6 +102,9 @@ onMounted(async () => {
 
   // Update battery every 30 seconds
   const batteryInterval = setInterval(updateBatteryInfo, 30000)
+  
+  // Update Bluetooth status every 10 seconds
+  const bluetoothInterval = setInterval(checkBluetoothStatus, 10000)
 
   // Listen for network changes
   try {
@@ -94,6 +119,7 @@ onMounted(async () => {
   onUnmounted(() => {
     clearInterval(timeInterval)
     clearInterval(batteryInterval)
+    clearInterval(bluetoothInterval)
     if (networkListener) {
       networkListener.remove()
     }
@@ -102,6 +128,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Dark Theme (Default) */
 .status-bar {
   display: flex;
   align-items: center;
@@ -110,6 +137,13 @@ onMounted(async () => {
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid rgba(128, 128, 128, 0.5);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+/* Light Theme */
+.status-bar[data-theme="light"] {
+  background: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.4);
 }
 
 .left, .right {
@@ -118,7 +152,12 @@ onMounted(async () => {
   gap: 0.5rem;
 }
 
+.left {
+  padding-left: 0.75rem;
+}
+
 .right {
+  padding-right: 0.75rem;;
   gap: 0.75rem;
 }
 
@@ -158,6 +197,7 @@ onMounted(async () => {
 .label {
   font-size: 0.75rem;
   color: rgba(156, 163, 175, 1);
+  transition: color 0.3s ease;
 }
 
 .time-label {
@@ -166,5 +206,39 @@ onMounted(async () => {
   color: white;
   margin-right: 0.5rem;
   padding-left: 12px;
+  transition: color 0.3s ease;
+}
+
+/* Light Theme Status Bar */
+.status-bar[data-theme="light"] .icon {
+  color: rgb(100, 116, 139);
+}
+
+.status-bar[data-theme="light"] .icon.connected {
+  color: rgb(34, 197, 94);
+}
+
+.status-bar[data-theme="light"] .gps-icon {
+  color: rgb(34, 197, 94);
+}
+
+.status-bar[data-theme="light"] .battery-icon {
+  color: rgb(34, 197, 94);
+}
+
+.status-bar[data-theme="light"] .battery-low {
+  color: rgb(239, 68, 68);
+}
+
+.status-bar[data-theme="light"] .bluetooth-icon {
+  color: rgb(59, 130, 246);
+}
+
+.status-bar[data-theme="light"] .label {
+  color: rgb(100, 116, 139);
+}
+
+.status-bar[data-theme="light"] .time-label {
+  color: rgb(15, 23, 42);
 }
 </style>

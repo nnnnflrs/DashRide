@@ -1,5 +1,5 @@
 <template>
-  <div class="bottom-nav">
+  <div class="bottom-nav" :data-theme="theme">
     <div class="nav-grid">
       <button
         v-for="tab in tabs"
@@ -20,6 +20,7 @@ import { Navigation, Music, Gauge, Settings } from 'lucide-vue-next'
 
 interface Props {
   activeTab: 'nav' | 'music' | 'riding' | 'settings'
+  theme?: 'light' | 'dark'
 }
 
 defineProps<Props>()
@@ -37,10 +38,18 @@ const tabs = [
 </script>
 
 <style scoped>
+/* Dark Theme (Default) */
 .bottom-nav {
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(12px);
   border-top: 1px solid rgba(128, 128, 128, 0.5);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+/* Light Theme */
+.bottom-nav[data-theme="light"] {
+  background: rgba(255, 255, 255, 0.85);
+  border-top: 1px solid rgba(148, 163, 184, 0.4);
 }
 
 .nav-grid {
@@ -76,6 +85,29 @@ const tabs = [
 .nav-button.active {
   background: rgba(37, 99, 235, 0.2);
   color: rgb(96, 165, 250);
+}
+
+/* Light Theme Navigation Buttons */
+.bottom-nav[data-theme="light"] .nav-button {
+  color: rgb(71, 85, 105);
+}
+
+.bottom-nav[data-theme="light"] .nav-button:hover {
+  color: rgb(51, 65, 85);
+}
+
+.bottom-nav[data-theme="light"] .nav-button:active {
+  background: rgba(203, 213, 225, 0.5);
+}
+
+.bottom-nav[data-theme="light"] .nav-button.active {
+  background: rgba(37, 99, 235, 0.15);
+  color: rgb(37, 99, 235);
+}
+
+.bottom-nav[data-theme="light"] .active-indicator {
+  background: rgba(37, 99, 235, 0.15);
+  border: 1px solid rgba(37, 99, 235, 0.3);
 }
 
 .active-indicator {

@@ -1,175 +1,133 @@
 <template>
   <ion-app>
-  <div class="app-container">
+  <div class="app-container" :data-theme="currentTheme">
     <div class="background-gradient" />
     
     <div class="glow-top" />
     <div class="glow-bottom" />
 
     <div class="content-wrapper">
-      <StatusBar :isGpsActive="isTracking" />
+      <StatusBar :isGpsActive="isTracking" :theme="currentTheme" />
 
       <div class="main-content">
-        <Transition name="fade" mode="out-in">
-          <div v-if="activeTab === 'riding'" key="riding" class="tab-content dashboard-view">
-            <div class="dashboard-container">
-              <!-- CENTER - MASSIVE SPEEDOMETER with overlaid info -->
-              <div class="gauge-wrapper">
-                <SpeedometerGauge :speed="speed" :unit="unit" />
-                
-                <!-- LEFT INFO - Overlaid on gauge -->
-                <div class="info-overlay info-left">
-                  <!-- Mini Map -->
-                  <div class="map-widget-small">
-                    <MiniMap :distance="0.6" :unit="unit" nextTurn="Main Street" />
-                  </div>
-
-                  <!-- Navigation Info -->
-                  <div class="info-item">
-                    <Navigation class="info-icon" />
-                    <div class="info-text">
-                      <div class="info-label">MAIN STREET</div>
-                      <div class="info-sublabel">{{ riderName }}</div>
-                    </div>
-                  </div>
-
-                  <!-- Music -->
-                  <div class="info-item">
-                    <Music class="info-icon" />
-                    <span class="info-value">Ride On</span>
-                  </div>
-
-                  <!-- Fuel -->
-                  <div class="info-item">
-                    <Fuel class="info-icon" />
-                    <span class="info-value">{{ fuelConsumption.toFixed(1) }}/100km</span>
-                  </div>
-
-                  <!-- Total Distance -->
-                  <div class="info-item">
-                    <MapPin class="info-icon" />
-                    <span class="info-value">{{ Math.round(tripData.totalDistance) }} km</span>
-                  </div>
-                </div>
-
-                <!-- RIGHT INFO - Overlaid on gauge -->
-                <div class="info-overlay info-right">
-                  <!-- Range -->
-                  <div class="info-item">
-                    <span class="info-label">RANGE</span>
-                    <span class="info-value-large">{{ Math.round(estimatedRange) }} km</span>
-                  </div>
-
-                  <!-- Trip -->
-                  <div class="info-item">
-                    <span class="info-label">TRIP</span>
-                    <span class="info-value-large">{{ tripData.distance.toFixed(1) }} km</span>
-                  </div>
-
-                  <!-- Duration -->
-                  <div class="info-item">
-                    <Timer class="info-icon" />
-                    <span class="info-value">{{ formattedTripTime }}</span>
-                  </div>
-
-                  <!-- Weather -->
-                  <div class="info-item">
-                    <component :is="weatherIcon" class="info-icon weather" />
-                    <span class="info-value">{{ temperature }}°C</span>
-                  </div>
-                </div>
-
-                <!-- Bottom Center Info -->
-                <div class="center-bottom-info">
-                  <Clock class="bottom-icon" />
-                  <span class="bottom-time">{{ currentTime }}</span>
-                  <Bell v-if="isTracking" class="bottom-icon active" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div v-else-if="activeTab === 'nav'" key="nav" class="tab-content map-tab">
-            <NavigationMap />
-          </div>
-
-          <div v-else-if="activeTab === 'music'" key="music" class="tab-content centered">
-            <div class="placeholder-content">
-              <div class="placeholder-icon">🎵</div>
-              <h2 class="placeholder-title">Music Control</h2>
-              <p class="placeholder-text">Control your music while riding</p>
-              <p class="placeholder-soon">Feature coming soon</p>
-            </div>
-          </div>
-
-          <div v-else-if="activeTab === 'settings'" key="settings" class="tab-content scrollable">
-            <div class="settings-container">
-              <h2 class="settings-title">Settings</h2>
+        <!-- Riding Tab -->
+        <div v-show="activeTab === 'riding'" class="tab-content dashboard-view">
+          <div class="dashboard-container">
+            <!-- CENTER - MASSIVE SPEEDOMETER with overlaid info -->
+            <div class="gauge-wrapper">
+              <SpeedometerGauge :speed="speed" :unit="unit" />
               
-              <div class="setting-card">
-                <label class="setting-label">Speed Unit</label>
-                <div class="unit-buttons">
-                  <button
-                    @click="unit = 'mph'"
-                    :class="['unit-button', { active: unit === 'mph' }]"
-                  >
-                    MPH
-                  </button>
-                  <button
-                    @click="unit = 'kmh'"
-                    :class="['unit-button', { active: unit === 'kmh' }]"
-                  >
-                    KM/H
-                  </button>
+              <!-- LEFT INFO - Overlaid on gauge -->
+              <div class="info-overlay info-left">
+                <!-- Mini Map -->
+                <div class="map-widget-small">
+                  <MiniMap :distance="0.6" :unit="unit" nextTurn="Main Street" />
                 </div>
-              </div>
 
-              <div class="setting-card">
-                <label class="setting-label">
-                  Fuel Consumption ({{ unit === 'mph' ? 'MPG' : 'L/100km' }})
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  v-model.number="fuelConsumption"
-                  class="fuel-input"
-                />
-              </div>
+                <!-- Navigation Info -->
+                <div class="info-item">
+                  <Navigation class="info-icon" />
+                  <div class="info-text">
+                    <div class="info-label">MAIN STREET</div>
+                    <div class="info-sublabel">{{ riderName }}</div>
+                  </div>
+                </div>
 
-              <div class="setting-card">
-                <div class="toggle-row">
-                  <div>
-                    <div class="toggle-title">Keep Screen On</div>
-                    <div class="toggle-description">
-                      Prevents screen from sleeping
+                <!-- Music - Show currently playing track -->
+                <div v-if="musicIsPlaying && musicCurrentTrack" class="info-item music-info">
+                  <Music class="info-icon" />
+                  <div class="music-marquee">
+                    <div class="music-text">
+                      {{ musicCurrentTrack.title }} • {{ musicCurrentTrack.artist }}
                     </div>
                   </div>
-                  <button
-                    @click="keepScreenOn = !keepScreenOn"
-                    :class="['toggle-button', { active: keepScreenOn }]"
-                  >
-                    <div :class="['toggle-knob', { active: keepScreenOn }]" />
-                  </button>
+                </div>
+
+                <!-- Fuel -->
+                <div class="info-item">
+                  <Fuel class="info-icon" />
+                  <span class="info-value">{{ fuelConsumption.toFixed(1) }}/100km</span>
+                </div>
+
+                <!-- Navigation Distance - Only show during navigation -->
+                <div v-if="isNavigating" class="info-item">
+                  <MapPin class="info-icon" />
+                  <div class="info-text">
+                    <div class="info-label">TO DESTINATION</div>
+                    <div class="info-sublabel">{{ remainingDistance.toFixed(1) }} km</div>
+                  </div>
                 </div>
               </div>
 
-              <div class="setting-card">
-                <h3 class="about-title">About</h3>
-                <div class="about-content">
-                  <p>Modern TFT-style motorcycle dashboard using phone sensors.</p>
-                  <p class="data-sources-title">
-                    <span class="bold">Data Sources:</span>
-                  </p>
-                  <ul class="data-sources-list">
-                    <li>GPS for speed and location</li>
-                    <li>Device sensors for motion data</li>
-                    <li>User input for fuel consumption</li>
-                  </ul>
+              <!-- RIGHT INFO - Overlaid on gauge -->
+              <div class="info-overlay info-right">
+                <!-- Range -->
+                <div class="info-item">
+                  <span class="info-label">RANGE</span>
+                  <span class="info-value-large">{{ Math.round(estimatedRange) }} km</span>
                 </div>
+
+                <!-- Trip -->
+                <div class="info-item">
+                  <span class="info-label">TRIP</span>
+                  <span class="info-value-large">{{ tripData.distance.toFixed(1) }} km</span>
+                </div>
+
+                <!-- Duration -->
+                <div class="info-item">
+                  <Timer class="info-icon" />
+                  <span class="info-value">{{ formattedTripTime }}</span>
+                </div>
+
+                <!-- Average Speed -->
+                <div class="info-item">
+                  <TrendingUp class="info-icon" />
+                  <span class="info-value">{{ avgSpeed.toFixed(1) }} {{ unit === 'mph' ? 'mph' : 'km/h' }}</span>
+                </div>
+
+                <!-- Maximum Speed -->
+                <div class="info-item">
+                  <Zap class="info-icon" />
+                  <span class="info-value">{{ tripData.maxSpeed.toFixed(1) }} {{ unit === 'mph' ? 'mph' : 'km/h' }}</span>
+                </div>
+
+                <!-- Altitude -->
+                <div class="info-item">
+                  <Mountain class="info-icon" />
+                  <span class="info-value">{{ Math.round(altitude) }} masl</span>
+                </div>
+
+                <!-- Weather -->
+                <div class="info-item">
+                  <component :is="weatherIcon" class="info-icon weather" />
+                  <span class="info-value">{{ temperature }}°C</span>
+                </div>
+              </div>
+
+              <!-- Bottom Center Info -->
+              <div class="center-bottom-info">
+                <Clock class="bottom-icon" />
+                <span class="bottom-time">{{ currentTime }}</span>
+                <Bell v-if="isTracking" class="bottom-icon active" />
               </div>
             </div>
           </div>
-        </Transition>
+        </div>
+
+        <!-- Navigation Tab - Always mounted, visibility controlled by v-show -->
+        <div v-show="activeTab === 'nav'" class="tab-content map-tab">
+          <NavigationMap />
+        </div>
+
+        <!-- Music Tab -->
+        <div v-show="activeTab === 'music'" class="tab-content music-tab">
+          <MusicPlayer :theme="currentTheme" />
+        </div>
+
+        <!-- Settings Tab -->
+        <div v-show="activeTab === 'settings'" class="tab-content scrollable">
+          <Settings :theme="currentTheme" />
+        </div>
       </div>
 
       <!-- <div class="bottom-info">
@@ -182,7 +140,7 @@
         </div>
       </div> -->
 
-      <BottomNavigation :activeTab="activeTab" @update:activeTab="activeTab = $event" />
+      <BottomNavigation :activeTab="activeTab" :theme="currentTheme" @update:activeTab="activeTab = $event" />
     </div>
   </div>
   </ion-app>
@@ -193,9 +151,10 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { IonApp } from '@ionic/vue'
 import { useLocalStorage } from '@vueuse/core'
 import { toast } from 'vue-sonner'
-import { Clock, Bell, Fuel, Gauge, MapPin, Timer, Sun, Cloud, CloudRain } from 'lucide-vue-next'
+import { Clock, Bell, Fuel, Gauge, MapPin, Timer, Sun, Cloud, CloudRain, Navigation, Music, TrendingUp, Zap, Mountain } from 'lucide-vue-next'
 import { ScreenOrientation } from '@capacitor/screen-orientation'
 import { StatusBar as CapStatusBar } from '@capacitor/status-bar'
+import { Capacitor } from '@capacitor/core'
 import SpeedometerGauge from './components/SpeedometerGauge.vue'
 import StatusBar from './components/StatusBar.vue'
 import MiniMap from './components/MiniMap.vue'
@@ -203,6 +162,21 @@ import InfoCard from './components/InfoCard.vue'
 import BottomNavigation from './components/BottomNavigation.vue'
 import RiderInfo from './components/RiderInfo.vue'
 import NavigationMap from './components/NavigationMap.vue'
+import MusicPlayer from './components/MusicPlayer.vue'
+import Settings from './components/Settings.vue'
+import { useMusicPlayer } from '../composables/useMusicPlayer'
+import { useWeather } from '../composables/useWeather'
+import { useSettings } from '../composables/useSettings'
+import { useNavigation } from '../composables/useNavigation'
+
+// Get music player state
+const { isPlaying: musicIsPlaying, currentTrack: musicCurrentTrack } = useMusicPlayer()
+
+// Get weather data
+const { temperature, weatherData, isLoading: weatherLoading, error: weatherError } = useWeather()
+
+// Get navigation state
+const { isNavigating, remainingDistance, totalDistance: navTotalDistance, destination } = useNavigation()
 
 interface TripData {
   distance: number
@@ -217,11 +191,22 @@ const speed = ref(0)
 const altitude = ref(0)
 const isTracking = ref(false)
 const activeTab = ref<'nav' | 'music' | 'riding' | 'settings'>('riding')
-const unit = useLocalStorage<'mph' | 'kmh'>('speedUnit', 'kmh')
-const keepScreenOn = useLocalStorage('keepScreenOn', true)
 const riderName = useLocalStorage('riderName', 'Lennon Flores')
-const fuelConsumption = useLocalStorage('fuelConsumption', 5.1)
-const temperature = ref(27)
+
+// Use shared settings state
+const { theme, unit, fuelConsumption, keepScreenOn } = useSettings()
+
+// Compute current theme based on selection
+const currentTheme = computed(() => {
+  if (theme.value === 'auto') {
+    // Check system preference
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      return 'light'
+    }
+    return 'dark'
+  }
+  return theme.value
+})
 
 const tripData = useLocalStorage<TripData>('tripData', {
   distance: 0,
@@ -294,6 +279,10 @@ const weatherIcon = computed(() => {
   if (temperature.value > 25) return Sun
   if (temperature.value > 15) return Cloud
   return CloudRain
+})
+
+const isAndroid = computed(() => {
+  return Capacitor.getPlatform() === 'android'
 })
 
 const requestWakeLock = async () => {
@@ -425,22 +414,134 @@ onUnmounted(() => {
 <style scoped>
 .app-container {
   min-height: 100vh;
-  min-height: 100dvh; /* Dynamic viewport height for mobile */
+  min-height: 100dvh;
   width: 100vw;
-  background: black;
-  color: white;
   overflow: hidden;
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Dark Theme (Default) */
+.app-container[data-theme="dark"] {
+  background: black;
+  color: white;
+}
+
+.app-container[data-theme="dark"] .background-gradient {
+  background: linear-gradient(to bottom right, rgb(3, 7, 18), black, rgb(17, 24, 39));
+}
+
+.app-container[data-theme="dark"] .glow-top {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.app-container[data-theme="dark"] .glow-bottom {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+/* Light Theme - Premium Dark-Light Hybrid */
+.app-container[data-theme="light"] {
+  background: linear-gradient(to bottom right, rgb(226, 232, 240), rgb(203, 213, 225), rgb(148, 163, 184));
+  color: rgb(15, 23, 42);
+}
+
+.app-container[data-theme="light"] .background-gradient {
+  background: linear-gradient(to bottom right, rgb(226, 232, 240), rgb(203, 213, 225), rgb(148, 163, 184));
+}
+
+.app-container[data-theme="light"] .glow-top {
+  background: rgba(59, 130, 246, 0.25);
+}
+
+.app-container[data-theme="light"] .glow-bottom {
+  background: rgba(34, 197, 94, 0.25);
+}
+
+.app-container[data-theme="light"] .info-value,
+.app-container[data-theme="light"] .info-value-large,
+.app-container[data-theme="light"] .bottom-time,
+.app-container[data-theme="light"] .settings-title,
+.app-container[data-theme="light"] .toggle-title,
+.app-container[data-theme="light"] .about-title,
+.app-container[data-theme="light"] .bold {
+  color: rgb(15, 23, 42);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+.app-container[data-theme="light"] .info-label,
+.app-container[data-theme="light"] .info-sublabel,
+.app-container[data-theme="light"] .setting-label,
+.app-container[data-theme="light"] .toggle-description,
+.app-container[data-theme="light"] .about-content {
+  color: rgb(51, 65, 85);
+}
+
+.app-container[data-theme="light"] .setting-card {
+  background: linear-gradient(to bottom right, rgba(241, 245, 249, 0.95), rgba(226, 232, 240, 0.95));
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.app-container[data-theme="light"] .center-bottom-info {
+  background: rgba(241, 245, 249, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.app-container[data-theme="light"] .unit-button,
+.app-container[data-theme="light"] .theme-button {
+  background: rgba(226, 232, 240, 0.8);
+  color: rgb(51, 65, 85);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.app-container[data-theme="light"] .unit-button:hover,
+.app-container[data-theme="light"] .theme-button:hover {
+  background: rgba(203, 213, 225, 0.9);
+}
+
+.app-container[data-theme="light"] .unit-button.active,
+.app-container[data-theme="light"] .theme-button.active {
+  background: rgb(37, 99, 235);
+  color: white;
+  border: 1px solid rgb(29, 78, 216);
+}
+
+.app-container[data-theme="light"] .fuel-input {
+  background: rgba(241, 245, 249, 0.9);
+  color: rgb(15, 23, 42);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+.app-container[data-theme="light"] .fuel-input:focus {
+  border-color: rgb(59, 130, 246);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.app-container[data-theme="light"] .toggle-button {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+.app-container[data-theme="light"] .toggle-button.active {
+  background: rgb(37, 99, 235);
+}
+
+.app-container[data-theme="light"] .bottom-icon {
+  color: rgb(100, 116, 139);
+}
+
+.app-container[data-theme="light"] .bottom-icon.active {
+  color: rgb(34, 197, 94);
+  filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.6));
 }
 
 .background-gradient {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom right, rgb(3, 7, 18), black, rgb(17, 24, 39));
 }
 
 .glow-top {
@@ -449,9 +550,9 @@ onUnmounted(() => {
   left: 25%;
   width: 24rem;
   height: 24rem;
-  background: rgba(59, 130, 246, 0.1);
   border-radius: 50%;
   filter: blur(80px);
+  transition: background 0.3s ease;
 }
 
 .glow-bottom {
@@ -460,9 +561,9 @@ onUnmounted(() => {
   right: 25%;
   width: 24rem;
   height: 24rem;
-  background: rgba(34, 197, 94, 0.1);
   border-radius: 50%;
   filter: blur(80px);
+  transition: background 0.3s ease;
 }
 
 .content-wrapper {
@@ -715,155 +816,6 @@ onUnmounted(() => {
   margin-top: 1rem;
 }
 
-.settings-container {
-  max-width: 42rem;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.settings-title {
-  font-size: 1.5rem;
-  font-weight: bold;
-}
-
-.setting-card {
-  background: linear-gradient(to bottom right, rgba(17, 24, 39, 0.8), rgba(31, 41, 55, 0.8));
-  backdrop-filter: blur(8px);
-  border-radius: 0.5rem;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  padding: 1rem;
-}
-
-.setting-label {
-  font-size: 0.875rem;
-  color: rgba(156, 163, 175, 1);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.75rem;
-  display: block;
-}
-
-.unit-buttons {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-}
-
-.unit-button {
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  transition: all 0.2s;
-  background: rgb(31, 41, 55);
-  color: rgba(156, 163, 175, 1);
-  border: none;
-  cursor: pointer;
-}
-
-.unit-button:hover {
-  background: rgb(55, 65, 81);
-}
-
-.unit-button.active {
-  background: rgb(37, 99, 235);
-  color: white;
-}
-
-.fuel-input {
-  width: 100%;
-  background: rgb(31, 41, 55);
-  color: white;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgb(55, 65, 81);
-  outline: none;
-}
-
-.fuel-input:focus {
-  border-color: rgb(59, 130, 246);
-}
-
-.toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.toggle-title {
-  color: white;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-
-.toggle-description {
-  font-size: 0.875rem;
-  color: rgba(156, 163, 175, 1);
-}
-
-.toggle-button {
-  position: relative;
-  width: 3.5rem;
-  height: 2rem;
-  border-radius: 9999px;
-  transition: background-color 0.2s;
-  background: rgb(55, 65, 81);
-  border: none;
-  cursor: pointer;
-}
-
-.toggle-button.active {
-  background: rgb(37, 99, 235);
-}
-
-.toggle-knob {
-  position: absolute;
-  left: 0.25rem;
-  top: 0.25rem;
-  width: 1.5rem;
-  height: 1.5rem;
-  background: white;
-  border-radius: 50%;
-  transition: transform 0.2s;
-}
-
-.toggle-knob.active {
-  transform: translateX(1.5rem);
-}
-
-.about-title {
-  color: white;
-  font-weight: 600;
-  margin-bottom: 0.75rem;
-}
-
-.about-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: rgba(156, 163, 175, 1);
-}
-
-.data-sources-title {
-  padding-top: 0.5rem;
-}
-
-.bold {
-  color: white;
-  font-weight: 600;
-}
-
-.data-sources-list {
-  list-style-type: disc;
-  list-style-position: inside;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-left: 0.5rem;
-}
-
 .bottom-info {
   position: absolute;
   bottom: 4rem;
@@ -917,5 +869,51 @@ onUnmounted(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* Music Info with Marquee */
+.info-item.music-info {
+  max-width: 150px;
+  overflow: hidden;
+}
+
+.music-marquee {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.music-text {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: white;
+  animation: marquee 15s linear infinite;
+  padding-right: 50px;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+/* Pause animation on hover */
+.music-info:hover .music-text {
+  animation-play-state: paused;
+}
+
+@media (max-width: 768px) {
+  .info-item.music-info {
+    max-width: 120px;
+  }
+  
+  .music-text {
+    font-size: 0.75rem;
+  }
 }
 </style>

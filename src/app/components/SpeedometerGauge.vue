@@ -38,7 +38,7 @@
           :y1="mark.y1"
           :x2="mark.x2"
           :y2="mark.y2"
-          :stroke="mark.isActive ? gaugeColor : 'rgba(255, 255, 255, 0.4)'"
+          :stroke="mark.value === 220 ? '#ef4444' : (mark.isActive ? gaugeColor : 'rgba(255, 255, 255, 0.4)')"
           :stroke-width="mark.isMajor ? 2.5 : 1"
           stroke-linecap="round"
           class="tick-mark"
@@ -47,12 +47,12 @@
           v-if="mark.isMajor"
           :x="mark.textX"
           :y="mark.textY"
-          :fill="mark.isActive ? gaugeColor : 'rgba(255, 255, 255, 0.6)'"
+          :fill="mark.value === 220 ? '#ef4444' : (mark.isActive ? gaugeColor : 'rgba(255, 255, 255, 0.6)')"
           font-size="13"
           text-anchor="middle"
           dominant-baseline="middle"
           class="mark-text"
-          :class="{ 'active-mark': mark.isActive }"
+          :class="{ 'active-mark': mark.isActive, 'red-mark': mark.value === 220 }"
         >
           {{ mark.value }}
         </text>
