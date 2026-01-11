@@ -81,6 +81,10 @@
             <List class="action-icon" />
             <span>{{ tracks.length }} Tracks</span>
           </button>
+          <button  @click="scanForMusic" class="action-btn scan-music-btn" :disabled="isScanning">
+            <Music class="action-icon" />
+            <span>{{ isScanning ? 'Scanning...' : 'Scan Music' }}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -154,7 +158,6 @@ const {
   toggleShuffle,
   toggleRepeat,
   toggleFavorite,
-  stopProgressTracking,
   restorePlaybackState,
 } = useMusicPlayer()
 
@@ -176,7 +179,9 @@ watch(showTrackList, async (isOpen) => {
 })
 
 const scanAudioFiles = async () => {
-  if (isScanning.value) return
+  if (isScanning.value) {
+    return
+  }
   
   isScanning.value = true
   toast.info('Scanning for music files...')
@@ -188,7 +193,6 @@ const scanAudioFiles = async () => {
       const newTracks: Track[] = result.files.map((file, index) => {
         const audioId = `track_${Date.now()}_${index}`
         
-        console.log(`Track ${index}: ${file.title}, id: ${file.id}, albumId: ${file.albumId}`)
         
         return {
           id: file.id,
@@ -205,13 +209,11 @@ const scanAudioFiles = async () => {
 
       tracks.value = newTracks
       toast.success(`Found ${newTracks.length} track${newTracks.length > 1 ? 's' : ''}!`)
-      console.log(`Scanned ${newTracks.length} audio files`)
     } else {
       toast.info('No music files found')
       tracks.value = []
     }
   } catch (error) {
-    console.error('Error scanning audio files:', error)
     toast.error('Failed to scan music files')
   } finally {
     isScanning.value = false
@@ -219,21 +221,6 @@ const scanAudioFiles = async () => {
 }
 
 const scanForMusic = async () => {
-  if (!Capacitor.isNativePlatform()) {
-    // For web, use sample tracks
-    tracks.value = [
-      {
-        title: 'Sample Track',
-        artist: 'Demo Artist',
-        album: 'Demo Album',
-        uri: '',
-        albumArt: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=400&fit=crop',
-        duration: 240
-      }
-    ]
-    return
-  }
-
   await scanAudioFiles()
 }
 
@@ -249,21 +236,14 @@ const handlePlayTrack = (index: number) => {
 }
 
 onMounted(async () => {
-  console.log('MusicPlayer mounted')
-  
-  // Restore playback state if audio was playing
+  await scanForMusic()
   await restorePlaybackState()
-  
-  // Scan for music if no tracks loaded
-  if (tracks.value.length === 0) {
-    await scanForMusic()
-  }
-})
+  })
 
 onUnmounted(() => {
-  console.log('MusicPlayer unmounted - audio continues playing')
-  // Stop progress tracking but keep audio playing
-  stopProgressTracking()
+  // Don't stop progress tracking - it's needed for auto-advancing tracks
+  // The progress tracking is managed globally by the music player composable
+  // and should continue running even when this component is unmounted
 })
 </script>
 
@@ -397,12 +377,12 @@ onUnmounted(() => {
 /* Light Theme Icons */
 .music-player[data-theme="light"] .star-icon,
 .music-player[data-theme="light"] .add-icon {
-  color: rgba(71, 85, 105, 0.7);
+  color: rgb(125, 211, 252);
 }
 
 .music-player[data-theme="light"] .favorite-btn:hover .star-icon,
 .music-player[data-theme="light"] .add-btn:hover .add-icon {
-  color: rgb(51, 65, 85);
+  color: rgb(186, 230, 253);
 }
 
 .star-icon.filled {
@@ -448,15 +428,16 @@ onUnmounted(() => {
 
 /* Light Theme Track Info */
 .music-player[data-theme="light"] .track-title {
-  color: rgb(15, 23, 42);
+  color: rgb(224, 242, 254);
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
 }
 
 .music-player[data-theme="light"] .track-artist {
-  color: rgb(51, 65, 85);
+  color: rgb(186, 230, 253);
 }
 
 .music-player[data-theme="light"] .track-album {
-  color: rgb(100, 116, 139);
+  color: rgb(125, 211, 252);
 }
 
 .progress-container {
@@ -479,7 +460,7 @@ onUnmounted(() => {
 
 /* Light Theme Time Labels */
 .music-player[data-theme="light"] .time-label {
-  color: rgb(100, 116, 139);
+  color: rgb(186, 230, 253);
 }
 
 .progress-bar {
@@ -799,6 +780,112 @@ onUnmounted(() => {
   }
   50% {
     height: 16px;
+  }
+}
+
+/* Portrait Orientation Styles */
+@media (orientation: portrait) {
+  .music-player {
+    padding: 1rem;
+  }
+
+  .player-content {
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: center;
+  }
+
+  .album-art-container {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+  }
+
+  .album-art,
+  .album-art-placeholder {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    max-height: 320px;
+  }
+
+  .player-right {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .track-info {
+    margin-bottom: 1rem;
+  }
+
+  .track-title {
+    font-size: 1.5rem;
+  }
+
+  .track-artist {
+    font-size: 1.1rem;
+  }
+
+  .track-album {
+    font-size: 0.95rem;
+  }
+
+  .playback-controls {
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .control-btn {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+
+  .play-pause-btn {
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+
+  .tracks-list {
+    max-height: 40vh;
+  }
+}
+
+/* Portrait mode - smaller devices */
+@media (orientation: portrait) and (max-height: 700px) {
+  .album-art-container {
+    max-width: 240px;
+  }
+
+  .album-art,
+  .album-art-placeholder {
+    max-height: 240px;
+  }
+
+  .track-title {
+    font-size: 1.25rem;
+  }
+
+  .track-artist {
+    font-size: 1rem;
+  }
+
+  .playback-controls {
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+
+  .control-btn {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .play-pause-btn {
+    width: 4rem;
+    height: 4rem;
+  }
+
+  .tracks-list {
+    max-height: 30vh;
   }
 }
 </style>

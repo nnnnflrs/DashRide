@@ -34,7 +34,7 @@ A cross-platform motorcycle dashboard application built with Vue 3, Ionic, and C
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/DashRide.git
+git clone https://github.com/nnnnflrs/DashRide.git
 cd DashRide
 ```
 
@@ -83,25 +83,6 @@ bun run build
 bun run sync
 ```
 
-## Project Structure
-
-```
-project/
-├── src/
-│   ├── app/
-│   │   ├── components/      # Vue components
-│   │   │   ├── SemiCircularGauge.vue    # Speedometer
-│   │   │   ├── NavigationMap.vue        # Google Maps
-│   │   │   ├── StatusBar.vue            # Device status
-│   │   │   └── ...
-│   │   └── App.vue          # Main app component
-│   ├── styles/              # Global styles
-│   └── main.ts              # App entry point
-├── android/                 # Android native project
-├── ios/                     # iOS native project
-└── capacitor.config.ts      # Capacitor configuration
-```
-
 ## Features in Detail
 
 ### Speedometer
@@ -138,33 +119,6 @@ project/
 The app requires the following permissions:
 - **Location**: For GPS tracking and navigation
 - **Network State**: For connectivity status
-
-## Pushing to GitHub
-
-1. Create a new repository on GitHub
-
-2. Add the remote repository:
-```bash
-git remote add origin https://github.com/yourusername/dashride.git
-```
-
-3. Push to GitHub:
-```bash
-git branch -M main
-git push -u origin main
-```
-
-## Security Notes
-
-- Never commit the `.env` file (already in `.gitignore`)
-- Keep your Google Maps API key secure
-- Use environment-specific API keys for development and production
-- The `.gitignore` file protects:
-  - Environment variables (`.env`)
-  - API keys and certificates
-  - Build outputs
-  - Native platform build files
-  - Node modules
 
 ## License
 

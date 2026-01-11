@@ -165,8 +165,8 @@ const copyWalletAddress = async () => {
     setTimeout(() => {
       copied.value = false
     }, 2000)
-  } catch (err) {
-    console.error('Failed to copy:', err)
+  } catch {
+    // Clipboard not available
   }
 }
 </script>

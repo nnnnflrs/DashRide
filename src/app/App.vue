@@ -15,7 +15,7 @@
           <div class="dashboard-container">
             <!-- CENTER - MASSIVE SPEEDOMETER with overlaid info -->
             <div class="gauge-wrapper">
-              <SpeedometerGauge :speed="speed" :unit="unit" />
+              <SpeedometerGauge :speed="speed" :unit="unit" :class="{ 'with-music-container': showMiniPlayer }" />
               
               <!-- LEFT INFO - Overlaid on gauge -->
               <div class="info-overlay info-left">
@@ -24,55 +24,27 @@
                   <MiniMap :distance="0.6" :unit="unit" nextTurn="Main Street" />
                 </div>
 
-                <!-- Navigation Info -->
+                <!-- ETA - Show estimated time of arrival -->
                 <div class="info-item">
-                  <Navigation class="info-icon" />
+                  <Clock class="info-icon" />
                   <div class="info-text">
-                    <div class="info-label">MAIN STREET</div>
-                    <div class="info-sublabel">{{ riderName }}</div>
+                    <div class="info-label">Estimated Arrival</div>
+                    <div class="info-sublabel">{{ estimatedTimeOfArrival }}</div>
                   </div>
-                </div>
-
-                <!-- Music - Show currently playing track -->
-                <div v-if="musicIsPlaying && musicCurrentTrack" class="info-item music-info">
-                  <Music class="info-icon" />
-                  <div class="music-marquee">
-                    <div class="music-text">
-                      {{ musicCurrentTrack.title }} • {{ musicCurrentTrack.artist }}
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Fuel -->
-                <div class="info-item">
-                  <Fuel class="info-icon" />
-                  <span class="info-value">{{ fuelConsumption.toFixed(1) }}/100km</span>
                 </div>
 
                 <!-- Navigation Distance - Only show during navigation -->
-                <div v-if="isNavigating" class="info-item">
+                <div class="info-item">
                   <MapPin class="info-icon" />
                   <div class="info-text">
-                    <div class="info-label">TO DESTINATION</div>
-                    <div class="info-sublabel">{{ remainingDistance.toFixed(1) }} km</div>
+                    <div class="info-label">To Destination</div>
+                    <div class="info-sublabel">{{ remainingDistance.toFixed(1) ?? 0 }} km</div>
                   </div>
                 </div>
               </div>
 
               <!-- RIGHT INFO - Overlaid on gauge -->
               <div class="info-overlay info-right">
-                <!-- Range -->
-                <div class="info-item">
-                  <span class="info-label">RANGE</span>
-                  <span class="info-value-large">{{ Math.round(estimatedRange) }} km</span>
-                </div>
-
-                <!-- Trip -->
-                <div class="info-item">
-                  <span class="info-label">TRIP</span>
-                  <span class="info-value-large">{{ tripData.distance.toFixed(1) }} km</span>
-                </div>
-
                 <!-- Duration -->
                 <div class="info-item">
                   <Timer class="info-icon" />
@@ -104,41 +76,53 @@
                 </div>
               </div>
 
-              <!-- Bottom Center Info -->
-              <div class="center-bottom-info">
-                <Clock class="bottom-icon" />
-                <span class="bottom-time">{{ currentTime }}</span>
-                <Bell v-if="isTracking" class="bottom-icon active" />
+              <!-- Mini Music Player - Show when user wants to see it -->
+              <div v-if="showMiniPlayer && musicCurrentTrack && activeTab === 'riding'" class="mini-music-player ">
+                <div class="mini-music-info">
+                  <div class="mini-album-art">
+                    <img v-if="musicCurrentTrack.albumArt" :src="musicCurrentTrack?.albumArt" alt="Album art" />
+                    <Music v-else class="mini-music-icon" />
+                  </div>
+                  <div class="mini-track-details">
+                    <div class="mini-track-title">{{ musicCurrentTrack.title }}</div>
+                    <div class="mini-track-artist">{{ musicCurrentTrack?.artist }}</div>
+                  </div>
+                </div>
+                <div class="mini-music-controls">
+                  <button @click="musicPreviousTrack()" class="mini-control-btn">
+                    <SkipBack class="mini-control-icon" />
+                  </button>
+                  <button @click="musicTogglePlay()" class="mini-control-btn mini-play-btn">
+                    <Play v-if="!musicIsPlaying" class="mini-control-icon" />
+                    <Pause v-else class="mini-control-icon" />
+                  </button>
+                  <button @click="musicNextTrack()" class="mini-control-btn">
+                    <SkipForward class="mini-control-icon" />
+                  </button>
+                </div>
+                <button @click="closeMiniPlayer()" class="mini-close-btn">
+                  <X class="mini-close-icon" />
+                </button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Navigation Tab - Always mounted, visibility controlled by v-show -->
-        <div v-show="activeTab === 'nav'" class="tab-content map-tab">
+        <!-- Navigation Tab - Use v-show to preserve map state when switching tabs -->
+        <div v-if="activeTab === 'nav'" class="tab-content map-tab">
           <NavigationMap />
         </div>
 
-        <!-- Music Tab -->
+        <!-- Music Tab - Use v-show to preserve music player state -->
         <div v-show="activeTab === 'music'" class="tab-content music-tab">
           <MusicPlayer :theme="currentTheme" />
         </div>
 
-        <!-- Settings Tab -->
-        <div v-show="activeTab === 'settings'" class="tab-content scrollable">
+        <!-- Settings Tab - Use v-if since it doesn't need to preserve state -->
+        <div v-if="activeTab === 'settings'" class="tab-content scrollable">
           <Settings :theme="currentTheme" />
         </div>
       </div>
-
-      <!-- <div class="bottom-info">
-        <div class="time-display">
-          <Clock class="time-icon" />
-          <span class="time-text">{{ currentTime }}</span>
-        </div>
-        <div v-if="isTracking" class="tracking-indicator">
-          <Bell class="bell-icon" />
-        </div>
-      </div> -->
 
       <BottomNavigation :activeTab="activeTab" :theme="currentTheme" @update:activeTab="activeTab = $event" />
     </div>
@@ -151,16 +135,13 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { IonApp } from '@ionic/vue'
 import { useLocalStorage } from '@vueuse/core'
 import { toast } from 'vue-sonner'
-import { Clock, Bell, Fuel, Gauge, MapPin, Timer, Sun, Cloud, CloudRain, Navigation, Music, TrendingUp, Zap, Mountain } from 'lucide-vue-next'
-import { ScreenOrientation } from '@capacitor/screen-orientation'
+import { Clock, MapPin, Timer, Sun, Cloud, CloudRain, Music, TrendingUp, Zap, Mountain, Play, Pause, SkipBack, SkipForward, X } from 'lucide-vue-next'
 import { StatusBar as CapStatusBar } from '@capacitor/status-bar'
 import { Capacitor } from '@capacitor/core'
 import SpeedometerGauge from './components/SpeedometerGauge.vue'
 import StatusBar from './components/StatusBar.vue'
 import MiniMap from './components/MiniMap.vue'
-import InfoCard from './components/InfoCard.vue'
 import BottomNavigation from './components/BottomNavigation.vue'
-import RiderInfo from './components/RiderInfo.vue'
 import NavigationMap from './components/NavigationMap.vue'
 import MusicPlayer from './components/MusicPlayer.vue'
 import Settings from './components/Settings.vue'
@@ -168,15 +149,59 @@ import { useMusicPlayer } from '../composables/useMusicPlayer'
 import { useWeather } from '../composables/useWeather'
 import { useSettings } from '../composables/useSettings'
 import { useNavigation } from '../composables/useNavigation'
+import { Geolocation } from '@capacitor/geolocation'
 
-// Get music player state
-const { isPlaying: musicIsPlaying, currentTrack: musicCurrentTrack } = useMusicPlayer()
+// Get music player state and controls
+const {
+  isPlaying: musicIsPlaying,
+  currentTrack: musicCurrentTrack,
+  togglePlay: musicTogglePlay,
+  nextTrack: musicNextTrack,
+  previousTrack: musicPreviousTrack
+} = useMusicPlayer()
+
+// Mini music player visibility control
+const showMiniPlayer = ref(false)
+
+// Watch for music starting to show mini player
+watch([musicIsPlaying, musicCurrentTrack], ([playing, track]) => {
+  if (playing && track) {
+    showMiniPlayer.value = true
+  }
+})
+
+const closeMiniPlayer = () => {
+  showMiniPlayer.value = false
+}
 
 // Get weather data
 const { temperature, weatherData, isLoading: weatherLoading, error: weatherError } = useWeather()
 
 // Get navigation state
 const { isNavigating, remainingDistance, totalDistance: navTotalDistance, destination } = useNavigation()
+
+// Calculate ETA
+const estimatedTimeOfArrival = computed(() => {
+  if (!isNavigating.value || remainingDistance.value <= 0 || speed.value <= 0) {
+    return '00:00'
+  }
+
+  // Calculate time in hours
+  const timeInHours = remainingDistance.value / speed.value
+
+  // Get current time
+  const now = new Date()
+
+  // Add estimated time
+  const eta = new Date(now.getTime() + timeInHours * 60 * 60 * 1000)
+
+  // Format as HH:MM
+  return eta.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  }).toUpperCase()
+})
 
 interface TripData {
   distance: number
@@ -193,8 +218,9 @@ const isTracking = ref(false)
 const activeTab = ref<'nav' | 'music' | 'riding' | 'settings'>('riding')
 const riderName = useLocalStorage('riderName', 'Lennon Flores')
 
+
 // Use shared settings state
-const { theme, unit, fuelConsumption, keepScreenOn } = useSettings()
+const { theme, unit, keepScreenOn } = useSettings()
 
 // Compute current theme based on selection
 const currentTheme = computed(() => {
@@ -230,12 +256,6 @@ const currentTime = ref(new Date().toLocaleTimeString('en-US', {
 
 let timeInterval: number | null = null
 onMounted(async () => {
-  // Lock screen orientation to landscape
-  try {
-    await ScreenOrientation.lock({ orientation: 'landscape' })
-  } catch (error) {
-    console.log('Screen orientation lock not supported:', error)
-  }
 
   // Hide status bar for fullscreen experience
   try {
@@ -244,8 +264,7 @@ onMounted(async () => {
     console.log('Status bar hide not supported:', error)
   }
 
-  // Start GPS tracking automatically
-  startTracking()
+  startTracking();
 
   timeInterval = window.setInterval(() => {
     currentTime.value = new Date().toLocaleTimeString('en-US', {
@@ -262,10 +281,6 @@ onUnmounted(() => {
 
 const avgSpeed = computed(() => 
   tripData.value.speedSamples > 0 ? tripData.value.totalSpeed / tripData.value.speedSamples : 0
-)
-
-const estimatedRange = computed(() =>
-  fuelConsumption.value > 0 ? (tripData.value.totalDistance / fuelConsumption.value) * 10 : 230
 )
 
 const formattedTripTime = computed(() => {
@@ -310,17 +325,17 @@ watch([keepScreenOn, isTracking], () => {
   }
 })
 
-const startTracking = () => {
+const startTracking = async () => {
   if (!navigator.geolocation) {
     toast.error('Geolocation is not supported')
     return
   }
 
-  const options = {
-    enableHighAccuracy: true,
-    timeout: 5000,
-    maximumAge: 0,
-  }
+  const options = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    })
 
   watchId = navigator.geolocation.watchPosition(
     (position) => {
@@ -443,22 +458,22 @@ onUnmounted(() => {
   background: rgba(34, 197, 94, 0.1);
 }
 
-/* Light Theme - Premium Dark-Light Hybrid */
+/* Light Theme - TFT Display Style */
 .app-container[data-theme="light"] {
-  background: linear-gradient(to bottom right, rgb(226, 232, 240), rgb(203, 213, 225), rgb(148, 163, 184));
-  color: rgb(15, 23, 42);
+  background: linear-gradient(to bottom right, rgb(30, 41, 59), rgb(51, 65, 85), rgb(71, 85, 105));
+  color: rgb(226, 232, 240);
 }
 
 .app-container[data-theme="light"] .background-gradient {
-  background: linear-gradient(to bottom right, rgb(226, 232, 240), rgb(203, 213, 225), rgb(148, 163, 184));
+  background: linear-gradient(to bottom right, rgb(30, 41, 59), rgb(51, 65, 85), rgb(71, 85, 105));
 }
 
 .app-container[data-theme="light"] .glow-top {
-  background: rgba(59, 130, 246, 0.25);
+  background: rgba(56, 189, 248, 0.15);
 }
 
 .app-container[data-theme="light"] .glow-bottom {
-  background: rgba(34, 197, 94, 0.25);
+  background: rgba(34, 211, 238, 0.15);
 }
 
 .app-container[data-theme="light"] .info-value,
@@ -468,47 +483,118 @@ onUnmounted(() => {
 .app-container[data-theme="light"] .toggle-title,
 .app-container[data-theme="light"] .about-title,
 .app-container[data-theme="light"] .bold {
-  color: rgb(15, 23, 42);
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+  color: rgb(224, 242, 254);
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
 }
 
 .app-container[data-theme="light"] .info-label,
 .app-container[data-theme="light"] .info-sublabel,
 .app-container[data-theme="light"] .setting-label,
 .app-container[data-theme="light"] .toggle-description,
-.app-container[data-theme="light"] .about-content {
-  color: rgb(51, 65, 85);
+.app-container[data-theme="light"] .about-content,
+.app-container[data-theme="light"] .music-text,
+.app-container[data-theme="light"] .info-text{
+  color: rgb(186, 230, 253);
 }
 
 .app-container[data-theme="light"] .setting-card {
-  background: linear-gradient(to bottom right, rgba(241, 245, 249, 0.95), rgba(226, 232, 240, 0.95));
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  background: linear-gradient(to bottom right, rgba(51, 65, 85, 0.9), rgba(71, 85, 105, 0.9));
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 .app-container[data-theme="light"] .center-bottom-info {
-  background: rgba(241, 245, 249, 0.95);
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: rgba(51, 65, 85, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .app-container[data-theme="light"] .unit-button,
 .app-container[data-theme="light"] .theme-button {
-  background: rgba(226, 232, 240, 0.8);
-  color: rgb(51, 65, 85);
-  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(71, 85, 105, 0.8);
+  color: rgb(186, 230, 253);
+  border: 1px solid rgba(56, 189, 248, 0.3);
 }
 
 .app-container[data-theme="light"] .unit-button:hover,
 .app-container[data-theme="light"] .theme-button:hover {
-  background: rgba(203, 213, 225, 0.9);
+  background: rgba(71, 85, 105, 0.95);
+  border-color: rgba(56, 189, 248, 0.5);
 }
 
 .app-container[data-theme="light"] .unit-button.active,
 .app-container[data-theme="light"] .theme-button.active {
-  background: rgb(37, 99, 235);
+  background: rgb(14, 165, 233);
   color: white;
-  border: 1px solid rgb(29, 78, 216);
+  border: 1px solid rgb(2, 132, 199);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+}
+
+.app-container[data-theme="light"] .info-icon {
+  color: rgb(56, 189, 248);
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.6));
+}
+
+.app-container[data-theme="light"] .info-icon.weather {
+  color: rgb(34, 211, 238);
+  filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.6));
+}
+
+.app-container[data-theme="light"] .bottom-icon {
+  color: rgb(56, 189, 248);
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.6));
+}
+
+.app-container[data-theme="light"] .bottom-icon.active {
+  color: rgb(34, 211, 238);
+  filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.6));
+}
+
+.app-container[data-theme="light"] .mini-music-player {
+  background: rgba(51, 65, 85, 0.95);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.app-container[data-theme="light"] .mini-album-art {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(34, 211, 238, 0.3));
+}
+
+.app-container[data-theme="light"] .mini-music-icon {
+  color: rgb(125, 211, 252);
+}
+
+.app-container[data-theme="light"] .mini-track-title {
+  color: rgb(224, 242, 254);
+}
+
+.app-container[data-theme="light"] .mini-track-artist {
+  color: rgb(186, 230, 253);
+}
+
+.app-container[data-theme="light"] .mini-control-btn {
+  background: rgba(71, 85, 105, 0.7);
+}
+
+.app-container[data-theme="light"] .mini-control-btn:hover {
+  background: rgba(71, 85, 105, 0.95);
+}
+
+.app-container[data-theme="light"] .mini-play-btn {
+  background: linear-gradient(135deg, rgb(14, 165, 233), rgb(6, 182, 212));
+}
+
+.app-container[data-theme="light"] .mini-play-btn:hover {
+  background: linear-gradient(135deg, rgb(2, 132, 199), rgb(8, 145, 178));
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+}
+
+.app-container[data-theme="light"] .mini-close-btn {
+  background: rgba(71, 85, 105, 0.7);
+}
+
+.app-container[data-theme="light"] .mini-close-btn:hover {
+  background: rgba(71, 85, 105, 0.95);
 }
 
 .app-container[data-theme="light"] .fuel-input {
@@ -651,11 +737,11 @@ onUnmounted(() => {
 
 /* Map Widget Small */
 .map-widget-small {
-  width: 100px;
+  width: 230px;
+  height: 200px;
   margin-bottom: 0.5rem;
   border-radius: 6px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* Info Items - Simple Text, No Tiles */
@@ -673,8 +759,8 @@ onUnmounted(() => {
 
 /* Info Icons */
 .info-icon {
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 1.75rem;
+  height: 1.75rem;
   color: rgb(74, 222, 128);
   flex-shrink: 0;
   filter: drop-shadow(0 0 3px rgba(74, 222, 128, 0.4));
@@ -692,26 +778,25 @@ onUnmounted(() => {
 }
 
 .info-label {
-  font-size: 0.7rem;
+  font-size: 1rem;
   font-weight: 600;
   color: rgba(156, 163, 175, 0.9);
-  text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .info-sublabel {
-  font-size: 0.65rem;
+  font-size: 0.95rem;
   color: rgba(156, 163, 175, 0.6);
 }
 
 .info-value {
-  font-size: 0.85rem;
+  font-size: 1.2rem;
   font-weight: 600;
   color: white;
 }
 
 .info-value-large {
-  font-size: 1.1rem;
+  font-size: 1.6rem;
   font-weight: 700;
   color: white;
   text-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
@@ -731,7 +816,6 @@ onUnmounted(() => {
   backdrop-filter: blur(8px);
   border-radius: 8px;
   border: 1px solid rgba(75, 85, 99, 0.3);
-  /* z-index: 10; */
 }
 
 .bottom-icon {
@@ -751,6 +835,165 @@ onUnmounted(() => {
   color: white;
   font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
   letter-spacing: 0.05em;
+}
+
+.with-music-container{
+  bottom: 1.5rem;
+}
+
+/* Mini Music Player */
+.mini-music-player {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: rgba(17, 24, 39, 0.95);
+  backdrop-filter: blur(12px);
+  border-radius: 12px;
+  border: 1px solid rgba(75, 85, 99, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 320px;
+  max-width: 400px;
+}
+
+.mini-music-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.mini-album-art {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(147, 51, 234, 0.2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mini-album-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mini-music-icon {
+  width: 24px;
+  height: 24px;
+  color: rgb(147, 197, 253);
+}
+
+.mini-track-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.mini-track-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 0.15rem;
+}
+
+.mini-track-artist {
+  font-size: 0.75rem;
+  color: rgba(156, 163, 175, 0.8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-music-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mini-control-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(55, 65, 81, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mini-control-btn:hover {
+  background: rgba(55, 65, 81, 0.9);
+  transform: scale(1.05);
+}
+
+.mini-control-btn:active {
+  transform: scale(0.95);
+}
+
+.mini-play-btn {
+  width: 42px;
+  height: 42px;
+  background: linear-gradient(135deg, rgb(59, 130, 246), rgb(37, 99, 235));
+}
+
+.mini-play-btn:hover {
+  background: linear-gradient(135deg, rgb(37, 99, 235), rgb(29, 78, 216));
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+}
+
+.mini-control-icon {
+  width: 18px;
+  height: 18px;
+  color: white;
+}
+
+.mini-play-btn .mini-control-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.mini-close-btn {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(55, 65, 81, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mini-close-btn:hover {
+  background: rgba(55, 65, 81, 0.9);
+  transform: scale(1.05);
+}
+
+.mini-close-btn:active {
+  transform: scale(0.95);
+}
+
+.mini-close-icon {
+  width: 12px;
+  height: 12px;
+  color: white;
 }
 
 /* Responsive Design */
@@ -788,6 +1031,58 @@ onUnmounted(() => {
   
   .bottom-time {
     font-size: 0.85rem;
+  }
+
+  .mini-music-player {
+    min-width: 280px;
+    max-width: 320px;
+    padding: 0.6rem 1rem;
+    bottom: 3.5rem;
+  }
+
+  .mini-album-art {
+    width: 40px;
+    height: 40px;
+  }
+
+  .mini-track-title {
+    font-size: 0.8rem;
+  }
+
+  .mini-track-artist {
+    font-size: 0.7rem;
+  }
+
+  .mini-control-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .mini-play-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .mini-control-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .mini-play-btn .mini-control-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .mini-close-btn {
+    width: 18px;
+    height: 18px;
+    top: 0.3rem;
+    right: 0.3rem;
+  }
+
+  .mini-close-icon {
+    width: 10px;
+    height: 10px;
   }
 }
 
@@ -911,9 +1206,115 @@ onUnmounted(() => {
   .info-item.music-info {
     max-width: 120px;
   }
-  
+
   .music-text {
     font-size: 0.75rem;
+  }
+}
+
+/* Portrait Orientation Styles */
+@media (orientation: portrait) {
+  .tab-content {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .gauge-wrapper {
+    flex-direction: column;
+    padding: 0.5rem 0;
+    min-height: auto;
+  }
+
+  .info-overlay.info-left {
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    margin-bottom: 0.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .info-overlay.info-right {
+    position: relative;
+    right: auto;
+    top: auto;
+    transform: none;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    margin-top: 0.5rem;
+    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .map-widget-small {
+    width: 100%;
+    max-width: 100%;
+    height: 160px;
+    grid-column: 1 / -1;
+  }
+
+  .info-item {
+    justify-content: flex-start;
+    padding: 0.5rem;
+    background: rgba(17, 24, 39, 0.6);
+    border-radius: 8px;
+    backdrop-filter: blur(8px);
+  }
+
+  .info-item.right-align {
+    justify-content: flex-start;
+    flex-direction: row;
+  }
+
+  .info-item.music-info {
+    grid-column: 1 / -1;
+    max-width: 100%;
+  }
+
+  .mini-music-player {
+    position: fixed;
+    bottom: 5.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: calc(100% - 2rem);
+    max-width: calc(100% - 2rem);
+    padding: 0.75rem 1rem;
+  }
+
+  .center-bottom-info {
+    bottom: 0.75rem;
+  }
+
+  /* Light theme portrait adjustments */
+  .app-container[data-theme="light"] .info-item {
+    background: rgba(51, 65, 85, 0.7);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+  }
+}
+
+/* Portrait mode - smaller devices */
+@media (orientation: portrait) and (max-width: 768px) {
+  .info-label {
+    font-size: 0.875rem;
+  }
+
+  .info-value {
+    font-size: 1rem;
+  }
+
+  .info-value-large {
+    font-size: 1.3rem;
+  }
+
+  .map-widget-small {
+    max-width: 250px;
+    height: 150px;
   }
 }
 </style>

@@ -48,10 +48,7 @@ export function useWeather() {
         humidity: data.current.relative_humidity_2m,
         windSpeed: Math.round(data.current.wind_speed_10m)
       }
-
-      console.log('Weather updated:', weatherData.value)
     } catch (err) {
-      console.error('Error fetching weather:', err)
       error.value = err instanceof Error ? err.message : 'Failed to fetch weather'
       // Keep the default temperature value on error
     } finally {

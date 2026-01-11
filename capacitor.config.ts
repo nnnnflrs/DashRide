@@ -9,9 +9,6 @@ const config: CapacitorConfig = {
       style: 'DARK',
       backgroundColor: '#000000',
       overlaysWebView: true
-    },
-    ScreenOrientation: {
-      orientation: 'landscape'
     }
   },
   android: {

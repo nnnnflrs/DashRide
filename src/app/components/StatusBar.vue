@@ -54,8 +54,7 @@ const checkBluetoothStatus = async () => {
     await BleClient.initialize()
     const isEnabled = await BleClient.isEnabled()
     bluetoothEnabled.value = isEnabled
-  } catch (error) {
-    console.log('Bluetooth status check failed:', error)
+  } catch {
     bluetoothEnabled.value = false
   }
 }
@@ -64,8 +63,8 @@ const updateBatteryInfo = async () => {
   try {
     const info = await Device.getBatteryInfo()
     batteryLevel.value = Math.round((info.batteryLevel || 0) * 100)
-  } catch (error) {
-    console.log('Battery info not available:', error)
+  } catch {
+    // Battery info not available on web
   }
 }
 
@@ -74,16 +73,20 @@ const updateNetworkStatus = async () => {
     const status = await Network.getStatus()
     networkConnected.value = status.connected
     wifiConnected.value = status.connectionType === 'wifi'
-  } catch (error) {
-    console.log('Network status not available:', error)
+  } catch {
+    // Network status not available on web
   }
 }
 
-const currentTime = ref(new Date().toLocaleTimeString('en-US', { 
-  hour: '2-digit', 
+const currentTime = ref(new Date().toLocaleTimeString('en-US', {
+  hour: '2-digit',
   minute: '2-digit',
-  hour12: true 
+  hour12: true
 }))
+
+let timeInterval: number | null = null
+let batteryInterval: number | null = null
+let bluetoothInterval: number | null = null
 
 onMounted(async () => {
   // Initial updates
@@ -92,7 +95,7 @@ onMounted(async () => {
   await checkBluetoothStatus()
 
   // Update time every second
-  const timeInterval = setInterval(() => {
+  timeInterval = window.setInterval(() => {
     currentTime.value = new Date().toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -101,10 +104,10 @@ onMounted(async () => {
   }, 1000)
 
   // Update battery every 30 seconds
-  const batteryInterval = setInterval(updateBatteryInfo, 30000)
-  
+  batteryInterval = window.setInterval(updateBatteryInfo, 30000)
+
   // Update Bluetooth status every 10 seconds
-  const bluetoothInterval = setInterval(checkBluetoothStatus, 10000)
+  bluetoothInterval = window.setInterval(checkBluetoothStatus, 10000)
 
   // Listen for network changes
   try {
@@ -112,18 +115,18 @@ onMounted(async () => {
       networkConnected.value = status.connected
       wifiConnected.value = status.connectionType === 'wifi'
     })
-  } catch (error) {
-    console.log('Network listener not available:', error)
+  } catch {
+    // Network listener not available on web
   }
+})
 
-  onUnmounted(() => {
-    clearInterval(timeInterval)
-    clearInterval(batteryInterval)
-    clearInterval(bluetoothInterval)
-    if (networkListener) {
-      networkListener.remove()
-    }
-  })
+onUnmounted(() => {
+  if (timeInterval) clearInterval(timeInterval)
+  if (batteryInterval) clearInterval(batteryInterval)
+  if (bluetoothInterval) clearInterval(bluetoothInterval)
+  if (networkListener) {
+    networkListener.remove()
+  }
 })
 </script>
 

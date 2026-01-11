@@ -48,7 +48,7 @@
       class="start-nav-button"
     >
       <Navigation class="nav-icon" />
-      Start Navigation
+      Start
     </button>
 
     <!-- Stop Navigation Button (Step 3: Show during navigation) -->
@@ -58,7 +58,7 @@
       class="stop-nav-button"
     >
       <X class="nav-icon" />
-      Stop Navigation
+      Stop
     </button>
 
     <div v-if="loading" class="loading-overlay">
@@ -132,12 +132,6 @@ const getCurrentLocation = async () => {
     timeout: 10000,
     maximumAge: 0
   })
-
-  // return {
-  //   lat: 14.8276828,
-  //   lng:  120.7290514,
-  //   accuracy: position.coords.accuracy
-  // }
   
   return {
     lat: position.coords.latitude,

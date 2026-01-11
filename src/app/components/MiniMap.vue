@@ -60,7 +60,7 @@ const displayDistance = computed(() => {
 
 .map-view {
   position: relative;
-  height: 6rem;
+  height: 9rem;
   background: linear-gradient(to bottom right, rgba(20, 83, 45, 0.2), rgba(30, 58, 138, 0.2));
   padding: 0.75rem;
 }

@@ -7,6 +7,9 @@
 *.p12
 *.mobileprovision
 
+#Claude
+CLAUDE.md
+
 # Dependencies
 node_modules/
 .pnp
