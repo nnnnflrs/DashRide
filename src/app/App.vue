@@ -19,9 +19,9 @@
               
               <!-- LEFT INFO - Overlaid on gauge -->
               <div class="info-overlay info-left">
-                <!-- Mini Map -->
-                <div class="map-widget-small">
-                  <MiniMap :distance="0.6" :unit="unit" nextTurn="Main Street" />
+                <!-- Mini Map - Hidden when not navigating but space reserved -->
+                <div class="map-widget-small" :class="{ 'map-hidden': !isNavigating }">
+                  <MiniMap v-if="isNavigating" :distance="remainingDistance" :unit="unit" nextTurn="Main Street" />
                 </div>
 
                 <!-- ETA - Show estimated time of arrival -->
@@ -109,8 +109,8 @@
         </div>
 
         <!-- Navigation Tab - Use v-show to preserve map state when switching tabs -->
-        <div v-if="activeTab === 'nav'" class="tab-content map-tab">
-          <NavigationMap />
+        <div v-show="activeTab === 'nav'" class="tab-content map-tab">
+          <NavigationMap :theme="currentTheme" />
         </div>
 
         <!-- Music Tab - Use v-show to preserve music player state -->
@@ -119,7 +119,7 @@
         </div>
 
         <!-- Settings Tab - Use v-if since it doesn't need to preserve state -->
-        <div v-if="activeTab === 'settings'" class="tab-content scrollable">
+        <div v-show="activeTab === 'settings'" class="tab-content scrollable">
           <Settings :theme="currentTheme" />
         </div>
       </div>
@@ -257,12 +257,11 @@ const currentTime = ref(new Date().toLocaleTimeString('en-US', {
 let timeInterval: number | null = null
 onMounted(async () => {
 
-  // Hide status bar for fullscreen experience
-  try {
-    await CapStatusBar.hide()
-  } catch (error) {
-    console.log('Status bar hide not supported:', error)
-  }
+    try {
+      await CapStatusBar.hide()
+    } catch (error) {
+      console.log('Status bar hide not supported:', error)
+    }  
 
   startTracking();
 
@@ -334,7 +333,7 @@ const startTracking = async () => {
   const options = await Geolocation.getCurrentPosition({
       enableHighAccuracy: true,
       timeout: 10000,
-      maximumAge: 0
+      maximumAge: 5000
     })
 
   watchId = navigator.geolocation.watchPosition(
@@ -742,6 +741,10 @@ onUnmounted(() => {
   margin-bottom: 0.5rem;
   border-radius: 6px;
   overflow: hidden;
+}
+
+.map-widget-small.map-hidden {
+  visibility: hidden;
 }
 
 /* Info Items - Simple Text, No Tiles */

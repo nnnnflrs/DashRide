@@ -12,7 +12,7 @@
     />
     
     <!-- Search Input -->
-    <div v-if="!loading && !error" class="search-container">
+    <div v-if="!loading && !error" class="search-container" :data-theme="theme">
       <input
         ref="searchInput"
         v-model="searchQuery"
@@ -61,7 +61,7 @@
       Stop
     </button>
 
-    <div v-if="loading" class="loading-overlay">
+    <div v-if="loading" class="loading-overlay" :data-theme="theme">
       <div class="spinner"></div>
       <p class="loading-text">Loading map...</p>
     </div>
@@ -77,18 +77,27 @@
       class="location-button"
       :class="{ active: isFollowingLocation }"
     >
-      <Navigation class="location-icon" />
+      <LocateFixed v-if="isFollowingLocation" class="location-icon" />
+      <Locate v-else class="location-icon" />
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { Geolocation } from '@capacitor/geolocation'
-import { Navigation, X } from 'lucide-vue-next'
+import { Navigation, X, Locate, LocateFixed } from 'lucide-vue-next'
 import { useSettings } from '../../composables/useSettings'
 import { useNavigation } from '../../composables/useNavigation'
 import InfoPanel from './InfoPanel.vue'
+
+interface Props {
+  theme?: 'light' | 'dark'
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  theme: 'dark'
+})
 
 const mapContainer = ref<HTMLDivElement | null>(null)
 const searchInput = ref<HTMLInputElement | null>(null)
@@ -115,6 +124,241 @@ const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 // Get settings
 const { avoidTolls, unit } = useSettings()
 
+// Dark theme map styles
+const darkMapStyles = [
+  {
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#1d2c4d"
+      }
+    ]
+  },
+  {
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#8ec3b9"
+      }
+    ]
+  },
+  {
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#1a3646"
+      }
+    ]
+  },
+  {
+    "featureType": "administrative.country",
+    "elementType": "geometry.stroke",
+    "stylers": [
+      {
+        "color": "#4b6878"
+      }
+    ]
+  },
+  {
+    "featureType": "administrative.land_parcel",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#64779e"
+      }
+    ]
+  },
+  {
+    "featureType": "administrative.province",
+    "elementType": "geometry.stroke",
+    "stylers": [
+      {
+        "color": "#4b6878"
+      }
+    ]
+  },
+  {
+    "featureType": "landscape.man_made",
+    "elementType": "geometry.stroke",
+    "stylers": [
+      {
+        "color": "#334e87"
+      }
+    ]
+  },
+  {
+    "featureType": "landscape.natural",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#023e58"
+      }
+    ]
+  },
+  {
+    "featureType": "poi",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#283d6a"
+      }
+    ]
+  },
+  {
+    "featureType": "poi",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#6f9ba5"
+      }
+    ]
+  },
+  {
+    "featureType": "poi",
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#1d2c4d"
+      }
+    ]
+  },
+  {
+    "featureType": "poi.park",
+    "elementType": "geometry.fill",
+    "stylers": [
+      {
+        "color": "#023e58"
+      }
+    ]
+  },
+  {
+    "featureType": "poi.park",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#3C7680"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#304a7d"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#98a5be"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#1d2c4d"
+      }
+    ]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#2c6675"
+      }
+    ]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "geometry.stroke",
+    "stylers": [
+      {
+        "color": "#255763"
+      }
+    ]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#b0d5ce"
+      }
+    ]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#023e58"
+      }
+    ]
+  },
+  {
+    "featureType": "transit",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#98a5be"
+      }
+    ]
+  },
+  {
+    "featureType": "transit",
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#1d2c4d"
+      }
+    ]
+  },
+  {
+    "featureType": "transit.line",
+    "elementType": "geometry.fill",
+    "stylers": [
+      {
+        "color": "#283d6a"
+      }
+    ]
+  },
+  {
+    "featureType": "transit.station",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#3a4762"
+      }
+    ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#0e1626"
+      }
+    ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#4e6d70"
+      }
+    ]
+  }
+]
+
 // Get navigation state - destructure and rename to avoid conflicts
 const {
   isNavigating: navIsNavigating,
@@ -130,7 +374,7 @@ const getCurrentLocation = async () => {
   const position = await Geolocation.getCurrentPosition({
     enableHighAccuracy: true,
     timeout: 10000,
-    maximumAge: 0
+    maximumAge: 5000
   })
   
   return {
@@ -178,7 +422,7 @@ const initMap = async () => {
       throw new Error('Map container not found')
     }
 
-    // Initialize map
+    // Initialize map with theme-based styles
     map.value = new google.maps.Map(mapContainer.value, {
       center: currentLocation,
       zoom: 17,
@@ -189,9 +433,14 @@ const initMap = async () => {
       scaleControl: false,
       panControl: false,
       rotateControl: true, // Enable rotation with two-finger gesture
-      tilt: 45, // Enable 3D tilt view (required for rotation)
-      gestureHandling: 'greedy', // Allows pinch-to-zoom, pan, and rotate gestures
-      disableDefaultUI: true // Disable all default UI controls
+      tilt: 0, // Start with flat view, user can tilt with gestures
+      heading: 0, // Initial heading (north)
+      gestureHandling: 'greedy', // Allows pinch-to-zoom, pan, rotate, and tilt gestures
+      disableDefaultUI: true, // Disable all default UI controls
+      styles: props.theme === 'dark' ? darkMapStyles : undefined,
+      // Enable vector maps for better 3D rendering and rotation
+      mapId: undefined, // Use default raster maps with full rotation support
+      isFractionalZoomEnabled: true // Smooth zoom transitions
     })
 
     // Add current location marker
@@ -698,17 +947,44 @@ const updateMarkerToCircle = () => {
 
 const centerOnCurrentLocation = async () => {
   try {
-    const currentLocation = await getCurrentLocation()
+    // Immediately center on current marker position for instant response
+    if (map.value && currentLocationMarker.value) {
+      const markerPosition = currentLocationMarker.value.getPosition()
+      if (markerPosition) {
+        map.value.panTo(markerPosition)
+        smoothZoomTo(15, 0, 800)
+        isFollowingLocation.value = true
+      }
+    }
 
+    // Then get fresh location in background to ensure accuracy
+    const currentLocation = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 5000,
+      maximumAge: 5000 // Allow cached location up to 5 seconds old
+    })
+
+    // Update to precise location if different
     if (map.value) {
-      map.value.panTo(currentLocation)
-      map.value.setZoom(17)
-      isFollowingLocation.value = true
+      const preciseLocation = {
+        lat: currentLocation.coords.latitude,
+        lng: currentLocation.coords.longitude
+      }
+      map.value.panTo(preciseLocation)
     }
   } catch (err) {
     console.error('Error getting current location:', err)
   }
 }
+
+// Watch for theme changes and update map styles
+watch(() => props.theme, (newTheme) => {
+  if (map.value) {
+    map.value.setOptions({
+      styles: newTheme === 'dark' ? darkMapStyles : undefined
+    })
+  }
+})
 
 onMounted(() => {
   initMap()
@@ -740,13 +1016,18 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(255, 255, 255, 0.9);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1rem;
   z-index: 10;
+}
+
+/* Dark Theme Loading Overlay */
+.loading-overlay[data-theme="dark"] {
+  background: rgba(0, 0, 0, 0.8);
 }
 
 .spinner {
@@ -758,6 +1039,12 @@ onUnmounted(() => {
   animation: spin 1s linear infinite;
 }
 
+/* Dark Theme Spinner */
+.loading-overlay[data-theme="dark"] .spinner {
+  border-color: rgba(56, 189, 248, 0.3);
+  border-top-color: rgb(56, 189, 248);
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -765,8 +1052,14 @@ onUnmounted(() => {
 }
 
 .loading-text {
-  color: white;
+  color: rgb(17, 24, 39);
   font-size: 1rem;
+  font-weight: 500;
+}
+
+/* Dark Theme Loading Text */
+.loading-overlay[data-theme="dark"] .loading-text {
+  color: white;
 }
 
 .error-overlay {
@@ -862,10 +1155,28 @@ onUnmounted(() => {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   font-size: 1rem;
   outline: none;
+  background: white;
+  color: rgb(17, 24, 39);
 }
 
 .search-input::placeholder {
   color: rgb(156, 163, 175);
+}
+
+/* Dark Theme Search Input */
+.search-container[data-theme="dark"] .search-input {
+  background: rgba(51, 65, 85, 0.95);
+  color: rgb(224, 242, 254);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.search-container[data-theme="dark"] .search-input::placeholder {
+  color: rgb(148, 163, 184);
+}
+
+.search-container[data-theme="dark"] .clear-icon {
+  color: rgb(186, 230, 253);
 }
 
 .clear-button {

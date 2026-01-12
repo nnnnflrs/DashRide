@@ -24,7 +24,8 @@ export function useWeather() {
       // Get current position
       const position = await Geolocation.getCurrentPosition({
         enableHighAccuracy: false,
-        timeout: 10000
+        timeout: 10000,
+        maximumAge: 5000
       })
 
       const { latitude, longitude } = position.coords
