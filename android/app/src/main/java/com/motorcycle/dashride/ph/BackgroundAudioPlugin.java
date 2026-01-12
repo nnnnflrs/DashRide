@@ -1,4 +1,4 @@
-package com.motorcycle.dashboard;
+package com.motorcycle.dashride.ph;
 
 import android.content.Context;
 import android.media.AudioAttributes;

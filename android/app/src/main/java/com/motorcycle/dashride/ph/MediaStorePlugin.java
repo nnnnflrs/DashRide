@@ -1,4 +1,4 @@
-package com.motorcycle.dashboard;
+package com.motorcycle.dashride.ph;
 
 import android.Manifest;
 import android.content.ContentResolver;

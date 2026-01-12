@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.motorcycle.dashboard"
+    namespace = "com.motorcycle.dashride.ph"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.motorcycle.dashboard"
+        applicationId "com.motorcycle.dashride.ph"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

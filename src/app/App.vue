@@ -45,8 +45,8 @@
 
               <!-- RIGHT INFO - Overlaid on gauge -->
               <div class="info-overlay info-right">
-                <!-- Duration -->
-                <div class="info-item">
+                <!-- Duration - Only show during navigation -->
+                <div v-if="isNavigating" class="info-item">
                   <Timer class="info-icon" />
                   <span class="info-value">{{ formattedTripTime }}</span>
                 </div>
@@ -180,6 +180,10 @@ const { temperature, weatherData, isLoading: weatherLoading, error: weatherError
 // Get navigation state
 const { isNavigating, remainingDistance, totalDistance: navTotalDistance, destination } = useNavigation()
 
+// Navigation-specific duration tracking
+const navigationDuration = ref(0)
+let navigationInterval: number | null = null
+
 // Calculate ETA
 const estimatedTimeOfArrival = computed(() => {
   if (!isNavigating.value || remainingDistance.value <= 0 || speed.value <= 0) {
@@ -276,6 +280,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (timeInterval) clearInterval(timeInterval)
+  if (navigationInterval) clearInterval(navigationInterval)
 })
 
 const avgSpeed = computed(() => 
@@ -283,9 +288,9 @@ const avgSpeed = computed(() =>
 )
 
 const formattedTripTime = computed(() => {
-  const hours = Math.floor(tripData.value.duration / 3600)
-  const minutes = Math.floor((tripData.value.duration % 3600) / 60)
-  const seconds = tripData.value.duration % 60
+  const hours = Math.floor(navigationDuration.value / 3600)
+  const minutes = Math.floor((navigationDuration.value % 3600) / 60)
+  const seconds = navigationDuration.value % 60
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
 })
 
@@ -321,6 +326,24 @@ watch([keepScreenOn, isTracking], () => {
     requestWakeLock()
   } else {
     releaseWakeLock()
+  }
+})
+
+// Watch navigation state to control duration tracking
+watch(isNavigating, (navigating) => {
+  if (navigating) {
+    // Start navigation duration tracking
+    navigationDuration.value = 0
+    navigationInterval = window.setInterval(() => {
+      navigationDuration.value++
+    }, 1000)
+  } else {
+    // Stop and reset navigation duration tracking
+    if (navigationInterval) {
+      clearInterval(navigationInterval)
+      navigationInterval = null
+    }
+    navigationDuration.value = 0
   }
 })
 

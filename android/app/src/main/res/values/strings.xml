@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">DashRide</string>
     <string name="title_activity_main">DashRide</string>
-    <string name="package_name">com.motorcycle.dashboard</string>
-    <string name="custom_url_scheme">com.motorcycle.dashboard</string>
+    <string name="package_name">com.motorcycle.dashride.ph</string>
+    <string name="custom_url_scheme">com.motorcycle.dashride.ph</string>
 </resources>

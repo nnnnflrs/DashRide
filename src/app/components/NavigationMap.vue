@@ -1227,23 +1227,15 @@ onUnmounted(() => {
   z-index: 5;
 }
 
-.directions-button {
+.directions-button,
+.start-nav-button  {
   background: rgb(59, 130, 246);
   color: white;
 }
 
-.directions-button:hover {
-  background: rgb(37, 99, 235);
-  transform: translateX(-50%) scale(1.05);
-}
-
-.start-nav-button {
-  background: rgb(34, 197, 94);
-  color: white;
-}
-
+.directions-button:hover,
 .start-nav-button:hover {
-  background: rgb(22, 163, 74);
+  background: rgb(37, 99, 235);
   transform: translateX(-50%) scale(1.05);
 }
 
