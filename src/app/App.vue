@@ -1,8 +1,8 @@
 <template>
   <ion-app>
-  <div class="app-container" :data-theme="currentTheme">
+  <div class="app-container" :data-theme="currentTheme" :class="{ 'native-map-active': activeTab === 'nav' }">
     <div class="background-gradient" />
-    
+
     <div class="glow-top" />
     <div class="glow-bottom" />
 
@@ -46,38 +46,50 @@
               <!-- RIGHT INFO - Overlaid on gauge -->
               <div class="info-overlay info-right">
                 <!-- Duration - Only show during navigation -->
-                <div v-if="isNavigating" class="info-item">
+                <div v-if="isNavigating" class="info-item" @click="showTooltip('Duration')">
                   <Timer class="info-icon" />
                   <span class="info-value">{{ formattedTripTime }}</span>
+                  <div v-if="activeTooltip === 'Duration'" class="info-tooltip">Duration</div>
                 </div>
 
                 <!-- Average Speed -->
-                <div class="info-item">
+                <div class="info-item" @click="showTooltip('Average Speed')">
                   <TrendingUp class="info-icon" />
                   <span class="info-value">{{ avgSpeed.toFixed(1) }} {{ unit === 'mph' ? 'mph' : 'km/h' }}</span>
+                  <div v-if="activeTooltip === 'Average Speed'" class="info-tooltip">Average Speed</div>
                 </div>
 
                 <!-- Maximum Speed -->
-                <div class="info-item">
+                <div class="info-item" @click="showTooltip('Maximum Speed')">
                   <Zap class="info-icon" />
                   <span class="info-value">{{ tripData.maxSpeed.toFixed(1) }} {{ unit === 'mph' ? 'mph' : 'km/h' }}</span>
+                  <div v-if="activeTooltip === 'Maximum Speed'" class="info-tooltip">Maximum Speed</div>
                 </div>
 
                 <!-- Altitude -->
-                <div class="info-item">
+                <div class="info-item" @click="showTooltip('Altitude')">
                   <Mountain class="info-icon" />
                   <span class="info-value">{{ Math.round(altitude) }} masl</span>
+                  <div v-if="activeTooltip === 'Altitude'" class="info-tooltip">Altitude</div>
+                </div>
+
+                <!-- Slope/Gradient -->
+                <div class="info-item" @click="showTooltip('Slope/Gradient')">
+                  <component :is="slopeIcon" :class="['info-icon', slopeColorClass]" />
+                  <span class="info-value">{{ formattedSlope }}</span>
+                  <div v-if="activeTooltip === 'Slope/Gradient'" class="info-tooltip">Slope/Gradient</div>
                 </div>
 
                 <!-- Weather -->
-                <div class="info-item">
+                <div class="info-item" @click="showTooltip('Temperature')">
                   <component :is="weatherIcon" class="info-icon weather" />
                   <span class="info-value">{{ temperature }}°C</span>
+                  <div v-if="activeTooltip === 'Temperature'" class="info-tooltip">Temperature</div>
                 </div>
               </div>
 
               <!-- Mini Music Player - Show when user wants to see it -->
-              <div v-if="showMiniPlayer && musicCurrentTrack && activeTab === 'riding'" class="mini-music-player ">
+              <div v-if="showMiniPlayer && musicCurrentTrack && activeTab === 'riding'" class="mini-music-player">
                 <div class="mini-music-info">
                   <div class="mini-album-art">
                     <img v-if="musicCurrentTrack.albumArt" :src="musicCurrentTrack?.albumArt" alt="Album art" />
@@ -110,7 +122,7 @@
 
         <!-- Navigation Tab - Use v-show to preserve map state when switching tabs -->
         <div v-show="activeTab === 'nav'" class="tab-content map-tab">
-          <NavigationMap :theme="currentTheme" />
+          <NavigationMap :theme="currentTheme" @update:isSearching="isSearchingLocation = $event" />
         </div>
 
         <!-- Music Tab - Use v-show to preserve music player state -->
@@ -124,7 +136,12 @@
         </div>
       </div>
 
-      <BottomNavigation :activeTab="activeTab" :theme="currentTheme" @update:activeTab="activeTab = $event" />
+      <BottomNavigation
+        v-show="!isSearchingLocation"
+        :activeTab="activeTab"
+        :theme="currentTheme"
+        @update:activeTab="activeTab = $event"
+      />
     </div>
   </div>
   </ion-app>
@@ -135,7 +152,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { IonApp } from '@ionic/vue'
 import { useLocalStorage } from '@vueuse/core'
 import { toast } from 'vue-sonner'
-import { Clock, MapPin, Timer, Sun, Cloud, CloudRain, Music, TrendingUp, Zap, Mountain, Play, Pause, SkipBack, SkipForward, X } from 'lucide-vue-next'
+import { Clock, MapPin, Timer, Sun, Cloud, CloudRain, Music, TrendingUp, TrendingDown, Minus, Zap, Mountain, Play, Pause, SkipBack, SkipForward, X } from 'lucide-vue-next'
 import { StatusBar as CapStatusBar } from '@capacitor/status-bar'
 import { Capacitor } from '@capacitor/core'
 import SpeedometerGauge from './components/SpeedometerGauge.vue'
@@ -149,6 +166,7 @@ import { useMusicPlayer } from '../composables/useMusicPlayer'
 import { useWeather } from '../composables/useWeather'
 import { useSettings } from '../composables/useSettings'
 import { useNavigation } from '../composables/useNavigation'
+import { useSlope } from '../composables/useSlope'
 import { Geolocation } from '@capacitor/geolocation'
 
 // Get music player state and controls
@@ -178,33 +196,18 @@ const closeMiniPlayer = () => {
 const { temperature, weatherData, isLoading: weatherLoading, error: weatherError } = useWeather()
 
 // Get navigation state
-const { isNavigating, remainingDistance, totalDistance: navTotalDistance, destination } = useNavigation()
+const { isNavigating, remainingDistance, totalDistance: navTotalDistance, destination, formattedETA } = useNavigation()
+
+// Get slope calculation state
+const { currentSlope, formattedSlope, slopeDirection, updateSlope, resetSlope } = useSlope()
 
 // Navigation-specific duration tracking
 const navigationDuration = ref(0)
 let navigationInterval: number | null = null
 
-// Calculate ETA
+// Use ETA from navigation composable (gets updated from Google Directions API)
 const estimatedTimeOfArrival = computed(() => {
-  if (!isNavigating.value || remainingDistance.value <= 0 || speed.value <= 0) {
-    return '00:00'
-  }
-
-  // Calculate time in hours
-  const timeInHours = remainingDistance.value / speed.value
-
-  // Get current time
-  const now = new Date()
-
-  // Add estimated time
-  const eta = new Date(now.getTime() + timeInHours * 60 * 60 * 1000)
-
-  // Format as HH:MM
-  return eta.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  }).toUpperCase()
+  return formattedETA.value || '--:--'
 })
 
 interface TripData {
@@ -221,6 +224,11 @@ const altitude = ref(0)
 const isTracking = ref(false)
 const activeTab = ref<'nav' | 'music' | 'riding' | 'settings'>('riding')
 const riderName = useLocalStorage('riderName', 'Lennon Flores')
+const isSearchingLocation = ref(false)
+
+// Tooltip state
+const activeTooltip = ref<string | null>(null)
+let tooltipTimeout: number | null = null
 
 
 // Use shared settings state
@@ -264,7 +272,7 @@ onMounted(async () => {
     try {
       await CapStatusBar.hide()
     } catch (error) {
-      console.log('Status bar hide not supported:', error)
+      alert('Status bar hide failed')
     }  
 
   startTracking();
@@ -300,6 +308,18 @@ const weatherIcon = computed(() => {
   return CloudRain
 })
 
+const slopeIcon = computed(() => {
+  if (slopeDirection.value === 'uphill') return TrendingUp
+  if (slopeDirection.value === 'downhill') return TrendingDown
+  return Minus
+})
+
+const slopeColorClass = computed(() => {
+  if (slopeDirection.value === 'uphill') return 'slope-uphill'
+  if (slopeDirection.value === 'downhill') return 'slope-downhill'
+  return 'slope-flat'
+})
+
 const isAndroid = computed(() => {
   return Capacitor.getPlatform() === 'android'
 })
@@ -319,6 +339,29 @@ const releaseWakeLock = () => {
     wakeLock.release()
     wakeLock = null
   }
+}
+
+// Tooltip function
+const showTooltip = (label: string) => {
+  // Clear any existing timeout
+  if (tooltipTimeout) {
+    clearTimeout(tooltipTimeout)
+    tooltipTimeout = null
+  }
+
+  // If clicking the same tooltip, dismiss it
+  if (activeTooltip.value === label) {
+    activeTooltip.value = null
+    return
+  }
+
+  // Set active tooltip
+  activeTooltip.value = label
+
+  // Auto-hide after 3 seconds
+  tooltipTimeout = window.setTimeout(() => {
+    activeTooltip.value = null
+  }, 3000)
 }
 
 watch([keepScreenOn, isTracking], () => {
@@ -364,9 +407,18 @@ const startTracking = async () => {
       const speedMps = position.coords.speed || 0
       const speedKmh = speedMps * 3.6
       const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
-      
+
       speed.value = Math.max(0, currentSpeed)
       altitude.value = position.coords.altitude || 0
+
+      // Update slope calculation with GPS data
+      updateSlope(
+        position.coords.latitude,
+        position.coords.longitude,
+        position.coords.altitude || 0,
+        speedKmh, // Use km/h for slope calculation
+        position.coords.accuracy
+      )
 
       tripData.value = {
         ...tripData.value,
@@ -382,7 +434,7 @@ const startTracking = async () => {
           position.coords.latitude,
           position.coords.longitude
         )
-        
+
         tripData.value = {
           ...tripData.value,
           distance: tripData.value.distance + distance,
@@ -707,6 +759,18 @@ onUnmounted(() => {
   padding: 0;
 }
 
+/* Hide background elements when native map is active */
+.app-container.native-map-active .background-gradient,
+.app-container.native-map-active .glow-top,
+.app-container.native-map-active .glow-bottom {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-container.native-map-active {
+  background: transparent !important;
+}
+
 /* Dashboard View - Massive Gauge Layout */
 .dashboard-view {
   padding: 0;
@@ -776,11 +840,49 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.25rem 0;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.info-item:active {
+  transform: scale(0.95);
 }
 
 .info-item.right-align {
   justify-content: flex-end;
   flex-direction: row-reverse;
+}
+
+/* Tooltip */
+.info-tooltip {
+  position: absolute;
+  right: calc(100% + 0.5rem);
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(17, 24, 39, 0.95);
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(75, 85, 99, 0.5);
+  z-index: 1000;
+  animation: tooltipFadeIn 0.2s ease-out;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
 }
 
 /* Info Icons */
@@ -795,6 +897,21 @@ onUnmounted(() => {
 .info-icon.weather {
   color: rgb(250, 204, 21);
   filter: drop-shadow(0 0 3px rgba(250, 204, 21, 0.4));
+}
+
+.info-icon.slope-uphill {
+  color: rgb(239, 68, 68);
+  filter: drop-shadow(0 0 3px rgba(239, 68, 68, 0.4));
+}
+
+.info-icon.slope-downhill {
+  color: rgb(34, 197, 94);
+  filter: drop-shadow(0 0 3px rgba(34, 197, 94, 0.4));
+}
+
+.info-icon.slope-flat {
+  color: rgb(156, 163, 175);
+  filter: drop-shadow(0 0 3px rgba(156, 163, 175, 0.3));
 }
 
 /* Info Text */
@@ -944,12 +1061,12 @@ onUnmounted(() => {
 .mini-music-controls {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
 .mini-control-btn {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
   background: rgba(55, 65, 81, 0.6);
@@ -1109,6 +1226,43 @@ onUnmounted(() => {
   .mini-close-icon {
     width: 10px;
     height: 10px;
+  }
+}
+
+/* Landscape mode - wider mini music player */
+@media (orientation: landscape) {
+  .mini-music-player {
+    min-width: 500px;
+    max-width: 600px;
+    padding: 0.6rem 1.5rem;
+    gap: 1.5rem;
+    /* top: 1rem; */
+    padding-top: 1rem;
+  }
+
+  .mini-music-controls {
+    gap: 1.75rem;
+    flex: 0 0 auto;
+  }
+
+  .mini-control-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mini-control-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .mini-play-btn .mini-control-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mini-album-art {
+    width: 44px;
+    height: 44px;
   }
 }
 

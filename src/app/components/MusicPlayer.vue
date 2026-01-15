@@ -81,7 +81,11 @@
             <List class="action-icon" />
             <span>{{ tracks.length }} Tracks</span>
           </button>
-          <button  @click="scanForMusic" class="action-btn scan-music-btn" :disabled="isScanning">
+          <button @click="showQueue = !showQueue" class="action-btn">
+            <List class="action-icon" />
+            <span>Queue ({{ queueTracks.length }})</span>
+          </button>
+          <button v-if="tracks.length === 0" @click="scanForMusic" class="action-btn scan-music-btn" :disabled="isScanning">
             <Music class="action-icon" />
             <span>{{ isScanning ? 'Scanning...' : 'Scan Music' }}</span>
           </button>
@@ -120,6 +124,45 @@
         </div>
       </div>
     </div>
+
+    <!-- Queue Modal -->
+    <div v-if="showQueue" class="track-list-modal" @click="showQueue = false">
+      <div class="track-list-content" @click.stop>
+        <div class="track-list-header">
+          <h3>Queue ({{ queueTracks.length }} tracks)</h3>
+          <button @click="showQueue = false" class="close-btn">
+            <X class="close-icon" />
+          </button>
+        </div>
+        <div class="track-list-items">
+          <div
+            v-for="(track, index) in queueTracks"
+            :key="index"
+            @click="handlePlayFromQueue(index)"
+            :class="['track-item', { active: index === 0, removing: removingTrackIndex === index }]"
+          >
+            <Music class="track-item-icon" />
+            <div class="track-item-info">
+              <div class="track-item-title">{{ track.title }}</div>
+              <div class="track-item-artist">{{ track.artist }}</div>
+            </div>
+            <div v-if="index === 0" class="playing-indicator">
+              <div class="wave"></div>
+              <div class="wave"></div>
+              <div class="wave"></div>
+            </div>
+            <button
+              v-else
+              @click.stop="handleRemoveFromQueue(index)"
+              class="queue-remove-btn"
+              title="Remove from queue"
+            >
+              <X class="queue-remove-icon" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -149,8 +192,9 @@ const {
   isFavorite,
   isScanning,
   currentTrack,
+  queueTracks,
   formatTime,
-  playTrack,
+  selectAndPlayTrack,
   togglePlay,
   nextTrack,
   previousTrack,
@@ -159,11 +203,16 @@ const {
   toggleRepeat,
   toggleFavorite,
   restorePlaybackState,
+  removeFromQueue,
+  playFromQueue,
+  updateMediaSession,
 } = useMusicPlayer()
 
 const showTrackList = ref(false)
+const showQueue = ref(false)
 const trackListContainer = ref<HTMLElement | null>(null)
 const currentTrackElement = ref<HTMLElement | null>(null)
+const removingTrackIndex = ref<number | null>(null)
 
 // Watch for track list opening and scroll to current track
 watch(showTrackList, async (isOpen) => {
@@ -231,14 +280,31 @@ const handleSeek = (event: Event) => {
 }
 
 const handlePlayTrack = (index: number) => {
-  playTrack(index)
+  selectAndPlayTrack(index)
   showTrackList.value = false
+}
+
+const handleRemoveFromQueue = (queueIndex: number) => {
+  // Set the removing index to trigger animation
+  removingTrackIndex.value = queueIndex
+
+  // Wait for animation to complete before actually removing
+  setTimeout(() => {
+    removeFromQueue(queueIndex)
+    removingTrackIndex.value = null
+  }, 300) // Match animation duration
+}
+
+const handlePlayFromQueue = async (queueIndex: number) => {
+  await playFromQueue(queueIndex)
+  showQueue.value = false;
 }
 
 onMounted(async () => {
   await scanForMusic()
   await restorePlaybackState()
-  })
+  updateMediaSession()
+})
 
 onUnmounted(() => {
   // Don't stop progress tracking - it's needed for auto-advancing tracks
@@ -694,7 +760,8 @@ onUnmounted(() => {
   gap: 1rem;
   padding: 0.75rem 1.5rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.3s ease;
+  transform-origin: center;
 }
 
 .track-item:hover {
@@ -703,6 +770,31 @@ onUnmounted(() => {
 
 .track-item.active {
   background: rgba(96, 165, 250, 0.1);
+}
+
+.track-item.removing {
+  animation: slideOutFade 0.3s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes slideOutFade {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translateX(20px) scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(40px) scale(0.9);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
 }
 
 .track-item-icon {
@@ -782,6 +874,35 @@ onUnmounted(() => {
     height: 16px;
   }
 }
+
+.queue-remove-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.queue-remove-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.queue-remove-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 0.3s ease;
+}
+
+.music-player[data-theme="light"] .queue-remove-icon {
+  color: rgb(100, 116, 139);
+}
+
 
 /* Portrait Orientation Styles */
 @media (orientation: portrait) {

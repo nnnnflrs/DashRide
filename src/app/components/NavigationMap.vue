@@ -1,7 +1,7 @@
 <template>
   <div class="navigation-map-container">
-    <div ref="mapContainer" class="map-container"></div>
-    
+    <!-- Native map renders behind this container -->
+
     <!-- Info Panel - Show only when navigating -->
     <InfoPanel
       v-if="navIsNavigating"
@@ -9,17 +9,20 @@
       :totalDistance="navTotalDistance"
       :remainingDistance="navRemainingDistance"
       :unit="unit"
+      :slope="formattedSlope"
+      :slopeDirection="slopeDirection"
     />
-    
+
     <!-- Search Input -->
-    <div v-if="!loading && !error" class="search-container" :data-theme="theme">
+    <div v-if="!isNavigating && !loading && !error" class="search-container" :data-theme="theme">
       <input
-        ref="searchInput"
         v-model="searchQuery"
         type="text"
         placeholder="Search location..."
         class="search-input"
+        @input="onSearchInput"
         @focus="onSearchFocus"
+        @blur="onSearchBlur"
       />
       <button
         v-if="searchQuery"
@@ -31,9 +34,26 @@
       </button>
     </div>
 
+    <!-- Autocomplete Suggestions -->
+    <div
+      v-if="searchSuggestions.length > 0"
+      class="suggestions-container"
+      :data-theme="theme"
+    >
+      <div
+        v-for="suggestion in searchSuggestions"
+        :key="suggestion.placeId"
+        class="suggestion-item"
+        @click="selectPlace(suggestion)"
+      >
+        <div class="suggestion-primary">{{ suggestion.primaryText }}</div>
+        <div class="suggestion-secondary">{{ suggestion.secondaryText }}</div>
+      </div>
+    </div>
+
     <!-- Directions Button (Step 1: Show after place selection) -->
     <button
-      v-if="selectedPlace && !showRouteCalculated && !isNavigating"
+      v-if="selectedPlace && !showRouteCalculated && !isNavigating && !isLoadingRoutes"
       @click="showDirections"
       class="directions-button"
     >
@@ -41,15 +61,27 @@
       Directions
     </button>
 
-    <!-- Start Navigation Button (Step 2: Show after route is calculated) -->
-    <button
-      v-if="showRouteCalculated && !isNavigating"
-      @click="startNavigation"
-      class="start-nav-button"
-    >
-      <Navigation class="nav-icon" />
-      Start
-    </button>
+    <!-- Loading Routes Indicator -->
+    <div v-if="isLoadingRoutes" class="loading-routes">
+      <div class="spinner-small"></div>
+      <span>Finding routes...</span>
+    </div>
+
+    <!-- Route Info & Start Button (Step 2: Show after routes are calculated) -->
+    <div v-if="showRouteCalculated && !isNavigating" class="route-info-bar">
+      <div class="selected-route-info">
+        <div class="route-time">{{ availableRoutes[selectedRouteIndex]?.duration }}</div>
+        <div class="route-dist">{{ availableRoutes[selectedRouteIndex]?.distance }}</div>
+        <div class="route-name">{{ availableRoutes[selectedRouteIndex]?.summary }}</div>
+      </div>
+      <button @click="startNavigation" class="start-nav-btn">
+        <Navigation class="nav-icon" />
+        Start
+      </button>
+      <button @click="cancelRouteSelection" class="cancel-btn">
+        <X class="nav-icon" />
+      </button>
+    </div>
 
     <!-- Stop Navigation Button (Step 3: Show during navigation) -->
     <button
@@ -84,11 +116,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { Geolocation } from '@capacitor/geolocation'
 import { Navigation, X, Locate, LocateFixed } from 'lucide-vue-next'
 import { useSettings } from '../../composables/useSettings'
 import { useNavigation } from '../../composables/useNavigation'
+import { useSlope } from '../../composables/useSlope'
+import { GoogleMapsNative } from '../../plugins/googlemaps'
+import { GooglePlaces, type PlacePrediction, type PlaceDetails } from '../../plugins/googleplaces'
 import InfoPanel from './InfoPanel.vue'
 
 interface Props {
@@ -99,276 +134,47 @@ const props = withDefaults(defineProps<Props>(), {
   theme: 'dark'
 })
 
-const mapContainer = ref<HTMLDivElement | null>(null)
-const searchInput = ref<HTMLInputElement | null>(null)
+const emit = defineEmits<{
+  'update:isSearching': [value: boolean]
+}>()
+
 const searchQuery = ref('')
+const searchSuggestions = ref<PlacePrediction[]>([])
 const loading = ref(true)
 const error = ref('')
-const map = ref<any>(null)
-const currentLocationMarker = ref<any>(null)
 const isFollowingLocation = ref(true)
-const searchMarker = ref<any>(null)
-const selectedPlace = ref<any>(null)
+const selectedPlace = ref<PlaceDetails | null>(null)
 const isNavigating = ref(false)
 const showRouteCalculated = ref(false)
-const directionsRenderer = ref<any>(null)
-const directionsService = ref<any>(null)
-const fallbackLine = ref<any>(null)
 const routePath = ref<any[]>([])
-const remainingRoutePolyline = ref<any>(null)
+const isSearching = ref(false)
+const availableRoutes = ref<any[]>([])
+const selectedRouteIndex = ref(0)
+const isLoadingRoutes = ref(false)
 let watchId: string | null = null
-let autocomplete: any = null
+let searchTimeout: NodeJS.Timeout | null = null
+let etaUpdateInterval: NodeJS.Timeout | null = null
+let currentLocation = { lat: 0, lng: 0 }
 
-const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+// Native map state
+const nativeMarkers = new Map<string, string>()
 
 // Get settings
-const { avoidTolls, unit } = useSettings()
+const { unit, avoidTolls } = useSettings()
 
-// Dark theme map styles
-const darkMapStyles = [
-  {
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#1d2c4d"
-      }
-    ]
-  },
-  {
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#8ec3b9"
-      }
-    ]
-  },
-  {
-    "elementType": "labels.text.stroke",
-    "stylers": [
-      {
-        "color": "#1a3646"
-      }
-    ]
-  },
-  {
-    "featureType": "administrative.country",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      {
-        "color": "#4b6878"
-      }
-    ]
-  },
-  {
-    "featureType": "administrative.land_parcel",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#64779e"
-      }
-    ]
-  },
-  {
-    "featureType": "administrative.province",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      {
-        "color": "#4b6878"
-      }
-    ]
-  },
-  {
-    "featureType": "landscape.man_made",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      {
-        "color": "#334e87"
-      }
-    ]
-  },
-  {
-    "featureType": "landscape.natural",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#023e58"
-      }
-    ]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#283d6a"
-      }
-    ]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#6f9ba5"
-      }
-    ]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "labels.text.stroke",
-    "stylers": [
-      {
-        "color": "#1d2c4d"
-      }
-    ]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "geometry.fill",
-    "stylers": [
-      {
-        "color": "#023e58"
-      }
-    ]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#3C7680"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#304a7d"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#98a5be"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels.text.stroke",
-    "stylers": [
-      {
-        "color": "#1d2c4d"
-      }
-    ]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#2c6675"
-      }
-    ]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      {
-        "color": "#255763"
-      }
-    ]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#b0d5ce"
-      }
-    ]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "labels.text.stroke",
-    "stylers": [
-      {
-        "color": "#023e58"
-      }
-    ]
-  },
-  {
-    "featureType": "transit",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#98a5be"
-      }
-    ]
-  },
-  {
-    "featureType": "transit",
-    "elementType": "labels.text.stroke",
-    "stylers": [
-      {
-        "color": "#1d2c4d"
-      }
-    ]
-  },
-  {
-    "featureType": "transit.line",
-    "elementType": "geometry.fill",
-    "stylers": [
-      {
-        "color": "#283d6a"
-      }
-    ]
-  },
-  {
-    "featureType": "transit.station",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#3a4762"
-      }
-    ]
-  },
-  {
-    "featureType": "water",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#0e1626"
-      }
-    ]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#4e6d70"
-      }
-    ]
-  }
-]
-
-// Get navigation state - destructure and rename to avoid conflicts
+// Get navigation state
 const {
   isNavigating: navIsNavigating,
   totalDistance: navTotalDistance,
   remainingDistance: navRemainingDistance,
   destination: navDestination,
   startNavigation: navStartNavigation,
-  updateRemainingDistance: navUpdateRemainingDistance,
-  stopNavigation: navStopNavigation
+  stopNavigation: navStopNavigation,
+  updateEstimatedTime: navUpdateEstimatedTime
 } = useNavigation()
+
+// Get slope state
+const { formattedSlope, slopeDirection } = useSlope()
 
 const getCurrentLocation = async () => {
   const position = await Geolocation.getCurrentPosition({
@@ -376,7 +182,6 @@ const getCurrentLocation = async () => {
     timeout: 10000,
     maximumAge: 5000
   })
-  
   return {
     lat: position.coords.latitude,
     lng: position.coords.longitude,
@@ -384,21 +189,125 @@ const getCurrentLocation = async () => {
   }
 }
 
-const loadGoogleMapsScript = (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    if (typeof google !== 'undefined' && google.maps) {
-      resolve()
-      return
-    }
+// Search functions
+const onSearchFocus = () => {
+  isSearching.value = true
+  emit('update:isSearching', true)
 
-    const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places,geometry`
-    script.async = true
-    script.defer = true
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error('Failed to load Google Maps'))
-    document.head.appendChild(script)
-  })
+  // Clear any existing suggestions when focusing
+  if (searchQuery.value.trim().length > 0) {
+    performSearch()
+  }
+}
+
+const onSearchBlur = () => {
+  // Delay to allow click on suggestions
+  setTimeout(() => {
+    if (searchSuggestions.value.length === 0) {
+      isSearching.value = false
+      emit('update:isSearching', false)
+    }
+  }, 200)
+}
+
+const onSearchInput = () => {
+  // Clear existing timeout
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+
+  // Clear suggestions if query is empty
+  if (searchQuery.value.trim().length === 0) {
+    searchSuggestions.value = []
+    return
+  }
+
+  // Debounce search by 300ms
+  searchTimeout = setTimeout(() => {
+    performSearch()
+  }, 300)
+}
+
+const performSearch = async () => {
+  const query = searchQuery.value.trim()
+  if (query.length === 0) {
+    searchSuggestions.value = []
+    return
+  }
+
+  try {
+    const result = await GooglePlaces.searchPlaces({
+      query,
+      lat: currentLocation.lat,
+      lng: currentLocation.lng
+    })
+
+    searchSuggestions.value = result.predictions
+  } catch (err) {
+    console.error('Error searching places:', err)
+    searchSuggestions.value = []
+  }
+}
+
+const selectPlace = async (prediction: PlacePrediction) => {
+  try {
+    // Get place details
+    const placeDetails = await GooglePlaces.getPlaceDetails({
+      placeId: prediction.placeId
+    })
+
+    selectedPlace.value = placeDetails
+
+    // Clear search UI
+    searchQuery.value = placeDetails.name
+    searchSuggestions.value = []
+    isSearching.value = false
+    emit('update:isSearching', false)
+
+    // Add marker for selected place
+    await GoogleMapsNative.addMarker({
+      id: 'destination',
+      lat: placeDetails.location.lat,
+      lng: placeDetails.location.lng,
+      title: placeDetails.name,
+      color: '#EA4335' // Red color for destination
+    })
+
+    // Show the place on map
+    await GoogleMapsNative.setCenter({
+      lat: placeDetails.location.lat,
+      lng: placeDetails.location.lng,
+      zoom: 15,
+      animate: true
+    })
+
+    // Clear autocomplete session
+    await GooglePlaces.clearSession()
+
+  } catch (err) {
+    alert('Failed to get place details')
+  }
+}
+
+const clearSearch = () => {
+  searchQuery.value = ''
+  searchSuggestions.value = []
+  selectedPlace.value = null
+  showRouteCalculated.value = false
+  isSearching.value = false
+  emit('update:isSearching', false)
+
+  // Clear routes from map
+  GoogleMapsNative.clearRoute()
+    .catch(err => console.error('Error clearing routes:', err))
+
+  // Remove destination marker
+  GoogleMapsNative.removeMarker({ id: 'destination' })
+    .catch(err => console.error('Error removing marker:', err))
+
+  // Reset route state
+  availableRoutes.value = []
+  selectedRouteIndex.value = 0
 }
 
 const initMap = async () => {
@@ -412,62 +321,45 @@ const initMap = async () => {
       throw new Error('Location permission denied')
     }
 
-        // Get current position
-    const currentLocation = await getCurrentLocation()
+    // Get current position
+    const location = await getCurrentLocation()
+    currentLocation.lat = location.lat
+    currentLocation.lng = location.lng
 
-    // Load Google Maps
-    await loadGoogleMapsScript()
-
-    if (!mapContainer.value) {
-      throw new Error('Map container not found')
-    }
-
-    // Initialize map with theme-based styles
-    map.value = new google.maps.Map(mapContainer.value, {
-      center: currentLocation,
-      zoom: 17,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      zoomControl: false,
-      scaleControl: false,
-      panControl: false,
-      rotateControl: true, // Enable rotation with two-finger gesture
-      tilt: 0, // Start with flat view, user can tilt with gestures
-      heading: 0, // Initial heading (north)
-      gestureHandling: 'greedy', // Allows pinch-to-zoom, pan, rotate, and tilt gestures
-      disableDefaultUI: true, // Disable all default UI controls
-      styles: props.theme === 'dark' ? darkMapStyles : undefined,
-      // Enable vector maps for better 3D rendering and rotation
-      mapId: undefined, // Use default raster maps with full rotation support
-      isFractionalZoomEnabled: true // Smooth zoom transitions
+    // Initialize native Google Maps
+    await GoogleMapsNative.create({
+      lat: currentLocation.lat,
+      lng: currentLocation.lng,
+      zoom: 17
     })
+
+    await GoogleMapsNative.show()
 
     // Add current location marker
-    currentLocationMarker.value = new google.maps.Marker({
-      position: currentLocation,
-      map: map.value,
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 10,
-        fillColor: '#4285F4',
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 3
-      },
-      title: 'Your Location'
+    const result = await GoogleMapsNative.addMarker({
+      id: 'current-location',
+      lat: currentLocation.lat,
+      lng: currentLocation.lng,
+      title: 'Your Location',
+      color: '#4285F4',
+      iconType: 'dot'
     })
 
-    // Add accuracy circle
-    new google.maps.Circle({
-      map: map.value,
-      center: currentLocation,
-      radius: currentLocation.accuracy,
-      fillColor: '#4285F4',
-      fillOpacity: 0.1,
-      strokeColor: '#4285F4',
-      strokeOpacity: 0.3,
-      strokeWeight: 1
+    nativeMarkers.set('current-location', result.id)
+
+    // Stop auto-centering after initial load
+    isFollowingLocation.value = false
+
+    // Listen for user gestures on native map to stop auto-centering
+    GoogleMapsNative.addListener('cameraMoveStarted', (data) => {
+      if (data.gesture) {
+        isFollowingLocation.value = false
+      }
+    })
+
+    // Listen for polyline clicks to select routes
+    GoogleMapsNative.addListener('polylineClick', (data) => {
+      selectRoute(data.routeIndex)
     })
 
     // Watch position changes
@@ -478,55 +370,60 @@ const initMap = async () => {
         maximumAge: 0
       },
       (position) => {
-        if (position && map.value && currentLocationMarker.value) {
-          const newLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          }
-          
-          currentLocationMarker.value.setPosition(newLocation)
-          
-          // Update arrow rotation if heading is available and navigating
-          if (isNavigating.value && position.coords.heading !== null && position.coords.heading !== undefined) {
-            const currentIcon = currentLocationMarker.value.getIcon()
-            if (currentIcon && currentIcon.path === google.maps.SymbolPath.FORWARD_CLOSED_ARROW) {
-              currentLocationMarker.value.setIcon({
-                ...currentIcon,
-                rotation: position.coords.heading
-              })
-            }
-            
-            // Update route progress during navigation
-            updateRouteProgress(newLocation)
-          }
-          
-          if (isFollowingLocation.value) {
-            map.value.panTo(newLocation)
-            
-            // Keep zoomed in during navigation
-            if (isNavigating.value && map.value.getZoom() < 18) {
-              map.value.setZoom(19)
-            }
-          }
+        if (!position) return
+
+        const newLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        }
+
+        // Update current location for search bias
+        currentLocation.lat = newLocation.lat
+        currentLocation.lng = newLocation.lng
+
+        // Get bearing/heading for rotation
+        const bearing = position.coords.heading
+
+        // Update marker based on navigation state
+        if (isNavigating.value) {
+          // During navigation: use arrow marker with rotation
+          GoogleMapsNative.updateMarker({
+            id: 'current-location',
+            lat: newLocation.lat,
+            lng: newLocation.lng,
+            rotation: bearing !== null && bearing !== undefined ? bearing : 0,
+            flat: true
+          }).catch(err => console.error('Error updating arrow marker:', err))
+        } else {
+          // When not navigating: use blue dot marker
+          GoogleMapsNative.addMarker({
+            id: 'current-location',
+            lat: newLocation.lat,
+            lng: newLocation.lng,
+            title: 'Your Location',
+            color: '#4285F4',
+            iconType: 'dot'
+          }).catch(err => console.error('Error updating native marker:', err))
+        }
+
+        // Center map on location if following (always follow during navigation)
+        if (isFollowingLocation.value || isNavigating.value) {
+          GoogleMapsNative.setCenter({
+            lat: newLocation.lat,
+            lng: newLocation.lng,
+            zoom: isNavigating.value ? 19 : 17,
+            tilt: isNavigating.value ? 45 : 0,
+            bearing: isNavigating.value && bearing !== null && bearing !== undefined ? bearing : undefined,
+            animate: true
+          }).catch(err => console.error('Error centering native map:', err))
+        }
+
+        // Update route progress during navigation
+        if (isNavigating.value) {
+          updateRouteProgress(newLocation)
         }
       }
     )
-
-    // Detect when user manually moves the map
-    map.value.addListener('dragstart', () => {
-      isFollowingLocation.value = false
-    })
-
-    // Initialize Directions Service and Renderer
-    directionsService.value = new google.maps.DirectionsService()
-    directionsRenderer.value = new google.maps.DirectionsRenderer({
-      map: map.value,
-      suppressMarkers: false,
-      polylineOptions: {
-        strokeColor: '#4285F4',
-        strokeWeight: 5
-      }
-    })
 
     loading.value = false
   } catch (err: any) {
@@ -536,463 +433,425 @@ const initMap = async () => {
   }
 }
 
-const onSearchFocus = () => {
-  // Initialize autocomplete only once when user focuses on input
-  if (autocomplete || !searchInput.value || !map.value) return
-  
-  initAutocomplete()
-}
-
-const initAutocomplete = () => {
-  // Create autocomplete
-  autocomplete = new google.maps.places.Autocomplete(searchInput.value!, {
-    fields: ['place_id', 'geometry', 'name', 'formatted_address', 'types']
-  })
-
-  // Bind to map bounds
-  autocomplete.bindTo('bounds', map.value)
-
-  // Listen for place selection
-  autocomplete.addListener('place_changed', () => {
-    const place = autocomplete.getPlace()
-
-    if (!place.geometry || !place.geometry.location) {
-      return
-    }
-
-    // Update search query with selected place name
-    searchQuery.value = place.name || place.formatted_address || ''
-
-    // Check if place is specific enough (not a large region/province)
-    const validTypes = [
-      'establishment',
-      'point_of_interest',
-      'street_address',
-      'premise',
-      'subpremise',
-      'route',
-      'locality',
-      'sublocality',
-      'neighborhood',
-      'colloquial_area'
-    ]
-    const isSpecificPlace = place.types?.some((type: string) => validTypes.includes(type))
-
-    // Store the place if it's specific enough
-    if (isSpecificPlace) {
-      selectedPlace.value = place
-    } else {
-      selectedPlace.value = null
-    }
-
-    // Remove previous search marker
-    if (searchMarker.value) {
-      searchMarker.value.setMap(null)
-    }
-
-    // Add marker for searched place
-    searchMarker.value = new google.maps.Marker({
-      position: place.geometry.location,
-      map: map.value,
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 8,
-        fillColor: '#ef4444',
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 2
-      },
-      title: place.name
-    })
-
-    // Zoom to the place
-    if (place.geometry.viewport) {
-      map.value.fitBounds(place.geometry.viewport)
-    } else {
-      map.value.setCenter(place.geometry.location)
-      map.value.setZoom(17)
-    }
-
-    // Disable location following
-    isFollowingLocation.value = false
-  })
-}
-
-const clearSearch = () => {
-  // Clear the search input
-  searchQuery.value = ''
-  
-  // Remove search marker if exists
-  if (searchMarker.value) {
-    searchMarker.value.setMap(null)
-    searchMarker.value = null
-  }
-  
-  // Clear selected place
-  selectedPlace.value = null
-  
-  // Clear route if calculated
-  if (directionsRenderer.value) {
-    directionsRenderer.value.setDirections({ routes: [] })
-  }
-  
-  // Clear fallback line if exists
-  if (fallbackLine.value) {
-    fallbackLine.value.setMap(null)
-    fallbackLine.value = null
-  }
-  
-  // Reset states
-  showRouteCalculated.value = false
-  isNavigating.value = false
-  
-  // Restore normal marker if it was changed
-  updateMarkerToCircle()
-  
-  // Clear the autocomplete input
-  if (searchInput.value) {
-    searchInput.value.value = ''
-  }
-}
-
 const showDirections = async () => {
-  if (!selectedPlace.value || !map.value) return
+  if (!selectedPlace.value) return
 
   try {
-    const origin = await getCurrentLocation()
-    const destination = selectedPlace.value.geometry.location
+    isLoadingRoutes.value = true
 
-    // Calculate distance
-    const distance = google.maps.geometry.spherical.computeDistanceBetween(origin, destination)
+    // Get current location
+    const currentPos = await getCurrentLocation()
 
-    // If destination is very close, just show it
-    if (distance < 50) {
-      alert('You are already at the destination!')
-      map.value.panTo(destination)
-      map.value.setZoom(19)
-      return
-    }
+    // Fetch routes from Google Directions API using native method
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    const origin = `${currentPos.lat},${currentPos.lng}`
+    const destination = `${selectedPlace.value.location.lat},${selectedPlace.value.location.lng}`
 
-    // Request directions with DRIVING mode
-    directionsService.value.route(
-      {
-        origin,
-        destination,
-        travelMode: google.maps.TravelMode.DRIVING,
-        avoidHighways: false,
-        avoidTolls: avoidTolls.value
-      },
-      (result: any, status: any) => {
-        if (status === 'OK') {
-          // Store the route path for progress tracking
-          const route = result.routes[0]
-          routePath.value = []
-          route.legs.forEach((leg: any) => {
-            leg.steps.forEach((step: any) => {
-              step.path.forEach((point: any) => {
-                routePath.value.push({
-                  lat: point.lat(),
-                  lng: point.lng()
-                })
-              })
-            })
-          })
-          
-          // Display the route
-          directionsRenderer.value.setDirections(result)
-          showRouteCalculated.value = true
-        } else if (status === 'ZERO_RESULTS') {
-          // Draw a straight line as visual fallback
-          fallbackLine.value = new google.maps.Polyline({
-            path: [origin, destination],
-            geodesic: true,
-            strokeColor: '#FF6B6B',
-            strokeOpacity: 0.8,
-            strokeWeight: 4,
-            map: map.value
-          })
-          
-          // Fit bounds to show both points
-          const bounds = new google.maps.LatLngBounds()
-          bounds.extend(origin)
-          bounds.extend(destination)
-          map.value.fitBounds(bounds)
-          
-          showRouteCalculated.value = true
-        } else {
-          let errorMsg = 'Could not calculate route. '
-          if (status === 'REQUEST_DENIED') {
-            errorMsg += 'API key issue.'
-          } else if (status === 'OVER_QUERY_LIMIT') {
-            errorMsg += 'API quota exceeded.'
-          } else if (status === 'INVALID_REQUEST') {
-            errorMsg += 'Invalid request.'
-          } else {
-            errorMsg += `Error: ${status}`
-          }
-          alert(errorMsg)
+    const data = await GoogleMapsNative.getDirections({
+      origin,
+      destination,
+      apiKey,
+      avoidTolls: avoidTolls.value
+    })
+
+    if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+      // Process routes
+      availableRoutes.value = data.routes.map((route: any, index: number) => {
+        const leg = route.legs[0]
+        const routeInfo = {
+          index,
+          summary: route.summary || `Route ${index + 1}`,
+          distance: leg.distance.text,
+          duration: leg.duration.text,
+          distanceValue: leg.distance.value,
+          durationValue: leg.duration.value,
+          polyline: route.overview_polyline.points,
+          steps: leg.steps
         }
-      }
-    )
+        return routeInfo
+      })
+
+      // Draw all routes on map
+      await drawAllRoutes()
+
+      // Zoom out to show all routes
+      await zoomToShowRoutes()
+
+      showRouteCalculated.value = true
+    } else {
+      alert(`Could not find routes to destination. Status: ${data.status}`)
+    }
   } catch (err) {
-    console.error('Error calculating directions:', err)
-    alert('Could not get your current location.')
+    alert('Failed to calculate routes')
+  } finally {
+    isLoadingRoutes.value = false
   }
 }
 
-const smoothZoomTo = (targetZoom: number, targetTilt: number = 0, duration: number = 1000) => {
-  if (!map.value) return
-  
-  const currentZoom = map.value.getZoom()
-  const currentTilt = map.value.getTilt() || 0
-  
-  const zoomDiff = targetZoom - currentZoom
-  const tiltDiff = targetTilt - currentTilt
-  
-  // Calculate number of steps based on duration (60fps = 16.67ms per frame)
-  const steps = Math.ceil(duration / 16.67)
-  const zoomIncrement = zoomDiff / steps
-  const tiltIncrement = tiltDiff / steps
-  
-  let step = 0
-  const animationInterval = setInterval(() => {
-    if (step >= steps || !map.value) {
-      clearInterval(animationInterval)
-      // Ensure final values are set
-      if (map.value) {
-        map.value.setZoom(targetZoom)
-        map.value.setTilt(targetTilt)
-      }
-      return
-    }
-    
-    step++
-    const newZoom = currentZoom + (zoomIncrement * step)
-    const newTilt = currentTilt + (tiltIncrement * step)
-    
-    map.value.setZoom(newZoom)
-    map.value.setTilt(newTilt)
-  }, 16.67) // ~60fps
+const zoomToShowRoutes = async () => {
+  if (!selectedPlace.value || availableRoutes.value.length === 0) return
+
+  try {
+    // Get current location
+    const currentPos = await getCurrentLocation()
+
+    // Calculate the center point between current location and destination
+    const destLat = selectedPlace.value.location.lat
+    const destLng = selectedPlace.value.location.lng
+    const centerLat = (currentPos.lat + destLat) / 2
+    const centerLng = (currentPos.lng + destLng) / 2
+
+    // Calculate distance to determine zoom level
+    const latDiff = Math.abs(currentPos.lat - destLat)
+    const lngDiff = Math.abs(currentPos.lng - destLng)
+    const maxDiff = Math.max(latDiff, lngDiff)
+
+    // Determine zoom level based on distance
+    // Larger difference = zoom out more (lower zoom number)
+    let zoom = 15
+    if (maxDiff > 1) zoom = 10
+    else if (maxDiff > 0.5) zoom = 11
+    else if (maxDiff > 0.2) zoom = 12
+    else if (maxDiff > 0.1) zoom = 13
+    else if (maxDiff > 0.05) zoom = 14
+
+    // Set camera to center with calculated zoom
+    await GoogleMapsNative.setCenter({
+      lat: centerLat,
+      lng: centerLng,
+      zoom,
+      animate: true
+    })
+  } catch (err) {
+    console.error('Error zooming to show routes:', err)
+  }
 }
 
-const updateRouteProgress = (currentLocation: any) => {
-  if (!routePath.value.length || !map.value) return
-  
-  // Find the closest point on the route to current location
-  let closestIndex = 0
+const drawAllRoutes = async () => {
+  // Draw all routes with different colors - draw non-selected routes first, then selected on top
+  const sortedRoutes = availableRoutes.value.map((route, index) => ({ route, index }))
+    .sort((a, b) => {
+      // Selected route should be drawn last (on top)
+      if (a.index === selectedRouteIndex.value) return 1
+      if (b.index === selectedRouteIndex.value) return -1
+      return 0
+    })
+
+  for (const { route, index: i } of sortedRoutes) {
+    const isSelected = i === selectedRouteIndex.value
+
+    // Decode polyline
+    const points = decodePolyline(route.polyline)
+
+    // Draw route with color based on selection and routeIndex tag
+    // Selected route: Bold blue (#1A73E8)
+    // Alternative routes: Medium gray (#808080) - more visible than light gray
+    await GoogleMapsNative.drawRoute({
+      points: points.map((p: any) => ({ lat: p.lat, lng: p.lng })),
+      color: isSelected ? '#1A73E8' : '#808080',
+      width: isSelected ? 14 : 10,
+      routeIndex: i
+    })
+  }
+}
+
+const decodePolyline = (encoded: string) => {
+  const points = []
+  let index = 0
+  const len = encoded.length
+  let lat = 0
+  let lng = 0
+
+  while (index < len) {
+    let b
+    let shift = 0
+    let result = 0
+    do {
+      b = encoded.charCodeAt(index++) - 63
+      result |= (b & 0x1f) << shift
+      shift += 5
+    } while (b >= 0x20)
+    const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1))
+    lat += dlat
+
+    shift = 0
+    result = 0
+    do {
+      b = encoded.charCodeAt(index++) - 63
+      result |= (b & 0x1f) << shift
+      shift += 5
+    } while (b >= 0x20)
+    const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1))
+    lng += dlng
+
+    points.push({ lat: lat / 1e5, lng: lng / 1e5 })
+  }
+
+  return points
+}
+
+const selectRoute = async (routeIndex: number) => {
+  selectedRouteIndex.value = routeIndex
+
+  // Redraw all routes to update colors
+  await GoogleMapsNative.clearRoute()
+  await drawAllRoutes()
+}
+
+const cancelRouteSelection = async () => {
+  // Clear routes from map
+  await GoogleMapsNative.clearRoute()
+
+  // Reset state
+  showRouteCalculated.value = false
+  availableRoutes.value = []
+  selectedRouteIndex.value = 0
+}
+
+const updateRouteProgress = async (currentLocation: { lat: number; lng: number }) => {
+  if (routePath.value.length === 0) return
+
+  // Find the closest point on the route
   let minDistance = Infinity
-  
-  routePath.value.forEach((point, index) => {
-    const distance = google.maps.geometry.spherical.computeDistanceBetween(
-      new google.maps.LatLng(currentLocation.lat, currentLocation.lng),
-      new google.maps.LatLng(point.lat, point.lng)
-    )
-    
+  let closestIndex = 0
+
+  for (let i = 0; i < routePath.value.length; i++) {
+    const point = routePath.value[i]
+    const distance = calculateDistance(currentLocation.lat, currentLocation.lng, point.lat, point.lng)
+
     if (distance < minDistance) {
       minDistance = distance
-      closestIndex = index
+      closestIndex = i
     }
-  })
-  
-  // Get remaining route points (from closest point to end)
-  const remainingPoints = routePath.value.slice(closestIndex)
-  
-  // Calculate remaining distance
-  let remainingDist = 0
-  for (let i = 0; i < remainingPoints.length - 1; i++) {
-    remainingDist += google.maps.geometry.spherical.computeDistanceBetween(
-      new google.maps.LatLng(remainingPoints[i].lat, remainingPoints[i].lng),
-      new google.maps.LatLng(remainingPoints[i + 1].lat, remainingPoints[i + 1].lng)
-    )
   }
-  
-  // Update navigation state with remaining distance in km
-  navUpdateRemainingDistance(remainingDist / 1000)
-  
-  // Remove old polyline if exists
-  if (remainingRoutePolyline.value) {
-    remainingRoutePolyline.value.setMap(null)
+
+  // Remove passed points (points before the closest point)
+  // Keep a small buffer (5 points) behind current location for smooth visualization
+  const bufferPoints = 5
+  const trimIndex = Math.max(0, closestIndex - bufferPoints)
+
+  if (trimIndex > 0) {
+    // Remove passed points from the route path
+    routePath.value = routePath.value.slice(trimIndex)
+
+    // Redraw the remaining route
+    await GoogleMapsNative.clearRoute()
+    if (routePath.value.length > 1) {
+      await GoogleMapsNative.drawRoute({
+        points: routePath.value.map((p: any) => ({ lat: p.lat, lng: p.lng })),
+        color: '#4285F4',
+        width: 8
+      })
+    }
   }
-  
-  // Draw new polyline for remaining route
-  if (remainingPoints.length > 1) {
-    remainingRoutePolyline.value = new google.maps.Polyline({
-      path: remainingPoints,
-      geodesic: true,
-      strokeColor: '#4285F4',
-      strokeOpacity: 1.0,
-      strokeWeight: 5,
-      map: map.value
+}
+
+// Helper function to calculate distance between two points in meters
+const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const R = 6371e3 // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180
+  const φ2 = lat2 * Math.PI / 180
+  const Δφ = (lat2 - lat1) * Math.PI / 180
+  const Δλ = (lng2 - lng1) * Math.PI / 180
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+  return R * c
+}
+
+// Update ETA by fetching fresh directions from current location to destination
+const updateETA = async () => {
+  if (!selectedPlace.value || !isNavigating.value) return
+
+  try {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    const origin = `${currentLocation.lat},${currentLocation.lng}`
+    const destination = `${selectedPlace.value.location.lat},${selectedPlace.value.location.lng}`
+
+    const data = await GoogleMapsNative.getDirections({
+      origin,
+      destination,
+      apiKey,
+      avoidTolls: avoidTolls.value
     })
-  }
-  
-  // Hide the original directions renderer polyline
-  if (directionsRenderer.value) {
-    directionsRenderer.value.setOptions({
-      polylineOptions: {
-        strokeOpacity: 0
-      }
-    })
+
+    if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+      const route = data.routes[0]
+      const leg = route.legs[0]
+      const durationSeconds = leg.duration.value
+
+      // Update ETA in shared navigation state
+      navUpdateEstimatedTime(durationSeconds)
+    }
+  } catch (err) {
+    console.error('Error updating ETA:', err)
   }
 }
 
 const startNavigation = async () => {
-  if (!showRouteCalculated.value || !selectedPlace.value) return
-  
+  if (!showRouteCalculated.value || !selectedPlace.value || availableRoutes.value.length === 0) return
+
   try {
-    // Get current location
-    const currentLocation = await getCurrentLocation()
-    
-    // Calculate total distance to destination
-    const destination = selectedPlace.value.geometry.location
-    const totalDist = google.maps.geometry.spherical.computeDistanceBetween(
-      new google.maps.LatLng(currentLocation.lat, currentLocation.lng),
-      destination
-    )
-    
-    // Start navigation with destination name and total distance (in km)
-    const destName = selectedPlace.value.name || selectedPlace.value.formatted_address || 'Destination'
-    navStartNavigation(destName, totalDist / 1000)
-    
-    // Center on current location first
-    if (map.value) {
-      map.value.panTo(currentLocation)
+    // Use already-tracked current location instead of requesting fresh position
+    const currentLocationPos = {
+      lat: currentLocation.lat,
+      lng: currentLocation.lng
     }
-    
+
+    // Get the selected route
+    const selectedRoute = availableRoutes.value[selectedRouteIndex.value]
+
+    // Calculate total distance in km
+    const totalDist = selectedRoute.distanceValue / 1000
+
+    // Get duration in seconds from the route
+    const durationSeconds = selectedRoute.durationValue
+
+    // Start navigation with shared state (including ETA)
+    const destName = selectedPlace.value.name || 'Destination'
+    navStartNavigation(destName, totalDist, durationSeconds)
+
     // Start navigation mode
     isNavigating.value = true
-    
-    // Change current location marker to arrow
-    updateMarkerToArrow()
-    
-    // Enable location following for navigation
+
+    // Enable location following for navigation (always on during navigation)
     isFollowingLocation.value = true
-    
+
+    // Store the selected route path for progress tracking
+    routePath.value = decodePolyline(selectedRoute.polyline)
+
+    // Replace current location marker with arrow marker
+    await GoogleMapsNative.removeMarker({ id: 'current-location' })
+
+    await GoogleMapsNative.addMarker({
+      id: 'current-location',
+      lat: currentLocationPos.lat,
+      lng: currentLocationPos.lng,
+      iconType: 'arrow',
+      color: '#1A73E8', // Blue arrow for navigation
+      rotation: 0,
+      flat: true
+    })
+
+    // Clear all other routes, keep only the selected one
+    await GoogleMapsNative.clearRoute()
+
+    const points = decodePolyline(selectedRoute.polyline)
+    await GoogleMapsNative.drawRoute({
+      points: points.map((p: any) => ({ lat: p.lat, lng: p.lng })),
+      color: '#4285F4',
+      width: 8
+    })
+
+    // Start periodic ETA updates (every 30 seconds)
+    etaUpdateInterval = setInterval(() => {
+      updateETA()
+    }, 30000)
+
+    // Do initial ETA update after a short delay
+    setTimeout(() => {
+      updateETA()
+    }, 3000)
+
+    // Focus camera on current location with navigation view (tilt, zoom, bearing)
+    await GoogleMapsNative.setCenter({
+      lat: currentLocationPos.lat,
+      lng: currentLocationPos.lng,
+      zoom: 19,
+      tilt: 45,
+      bearing: 0,
+      animate: true
+    })
+
     // Initialize route progress
-    updateRouteProgress(currentLocation)
-    
-    // Smooth zoom transition to navigation view (1.5 seconds)
-    smoothZoomTo(19, 45, 1500)
-  } catch (err) {
-    console.error('Error starting navigation:', err)
-    alert('Could not get your current location.')
+    await updateRouteProgress(currentLocationPos)
+
+  } catch (err: any) {
+    alert(`Failed to start navigation: ${err.message || 'Unknown error'}`)
+    clearSearch();
   }
 }
 
-const stopNavigation = () => {
+const stopNavigation = async () => {
+  // Clear ETA update interval
+  if (etaUpdateInterval) {
+    clearInterval(etaUpdateInterval)
+    etaUpdateInterval = null
+  }
+
   // Clear the route
-  if (directionsRenderer.value) {
-    directionsRenderer.value.setDirections({ routes: [] })
-  }
-  
-  // Clear remaining route polyline
-  if (remainingRoutePolyline.value) {
-    remainingRoutePolyline.value.setMap(null)
-    remainingRoutePolyline.value = null
-  }
-  
-  // Clear fallback line if exists
-  if (fallbackLine.value) {
-    fallbackLine.value.setMap(null)
-    fallbackLine.value = null
-  }
-  
-  // Clear route path
-  routePath.value = []
-  
-  // Stop navigation in shared state
-  navStopNavigation()
-  
-  // Reset navigation states
+  await GoogleMapsNative.clearRoute().catch(err => console.error('Error clearing route:', err))
+
+  // Reset navigation state
   isNavigating.value = false
   showRouteCalculated.value = false
-  
-  // Restore normal marker
-  updateMarkerToCircle()
-  
-  // Reset zoom to normal level
-  if (map.value) {
-    map.value.setZoom(17)
-    map.value.setTilt(0) // Reset tilt
-  }
-}
+  selectedPlace.value = null
+  routePath.value = []
 
-const updateMarkerToArrow = () => {
-  if (!currentLocationMarker.value) return
-  
-  currentLocationMarker.value.setIcon({
-    path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-    scale: 6,
-    fillColor: '#4285F4',
-    fillOpacity: 1,
-    strokeColor: '#ffffff',
-    strokeWeight: 3,
-    rotation: 0,
-    anchor: new google.maps.Point(0, 2.5)
-  })
-}
+  // Stop following location
+  isFollowingLocation.value = false
 
-const updateMarkerToCircle = () => {
-  if (!currentLocationMarker.value) return
-  
-  currentLocationMarker.value.setIcon({
-    path: google.maps.SymbolPath.CIRCLE,
-    scale: 10,
-    fillColor: '#4285F4',
-    fillOpacity: 1,
-    strokeColor: '#ffffff',
-    strokeWeight: 3
-  })
+  // Replace arrow marker with blue dot marker
+  await GoogleMapsNative.removeMarker({ id: 'current-location' })
+  await GoogleMapsNative.addMarker({
+    id: 'current-location',
+    lat: currentLocation.lat,
+    lng: currentLocation.lng,
+    title: 'Your Location',
+    color: '#4285F4',
+    iconType: 'dot'
+  }).catch(err => console.error('Error restoring regular marker:', err))
+
+  // Stop shared navigation state
+  navStopNavigation()
 }
 
 const centerOnCurrentLocation = async () => {
   try {
-    // Immediately center on current marker position for instant response
-    if (map.value && currentLocationMarker.value) {
-      const markerPosition = currentLocationMarker.value.getPosition()
-      if (markerPosition) {
-        map.value.panTo(markerPosition)
-        smoothZoomTo(15, 0, 800)
-        isFollowingLocation.value = true
-      }
-    }
-
-    // Then get fresh location in background to ensure accuracy
+    // Get fresh location
     const currentLocation = await Geolocation.getCurrentPosition({
       enableHighAccuracy: true,
       timeout: 5000,
-      maximumAge: 5000 // Allow cached location up to 5 seconds old
+      maximumAge: 5000
     })
 
-    // Update to precise location if different
-    if (map.value) {
-      const preciseLocation = {
-        lat: currentLocation.coords.latitude,
-        lng: currentLocation.coords.longitude
-      }
-      map.value.panTo(preciseLocation)
+    const preciseLocation = {
+      lat: currentLocation.coords.latitude,
+      lng: currentLocation.coords.longitude
     }
+
+    // Enable location following
+    isFollowingLocation.value = true
+
+    // Center native map
+    await GoogleMapsNative.setCenter({
+      lat: preciseLocation.lat,
+      lng: preciseLocation.lng,
+      zoom: 17,
+      animate: true
+    })
   } catch (err) {
     console.error('Error getting current location:', err)
   }
 }
 
-// Watch for theme changes and update map styles
-watch(() => props.theme, (newTheme) => {
-  if (map.value) {
-    map.value.setOptions({
-      styles: newTheme === 'dark' ? darkMapStyles : undefined
-    })
-  }
-})
-
 onMounted(() => {
   initMap()
 })
 
-onUnmounted(() => {
+onUnmounted(async () => {
   if (watchId) {
     Geolocation.clearWatch({ id: watchId })
+  }
+
+  // Cleanup native map
+  try {
+    await GoogleMapsNative.destroy()
+  } catch (err) {
+    console.error('Error destroying native map:', err)
   }
 })
 </script>
@@ -1003,11 +862,13 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* Allow touch events to pass through to native map */
+  pointer-events: none;
 }
 
-.map-container {
-  width: 100%;
-  height: 100%;
+/* Re-enable pointer events for interactive UI elements */
+.navigation-map-container > * {
+  pointer-events: auto;
 }
 
 .loading-overlay {
@@ -1016,50 +877,39 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  z-index: 10;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
 }
 
-/* Dark Theme Loading Overlay */
-.loading-overlay[data-theme="dark"] {
-  background: rgba(0, 0, 0, 0.8);
+.loading-overlay[data-theme="light"] {
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .spinner {
   width: 3rem;
   height: 3rem;
-  border: 4px solid rgba(59, 130, 246, 0.3);
-  border-top-color: rgb(59, 130, 246);
+  border: 4px solid rgba(66, 133, 244, 0.2);
+  border-top-color: rgb(66, 133, 244);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
-/* Dark Theme Spinner */
-.loading-overlay[data-theme="dark"] .spinner {
-  border-color: rgba(56, 189, 248, 0.3);
-  border-top-color: rgb(56, 189, 248);
-}
-
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 .loading-text {
-  color: rgb(17, 24, 39);
+  margin-top: 1rem;
+  color: white;
   font-size: 1rem;
-  font-weight: 500;
 }
 
-/* Dark Theme Loading Text */
-.loading-overlay[data-theme="dark"] .loading-text {
-  color: white;
+.loading-overlay[data-theme="light"] .loading-text {
+  color: rgb(30, 41, 59);
 }
 
 .error-overlay {
@@ -1068,174 +918,208 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 1000;
   padding: 2rem;
-  z-index: 10;
 }
 
 .error-text {
-  color: rgb(239, 68, 68);
+  color: rgb(248, 113, 113);
   font-size: 1rem;
   text-align: center;
+  margin-bottom: 1.5rem;
+  max-width: 90%;
 }
 
 .retry-button {
-  padding: 0.75rem 1.5rem;
-  background: rgb(59, 130, 246);
+  padding: 0.75rem 2rem;
+  background: rgb(66, 133, 244);
   color: white;
   border: none;
   border-radius: 0.5rem;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
 .retry-button:hover {
-  background: rgb(37, 99, 235);
-}
-
-.location-button {
-  position: absolute;
-  bottom: 2rem;
-  right: 1rem;
-  width: 3rem;
-  height: 3rem;
-  background: white;
-  border: none;
-  border-radius: 50%;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  z-index: 5;
-  color: #1a73e8;
-}
-
-.location-button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.4);
-}
-
-.location-button.active {
-  background: rgb(59, 130, 246);
-}
-
-.location-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: rgb(55, 65, 81);
-}
-
-.location-button.active .location-icon {
-  color: white;
+  background: rgb(51, 118, 229);
+  transform: translateY(-2px);
 }
 
 .search-container {
   position: absolute;
-  top: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90%;
-  max-width: 400px;
-  z-index: 5;
+  top: 0.75rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .search-input {
-  width: 100%;
-  padding: 0.75rem 2.5rem 0.75rem 1rem;
-  border: none;
+  flex: 1;
+  padding: 0.625rem 0.875rem;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.5rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  font-size: 1rem;
+  color: white;
+  font-size: 0.9rem;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s;
+}
+
+.search-container[data-theme="light"] .search-input {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: rgb(30, 41, 59);
+}
+
+.search-input:focus {
   outline: none;
-  background: white;
-  color: rgb(17, 24, 39);
+  border-color: rgb(66, 133, 244);
+  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
 }
 
 .search-input::placeholder {
-  color: rgb(156, 163, 175);
+  color: rgba(255, 255, 255, 0.5);
 }
 
-/* Dark Theme Search Input */
-.search-container[data-theme="dark"] .search-input {
-  background: rgba(51, 65, 85, 0.95);
-  color: rgb(224, 242, 254);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-}
-
-.search-container[data-theme="dark"] .search-input::placeholder {
-  color: rgb(148, 163, 184);
-}
-
-.search-container[data-theme="dark"] .clear-icon {
-  color: rgb(186, 230, 253);
+.search-container[data-theme="light"] .search-input::placeholder {
+  color: rgba(0, 0, 0, 0.4);
 }
 
 .clear-button {
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
+  padding: 0.4rem;
+  background: rgba(255, 255, 255, 0.1);
   border: none;
-  padding: 0.25rem;
+  border-radius: 0.4rem;
+  color: white;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  transition: background 0.2s;
-  z-index: 10;
+  transition: all 0.2s;
 }
 
 .clear-button:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .clear-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: rgb(107, 114, 128);
+  width: 1rem;
+  height: 1rem;
+}
+
+.suggestions-container {
+  position: absolute;
+  top: 3.5rem;
+  left: 0.75rem;
+  right: 2.5rem;
+  max-height: 12rem;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  backdrop-filter: blur(10px);
+  z-index: 99999;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.suggestions-container[data-theme="light"] {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.suggestion-item {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.2s;
+}
+
+.suggestions-container[data-theme="light"] .suggestion-item {
+  border-bottom-color: rgba(0, 0, 0, 0.05);
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.suggestions-container[data-theme="light"] .suggestion-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.suggestion-primary {
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 0.2rem;
+  line-height: 1.3;
+}
+
+.suggestions-container[data-theme="light"] .suggestion-primary {
+  color: rgb(30, 41, 59);
+}
+
+.suggestion-secondary {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.suggestions-container[data-theme="light"] .suggestion-secondary {
+  color: rgba(0, 0, 0, 0.5);
 }
 
 .directions-button,
 .start-nav-button,
 .stop-nav-button {
   position: absolute;
-  top: 5rem;
+  bottom: 2rem;
   left: 50%;
   transform: translateX(-50%);
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 2rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s;
-  z-index: 5;
+  transition: all 0.3s;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.directions-button,
-.start-nav-button  {
-  background: rgb(59, 130, 246);
+.directions-button {
+  background: rgb(66, 133, 244);
   color: white;
 }
 
-.directions-button:hover,
+.directions-button:hover {
+  background: rgb(51, 118, 229);
+  transform: translateX(-50%) scale(1.05);
+}
+
+.start-nav-button {
+  background: rgb(34, 197, 94);
+  color: white;
+}
+
 .start-nav-button:hover {
-  background: rgb(37, 99, 235);
+  background: rgb(22, 163, 74);
   transform: translateX(-50%) scale(1.05);
 }
 
@@ -1249,8 +1133,175 @@ onUnmounted(() => {
   transform: translateX(-50%) scale(1.05);
 }
 
+.location-button {
+  position: absolute;
+  bottom: 2rem;
+  right: 1rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  background: white;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  color: #1a73e8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.location-icon {
+  width: 1.0rem;
+  height: 1.0rem;
+}
+
+
+.location-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.4);
+}
+
+.location-button.active {
+  background: rgb(59, 130, 246);
+}
+
+
+.location-button.active .location-icon {
+  color: white;
+}
+
 .nav-icon {
   width: 1.25rem;
   height: 1.25rem;
+}
+
+/* Loading Routes Indicator */
+.loading-routes {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background: rgba(0, 0, 0, 0.9);
+  border-radius: 2rem;
+  color: white;
+  font-size: 1rem;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.spinner-small {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid rgba(66, 133, 244, 0.2);
+  border-top-color: rgb(66, 133, 244);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Route Info Bar (Compact Google Maps Style) */
+.route-info-bar {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  right: 5rem;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+.selected-route-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.route-time {
+  color: rgb(30, 41, 59);
+  font-size: 1.1rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.route-dist {
+  color: rgb(71, 85, 105);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.route-name {
+  color: rgb(100, 116, 139);
+  font-size: 0.8rem;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.start-nav-btn {
+  padding: 0.625rem 1.25rem;
+  background: rgb(37, 99, 235);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.start-nav-btn:hover {
+  background: rgb(29, 78, 216);
+  transform: scale(1.02);
+}
+
+.start-nav-btn:active {
+  transform: scale(0.98);
+}
+
+.start-nav-btn .nav-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.cancel-btn {
+  padding: 0.625rem;
+  background: rgba(0, 0, 0, 0.05);
+  color: rgb(71, 85, 105);
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.cancel-btn .nav-icon {
+  width: 1.125rem;
+  height: 1.125rem;
 }
 </style>

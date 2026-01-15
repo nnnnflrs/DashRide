@@ -15,6 +15,17 @@ android {
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
+
+        // Read Google Maps API key from local.properties or environment variable
+        def localProperties = new Properties()
+        def localPropertiesFile = rootProject.file('local.properties')
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.withInputStream { stream ->
+                localProperties.load(stream)
+            }
+        }
+        def mapsApiKey = localProperties.getProperty('GOOGLE_MAPS_API_KEY') ?: System.getenv('GOOGLE_MAPS_API_KEY') ?: ''
+        manifestPlaceholders = [GOOGLE_MAPS_API_KEY: mapsApiKey]
     }
     buildTypes {
         release {
@@ -40,6 +51,16 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+
+    // Google Maps SDK for Android
+    implementation 'com.google.android.gms:play-services-maps:18.2.0'
+    implementation 'com.google.android.gms:play-services-location:21.1.0'
+
+    // Google Places SDK for Android
+    implementation 'com.google.android.libraries.places:places:3.3.0'
+
+    // AndroidX Media for MediaSession support
+    implementation 'androidx.media:media:1.7.0'
 }
 
 apply from: 'capacitor.build.gradle'
