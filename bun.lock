@@ -11,6 +11,7 @@
         "@capacitor/app": "^8.0.0",
         "@capacitor/core": "^8.0.0",
         "@capacitor/device": "^8.0.0",
+        "@capacitor/dialog": "^8.0.0",
         "@capacitor/filesystem": "^8.0.0",
         "@capacitor/geolocation": "^8.0.0",
         "@capacitor/haptics": "^8.0.0",
@@ -60,6 +61,8 @@
     "@capacitor/core": ["@capacitor/core@8.0.0", "", { "dependencies": { "tslib": "^2.1.0" } }, "sha512-250HTVd/W/KdMygoqaedisvNbHbpbQTN2Hy/8ZYGm1nAqE0Fx7sGss4l0nDg33STxEdDhtVRoL2fIaaiukKseA=="],
 
     "@capacitor/device": ["@capacitor/device@8.0.0", "", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-qFmlTDnAvUwIg93YUF3u3ovqpDFqUl2RFkf2dVIF8Py7vTA+GjQIHQWITcBKfeUENoVXPNn04t5nxg5mAkjNEA=="],
+
+    "@capacitor/dialog": ["@capacitor/dialog@8.0.0", "", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-ri19ISkWK89JHgVgR1JHZ4Yf6jzZHrXCMG4mqeiuUQqXXu6nw0uVBwEy9MwNQRw3Wlq/KboqLeIs1pQnOswqrQ=="],
 
     "@capacitor/filesystem": ["@capacitor/filesystem@8.0.0", "", { "dependencies": { "@capacitor/synapse": "^1.0.4" }, "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-RRGNLW9xEqvVVHGyGlfS4Oy0R3Na+bEefwZElKbex22S9eZr5cg8wc750BPPVwbcv5lf5fJymkY8x8y6UwKPyg=="],
 

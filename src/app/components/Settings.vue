@@ -89,9 +89,9 @@
       </div>
 
       <!-- Show Minimap Toggle -->
-      <div class="toggle-row" style="margin-top: 1rem;">
+      <div class="toggle-row">
         <div>
-          <div class="toggle-title">Show Minimap</div>
+          <div class="toggle-title">Show Mini-map</div>
           <div class="toggle-description">
             Display minimap in riding view during navigation
           </div>
@@ -103,6 +103,40 @@
           <div :class="['toggle-knob', { active: showMinimap }]" />
         </button>
       </div>
+
+      <!-- Show Minimap Toggle -->
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-title">Show Navigation Details</div>
+          <div class="toggle-description">
+            Always show navigation details
+          </div>
+        </div>
+        <button
+          @click="showDetailsOnNavigation = !showDetailsOnNavigation"
+          :class="['toggle-button', { active: showDetailsOnNavigation }]"
+        >
+          <div :class="['toggle-knob', { active: showDetailsOnNavigation }]" />
+        </button>
+      </div>
+
+      <!-- Voice Instruction -->
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-title">Voice Instructions</div>
+          <div class="toggle-description">
+            Enable turn-by-turn voice guidance during navigation
+          </div>
+        </div>
+        <button
+          @click="voiceInstructions = !voiceInstructions"
+          :class="['toggle-button', { active: voiceInstructions }]"
+        >
+          <div :class="['toggle-knob', { active: voiceInstructions }]" />
+        </button>
+      </div>
+      
     </div>
 
     <!-- Keep Screen On Toggle -->
@@ -123,6 +157,24 @@
       </div>
     </div>
 
+    <!-- Voice Instructions Toggle -->
+    <!-- <div class="setting-card">
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-title">Voice Instructions</div>
+          <div class="toggle-description">
+            Enable turn-by-turn voice guidance during navigation
+          </div>
+        </div>
+        <button
+          @click="voiceInstructions = !voiceInstructions"
+          :class="['toggle-button', { active: voiceInstructions }]"
+        >
+          <div :class="['toggle-knob', { active: voiceInstructions }]" />
+        </button>
+      </div>
+    </div> -->
+
     <!-- Skins Section (Coming Soon) -->
     <div class="setting-card coming-soon-card">
       <label class="setting-label">Skins</label>
@@ -139,6 +191,10 @@
       <h3 class="about-title">About</h3>
       <div class="about-content">
         <p>Modern TFT-style motorcycle dashboard application that transforms your phone into a comprehensive riding companion with real-time data visualization and navigation.</p>
+
+        <p class="free-badge">
+          <span class="bold">🎉 Free and always will be</span>
+        </p>
 
         <p class="data-sources-title">
           <span class="bold">Key Features:</span>
@@ -241,7 +297,7 @@ interface Props {
 defineProps<Props>()
 
 // Use shared settings state
-const { theme: settingsTheme, unit, keepScreenOn, avoidTolls, showMinimap, mapStyle } = useSettings()
+const { theme: settingsTheme, unit, keepScreenOn, avoidTolls, showMinimap, mapStyle, showDetailsOnNavigation, voiceInstructions } = useSettings()
 
 // Wallet address for donations
 const walletAddress = '37qjhJQno7bybHembmiCYcaTXGAauQompfjwS8ki2uz8'
@@ -446,6 +502,7 @@ const shareToInstagram = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-top: 1rem;
 }
 
 .toggle-title {
@@ -520,6 +577,20 @@ const shareToInstagram = () => {
   flex-direction: column;
   gap: 0.25rem;
   margin-left: 0.5rem;
+}
+
+.free-badge {
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.15));
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 0.5rem;
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.settings-container[data-theme="light"] .free-badge {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1));
+  border-color: rgba(34, 197, 94, 0.25);
 }
 
 .donation-section {

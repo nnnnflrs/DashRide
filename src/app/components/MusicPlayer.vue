@@ -27,8 +27,8 @@
           
           <div class="track-details">
             <h2 class="track-title">{{ currentTrack?.title || 'No Track' }}</h2>
-            <p class="track-artist">{{ currentTrack?.artist || 'Unknown Artist' }}</p>
-            <p class="track-album">{{ currentTrack?.album || 'Unknown Album' }}</p>
+            <p class="track-artist clickable" @click="showArtistTracks">{{ currentTrack?.artist || 'Unknown Artist' }}</p>
+            <p class="track-album clickable" @click="showAlbumTracks">{{ currentTrack?.album || 'Unknown Album' }}</p>
           </div>
 
           <button class="add-btn">
@@ -163,6 +163,37 @@
         </div>
       </div>
     </div>
+
+    <!-- Filtered Tracks Modal (Artist/Album) -->
+    <div v-if="showFilteredTracks" class="track-list-modal" @click="showFilteredTracks = false">
+      <div class="track-list-content" @click.stop>
+        <div class="track-list-header">
+          <h3>{{ filteredTracksTitle }} ({{ filteredTracks.length }} tracks)</h3>
+          <button @click="showFilteredTracks = false" class="close-btn">
+            <X class="close-icon" />
+          </button>
+        </div>
+        <div class="track-list-items">
+          <div
+            v-for="(track, index) in filteredTracks"
+            :key="index"
+            @click="handlePlayFilteredTrack(track)"
+            :class="['track-item', { active: currentTrack?.title === track.title && currentTrack?.artist === track.artist }]"
+          >
+            <Music class="track-item-icon" />
+            <div class="track-item-info">
+              <div class="track-item-title">{{ track.title }}</div>
+              <div class="track-item-artist">{{ track.artist }}</div>
+            </div>
+            <div v-if="currentTrack?.title === track.title && currentTrack?.artist === track.artist" class="playing-indicator">
+              <div class="wave"></div>
+              <div class="wave"></div>
+              <div class="wave"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -195,6 +226,7 @@ const {
   queueTracks,
   formatTime,
   selectAndPlayTrack,
+  setCustomQueue,
   togglePlay,
   nextTrack,
   previousTrack,
@@ -210,6 +242,9 @@ const {
 
 const showTrackList = ref(false)
 const showQueue = ref(false)
+const showFilteredTracks = ref(false)
+const filteredTracks = ref<Track[]>([])
+const filteredTracksTitle = ref('')
 const trackListContainer = ref<HTMLElement | null>(null)
 const currentTrackElement = ref<HTMLElement | null>(null)
 const removingTrackIndex = ref<number | null>(null)
@@ -298,6 +333,61 @@ const handleRemoveFromQueue = (queueIndex: number) => {
 const handlePlayFromQueue = async (queueIndex: number) => {
   await playFromQueue(queueIndex)
   showQueue.value = false;
+}
+
+const showArtistTracks = () => {
+  if (!currentTrack.value) return
+
+  // Filter tracks by current artist
+  filteredTracks.value = tracks.value.filter(track =>
+    track.artist === currentTrack.value!.artist
+  )
+  filteredTracksTitle.value = `Songs by ${currentTrack.value.artist}`
+  showFilteredTracks.value = true
+}
+
+const showAlbumTracks = () => {
+  if (!currentTrack.value) return
+
+  // Filter tracks by current album
+  filteredTracks.value = tracks.value.filter(track =>
+    track.album === currentTrack.value!.album &&
+    track.artist === currentTrack.value!.artist
+  )
+  filteredTracksTitle.value = `${currentTrack.value.album} by ${currentTrack.value.artist}`
+  showFilteredTracks.value = true
+}
+
+const handlePlayFilteredTrack = async (track: Track) => {
+  // Find the index of the clicked track in the full tracks array
+  const trackIndex = tracks.value.findIndex(t =>
+    t.title === track.title && t.artist === track.artist && t.album === track.album
+  )
+
+  if (trackIndex === -1) return
+
+  // Create a new queue based on filtered tracks
+  const filteredIndices = filteredTracks.value.map(filteredTrack =>
+    tracks.value.findIndex(t =>
+      t.title === filteredTrack.title &&
+      t.artist === filteredTrack.artist &&
+      t.album === filteredTrack.album
+    )
+  ).filter(index => index !== -1)
+
+  // Find position of clicked track in filtered list
+  const positionInFiltered = filteredIndices.indexOf(trackIndex)
+
+  // Reorder so clicked track is first, followed by rest of filtered tracks
+  const newQueue = [
+    trackIndex,
+    ...filteredIndices.slice(0, positionInFiltered),
+    ...filteredIndices.slice(positionInFiltered + 1)
+  ]
+
+  // Set the new queue and play the selected track
+  await setCustomQueue(newQueue, 0)
+  showFilteredTracks.value = false
 }
 
 onMounted(async () => {
@@ -485,6 +575,20 @@ onUnmounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: color 0.3s ease;
+}
+
+.track-artist.clickable,
+.track-album.clickable {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.track-artist.clickable:hover,
+.track-album.clickable:hover {
+  color: rgba(255, 255, 255, 1);
+  text-decoration-style: solid;
 }
 
 .track-album {

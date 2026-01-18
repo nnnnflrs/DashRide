@@ -117,12 +117,14 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Geolocation } from '@capacitor/geolocation'
 import { Navigation, X, Locate, LocateFixed } from 'lucide-vue-next'
+import { Capacitor } from '@capacitor/core'
 import { useSettings } from '../../composables/useSettings'
 import { useNavigation } from '../../composables/useNavigation'
-import { useSlope } from '../../composables/useSlope'
 import { GoogleMapsNative } from '../../plugins/googlemaps'
 import { GooglePlaces, type PlacePrediction, type PlaceDetails } from '../../plugins/googleplaces'
+import TextToSpeech from '../../plugins/texttospeech'
 import InfoPanel from './InfoPanel.vue'
+import { Dialog } from '@capacitor/dialog';
 
 interface Props {
   theme?: 'light' | 'dark'
@@ -159,6 +161,22 @@ let currentLocation = { lat: 0, lng: 0 }
 const nativeMarkers = new Map<string, string>()
 const isMapInitialized = ref(false)
 
+// TTS state - speed-adaptive announcement system
+const ttsEnabled = Capacitor.isNativePlatform() // Only enable TTS on native platforms
+const currentStepIndex = ref(0) // Track which navigation step we're on
+const lastAnnouncedStepIndex = ref(-1) // Track last announced step to avoid repetition
+let routeStepsData: any[] = [] // Store route steps for turn-by-turn
+
+// Speed-adaptive TTS state
+type AnnouncementState = {
+  early: boolean     // 12-15s and 300-400m before turn
+  final: boolean     // 4-6s and 60-80m before turn
+  immediate: boolean // ≤20m before turn
+}
+const announcedStepsAt = new Map<number, AnnouncementState>() // Track announcement states per step
+let currentSpeedMps = 0 // Current speed in meters per second
+const MIN_SPEED_MPS = 3 // Minimum speed for time calculations (3 m/s ≈ 10.8 km/h)
+
 // Dark mode map style
 const DARK_MAP_STYLE = JSON.stringify([
   { elementType: "geometry", stylers: [{ color: "#1d2c4d" }] },
@@ -190,7 +208,7 @@ const DARK_MAP_STYLE = JSON.stringify([
 ])
 
 // Get settings
-const { unit, avoidTolls, theme, mapStyle } = useSettings()
+const { unit, avoidTolls, theme, mapStyle, voiceInstructions } = useSettings()
 
 // Get navigation state
 const {
@@ -223,10 +241,10 @@ const applyMapStyle = async () => {
 
   try {
     if (mapStyle.value === 'dark') {
-      await GoogleMapsNative.setMapStyle({ style: DARK_MAP_STYLE })
+      await GoogleMapsNative.setMapStyle({ mapId: 'navigation', style: DARK_MAP_STYLE })
     } else {
       // Reset to default light style
-      await GoogleMapsNative.setMapStyle({ style: null })
+      await GoogleMapsNative.setMapStyle({ mapId: 'navigation', style: null })
     }
   } catch (err) {
     console.error('Error setting map style:', err)
@@ -237,6 +255,36 @@ const applyMapStyle = async () => {
 watch(mapStyle, () => {
   applyMapStyle()
 })
+
+// Watch for arrival (distance becomes 0 or very close to 0)
+let hasArrived = false
+watch(navRemainingDistance, (newDistance) => {
+  // Detect arrival: distance is less than 50 meters (0.05 km) or 0
+  if (!hasArrived && navIsNavigating.value && newDistance < 0.05 && newDistance >= 0) {
+    hasArrived = true
+    handleArrival()
+  }
+})
+
+// Handle user arrival at destination
+const handleArrival = async () => {
+
+  await Dialog.alert({
+    title: 'Success',
+    message: `You have arrived at ${navDestination.value}!`,
+  });
+
+  await GoogleMapsNative.clearRoute({ mapId: 'navigation' })
+  .catch(err => console.error('Error clearing route:', err))
+
+   await GoogleMapsNative.removeMarker({ mapId: 'navigation', id: 'destination' }).catch(err => console.error('Error removing destination marker:', err))
+
+    // Stop navigation - this will call stopNavigation() which handles cleanup
+    await stopNavigation()
+
+    // Reset arrival flag for next navigation
+    hasArrived = false
+}
 
 const getCurrentLocation = async () => {
   const position = await Geolocation.getCurrentPosition({
@@ -328,6 +376,7 @@ const selectPlace = async (prediction: PlacePrediction) => {
 
     // Add marker for selected place
     await GoogleMapsNative.addMarker({
+      mapId: 'navigation',
       id: 'destination',
       lat: placeDetails.location.lat,
       lng: placeDetails.location.lng,
@@ -337,6 +386,7 @@ const selectPlace = async (prediction: PlacePrediction) => {
 
     // Show the place on map
     await GoogleMapsNative.setCenter({
+      mapId: 'navigation',
       lat: placeDetails.location.lat,
       lng: placeDetails.location.lng,
       zoom: 15,
@@ -360,11 +410,11 @@ const clearSearch = () => {
   emit('update:isSearching', false)
 
   // Clear routes from map
-  GoogleMapsNative.clearRoute()
+  GoogleMapsNative.clearRoute({ mapId: 'navigation' })
     .catch(err => console.error('Error clearing routes:', err))
 
   // Remove destination marker
-  GoogleMapsNative.removeMarker({ id: 'destination' })
+  GoogleMapsNative.removeMarker({ mapId: 'navigation', id: 'destination' })
     .catch(err => console.error('Error removing marker:', err))
 
   // Reset route state
@@ -388,14 +438,16 @@ const initMap = async () => {
     currentLocation.lat = location.lat
     currentLocation.lng = location.lng
 
-    // Initialize native Google Maps
+    // Initialize native Google Maps with mapId
     await GoogleMapsNative.create({
+      mapId: 'navigation',
+      type: 'fullscreen',
       lat: currentLocation.lat,
       lng: currentLocation.lng,
       zoom: 17
     })
 
-    await GoogleMapsNative.show()
+    await GoogleMapsNative.show({ mapId: 'navigation' })
 
     // Mark map as initialized
     isMapInitialized.value = true
@@ -405,6 +457,7 @@ const initMap = async () => {
 
     // Add current location marker
     const result = await GoogleMapsNative.addMarker({
+      mapId: 'navigation',
       id: 'current-location',
       lat: currentLocation.lat,
       lng: currentLocation.lng,
@@ -462,6 +515,12 @@ const initMap = async () => {
         currentLocation.lat = newLocation.lat
         currentLocation.lng = newLocation.lng
 
+        // Update current speed for TTS timing calculations (convert to m/s if available)
+        if (position.coords.speed !== null && position.coords.speed !== undefined) {
+          currentSpeedMps = position.coords.speed // Already in m/s from Geolocation API
+          console.log(`GPS Speed: ${currentSpeedMps.toFixed(2)} m/s (${(currentSpeedMps * 3.6).toFixed(1)} km/h)`)
+        }
+
         // Get bearing/heading for rotation
         const bearing = position.coords.heading
         console.log(`GPS Bearing: ${bearing}`)
@@ -471,6 +530,7 @@ const initMap = async () => {
           // During navigation: use arrow marker with rotation
           console.log('Updating arrow marker during navigation')
           GoogleMapsNative.updateMarker({
+            mapId: 'navigation',
             id: 'current-location',
             lat: newLocation.lat,
             lng: newLocation.lng,
@@ -483,6 +543,7 @@ const initMap = async () => {
           // When not navigating: use blue dot marker
           console.log('Adding/updating dot marker (not navigating)')
           GoogleMapsNative.addMarker({
+            mapId: 'navigation',
             id: 'current-location',
             lat: newLocation.lat,
             lng: newLocation.lng,
@@ -495,6 +556,7 @@ const initMap = async () => {
         // Center map on location if following (always follow during navigation)
         if (isFollowingLocation.value || isNavigating.value) {
           GoogleMapsNative.setCenter({
+            mapId: 'navigation',
             lat: newLocation.lat,
             lng: newLocation.lng,
             zoom: isNavigating.value ? 19 : 17,
@@ -605,6 +667,7 @@ const zoomToShowRoutes = async () => {
 
     // Set camera to center with calculated zoom
     await GoogleMapsNative.setCenter({
+      mapId: 'navigation',
       lat: centerLat,
       lng: centerLng,
       zoom,
@@ -635,6 +698,7 @@ const drawAllRoutes = async () => {
     // Selected route: Bold blue (#1A73E8)
     // Alternative routes: Medium gray (#808080) - more visible than light gray
     await GoogleMapsNative.drawRoute({
+      mapId: 'navigation',
       points: points.map((p: any) => ({ lat: p.lat, lng: p.lng })),
       color: isSelected ? '#1A73E8' : '#808080',
       width: isSelected ? 14 : 10,
@@ -682,18 +746,124 @@ const selectRoute = async (routeIndex: number) => {
   selectedRouteIndex.value = routeIndex
 
   // Redraw all routes to update colors
-  await GoogleMapsNative.clearRoute()
+  await GoogleMapsNative.clearRoute({ mapId: 'navigation' })
   await drawAllRoutes()
 }
 
 const cancelRouteSelection = async () => {
   // Clear routes from map
-  await GoogleMapsNative.clearRoute()
+  await GoogleMapsNative.clearRoute({ mapId: 'navigation' })
 
   // Reset state
   showRouteCalculated.value = false
   availableRoutes.value = []
   selectedRouteIndex.value = 0
+}
+
+// Helper function to parse maneuver from Google Maps step
+const parseManeuver = (step: any): string => {
+  if (!step) return 'continue'
+
+  const instruction = step.html_instructions?.toLowerCase() || step.maneuver || ''
+
+  // Extract maneuver type from instruction or maneuver field
+  if (instruction.includes('turn left') || step.maneuver === 'turn-left') {
+    return 'turn left'
+  } else if (instruction.includes('turn right') || step.maneuver === 'turn-right') {
+    return 'turn right'
+  } else if (instruction.includes('slight left') || step.maneuver === 'turn-slight-left') {
+    return 'slight left'
+  } else if (instruction.includes('slight right') || step.maneuver === 'turn-slight-right') {
+    return 'slight right'
+  } else if (instruction.includes('sharp left') || step.maneuver === 'turn-sharp-left') {
+    return 'sharp left'
+  } else if (instruction.includes('sharp right') || step.maneuver === 'turn-sharp-right') {
+    return 'sharp right'
+  } else if (instruction.includes('u-turn') || instruction.includes('u turn') || step.maneuver === 'uturn-left' || step.maneuver === 'uturn-right') {
+    return 'make a u-turn'
+  } else if (instruction.includes('merge') || step.maneuver === 'merge') {
+    return 'merge'
+  } else if (instruction.includes('ramp') || step.maneuver === 'ramp-left' || step.maneuver === 'ramp-right') {
+    return 'take the ramp'
+  } else if (instruction.includes('roundabout') || step.maneuver?.includes('roundabout')) {
+    return 'enter the roundabout'
+  } else if (instruction.includes('keep left') || step.maneuver === 'keep-left') {
+    return 'keep left'
+  } else if (instruction.includes('keep right') || step.maneuver === 'keep-right') {
+    return 'keep right'
+  } else if (instruction.includes('straight') || step.maneuver === 'straight') {
+    return 'continue straight'
+  } else if (instruction.includes('ferry')) {
+    return 'take the ferry'
+  }
+
+  return 'continue'
+}
+
+// Helper to get road name from step
+const getRoadName = (step: any): string => {
+  if (!step || !step.html_instructions) return ''
+
+  // Try to extract road name from instructions
+  const match = step.html_instructions.match(/onto\s+<b>([^<]+)<\/b>/i) ||
+                step.html_instructions.match(/on\s+<b>([^<]+)<\/b>/i)
+
+  return match ? ` onto ${match[1]}` : ''
+}
+
+// Helper to get speed-adaptive distance threshold
+const getDistanceThreshold = (speedKmh: number, type: 'early' | 'final'): number => {
+  if (type === 'early') {
+    // Early warning distances based on speed
+    if (speedKmh < 20) return 200       // Slow speed: 200m
+    if (speedKmh < 60) return 400       // Medium speed: 400m
+    return 600                          // High speed: 600m
+  } else {
+    // Final instruction distances based on speed
+    if (speedKmh < 20) return 70        // Slow speed: 70m
+    if (speedKmh < 60) return 80        // Medium speed: 80m
+    return 100                          // High speed: 100m
+  }
+}
+
+const announceManeuver = async (
+  step: any,
+  distanceInMeters: number,
+  announcementType: 'early' | 'final' | 'immediate'
+) => {
+  if (!ttsEnabled || !voiceInstructions.value || !step) return
+
+  const maneuver = parseManeuver(step)
+  const roadName = getRoadName(step)
+
+  let announcement = ''
+
+  // Build announcement based on type
+  if (announcementType === 'early') {
+    // Early warning: announce with distance
+    const speedKmh = currentSpeedMps * 3.6
+    const threshold = getDistanceThreshold(speedKmh, 'early')
+
+    // Round to nearest 100m for clarity
+    const roundedDistance = Math.round(distanceInMeters / 100) * 100
+    announcement = `In ${roundedDistance} meters, ${maneuver}${roadName}`
+  } else if (announcementType === 'final') {
+    // Final instruction: announce with shorter distance
+    const roundedDistance = Math.round(distanceInMeters / 10) * 10 // Round to nearest 10m
+    announcement = `In ${roundedDistance} meters, ${maneuver}${roadName}`
+  } else {
+    // Immediate action
+    announcement = `${maneuver}${roadName} now`
+  }
+
+  if (announcement) {
+    try {
+      console.log(`TTS [${announcementType.toUpperCase()}]: "${announcement}" (actual distance: ${distanceInMeters.toFixed(0)}m, speed: ${(currentSpeedMps * 3.6).toFixed(1)} km/h)`)
+      await TextToSpeech.speak({ text: announcement, rate: 0.9 })
+    } catch (error) {
+      console.error('TTS error:', error)
+    }
+  }
 }
 
 const updateRouteProgress = async (currentLocation: { lat: number; lng: number }) => {
@@ -751,6 +921,141 @@ const updateRouteProgress = async (currentLocation: { lat: number; lng: number }
   // Update shared state
   navUpdateRemainingDistance(finalRemainingDist)
 
+  // Turn-by-turn voice announcement logic (speed-adaptive with dual thresholds)
+  if (ttsEnabled && voiceInstructions.value && routeStepsData.length > 0) {
+    // Check if we're close to destination (last 50 meters)
+    if (remainingDist < 50 && lastAnnouncedStepIndex.value !== -2) {
+      try {
+        await TextToSpeech.speak({ text: 'You have arrived at your destination', rate: 0.9 })
+        lastAnnouncedStepIndex.value = -2 // Special value to indicate arrival announced
+      } catch (error) {
+        console.error('TTS error:', error)
+      }
+      return
+    }
+
+    // Get current speed in km/h for threshold calculations
+    const currentSpeedKmh = currentSpeedMps * 3.6
+
+    // Calculate actual distance from current position to each step's start location
+    let foundStep = false
+
+    for (let i = currentStepIndex.value; i < routeStepsData.length; i++) {
+      const step = routeStepsData[i]
+
+      // Skip if no location data
+      if (!step.start_location) continue
+
+      // Calculate distance from current location to this step's start point
+      const distanceToStepStart = calculateDistance(
+        currentLocation.lat,
+        currentLocation.lng,
+        step.start_location.lat,
+        step.start_location.lng
+      )
+
+      // Calculate time to turn using: timeToTurn = distance / max(currentSpeed, minSpeed)
+      const effectiveSpeed = Math.max(currentSpeedMps, MIN_SPEED_MPS)
+      const timeToTurnSeconds = distanceToStepStart / effectiveSpeed
+
+      // If we're past this step (more than 30m away from its start), move to next step
+      if (distanceToStepStart > 30 && i === currentStepIndex.value) {
+        // Check if we might have passed this step
+        const distanceToStepEnd = step.end_location ? calculateDistance(
+          currentLocation.lat,
+          currentLocation.lng,
+          step.end_location.lat,
+          step.end_location.lng
+        ) : Infinity
+
+        // If we're closer to the end than the start, we've passed this step
+        if (distanceToStepEnd < distanceToStepStart) {
+          currentStepIndex.value++
+          announcedStepsAt.delete(i) // Clear announcements for passed step
+          continue
+        }
+      }
+
+      // We found the current step - check if we should announce
+      if (i === currentStepIndex.value) {
+        foundStep = true
+
+        // Get or initialize announcement state for this step
+        const state = announcedStepsAt.get(i) || { early: false, final: false, immediate: false }
+
+        // Check for complex maneuvers (next turn within 60m)
+        let hasComplexManeuver = false
+        if (i + 1 < routeStepsData.length) {
+          const nextStep = routeStepsData[i + 1]
+          if (nextStep.start_location && step.end_location) {
+            const distanceBetweenTurns = calculateDistance(
+              step.end_location.lat,
+              step.end_location.lng,
+              nextStep.start_location.lat,
+              nextStep.start_location.lng
+            )
+            hasComplexManeuver = distanceBetweenTurns < 60
+          }
+        }
+
+        // IMMEDIATE announcement: ≤20m
+        if (!state.immediate && distanceToStepStart <= 20) {
+          console.log(`Immediate announcement: ${distanceToStepStart.toFixed(0)}m`)
+          await announceManeuver(step, distanceToStepStart, 'immediate')
+          state.immediate = true
+          announcedStepsAt.set(i, state)
+        }
+        // FINAL announcement: 4-6 seconds AND appropriate distance
+        else if (!state.final && timeToTurnSeconds <= 6 && timeToTurnSeconds >= 4) {
+          const finalDistThreshold = getDistanceThreshold(currentSpeedKmh, 'final')
+
+          if (distanceToStepStart <= finalDistThreshold + 20 && distanceToStepStart >= finalDistThreshold - 20) {
+            console.log(`Final announcement: ${distanceToStepStart.toFixed(0)}m, ${timeToTurnSeconds.toFixed(1)}s`)
+
+            if (hasComplexManeuver) {
+              // Announce complex maneuver
+              const nextStep = routeStepsData[i + 1]
+              const nextManeuver = parseManeuver(nextStep)
+              const maneuver = parseManeuver(step)
+              const roadName = getRoadName(step)
+              const announcement = `${maneuver}${roadName}, then immediately ${nextManeuver}`
+
+              try {
+                await TextToSpeech.speak({ text: announcement, rate: 0.9 })
+                console.log(`TTS [FINAL-COMPLEX]: "${announcement}"`)
+              } catch (error) {
+                console.error('TTS error:', error)
+              }
+            } else {
+              await announceManeuver(step, distanceToStepStart, 'final')
+            }
+
+            state.final = true
+            announcedStepsAt.set(i, state)
+          }
+        }
+        // EARLY announcement: 12-15 seconds AND appropriate distance
+        else if (!state.early && timeToTurnSeconds <= 15 && timeToTurnSeconds >= 12) {
+          const earlyDistThreshold = getDistanceThreshold(currentSpeedKmh, 'early')
+
+          if (distanceToStepStart <= earlyDistThreshold + 50 && distanceToStepStart >= earlyDistThreshold - 50) {
+            console.log(`Early announcement: ${distanceToStepStart.toFixed(0)}m, ${timeToTurnSeconds.toFixed(1)}s`)
+            await announceManeuver(step, distanceToStepStart, 'early')
+            state.early = true
+            announcedStepsAt.set(i, state)
+          }
+        }
+
+        break // Found and processed current step
+      }
+    }
+
+    // If we didn't find a valid step, reset to search from beginning
+    if (!foundStep && currentStepIndex.value > 0) {
+      currentStepIndex.value = 0
+    }
+  }
+
   // Trim the route if we've moved past the first point
   if (closestIndex > 0) {
     console.log(`Trimming route: removing first ${closestIndex} points (up to closest), ${routePath.value.length} -> ${routePath.value.length - closestIndex}`)
@@ -763,7 +1068,7 @@ const updateRouteProgress = async (currentLocation: { lat: number; lng: number }
 
     // Redraw the route when trimming happens
     try {
-      await GoogleMapsNative.clearRoute()
+      await GoogleMapsNative.clearRoute({ mapId: 'navigation' })
       console.log('Route cleared for redraw after trimming')
 
       if (routePath.value.length > 0) {
@@ -774,6 +1079,7 @@ const updateRouteProgress = async (currentLocation: { lat: number; lng: number }
         ]
 
         await GoogleMapsNative.drawRoute({
+          mapId: 'navigation',
           points: routePoints,
           color: '#4285F4',
           width: 14
@@ -837,6 +1143,12 @@ const startNavigation = async () => {
   if (!showRouteCalculated.value || !selectedPlace.value || availableRoutes.value.length === 0) return
 
   try {
+    // Reset TTS state
+    currentStepIndex.value = 0
+    lastAnnouncedStepIndex.value = -1
+    announcedStepsAt.clear()
+    currentSpeedMps = 0 // Reset speed
+
     // Use already-tracked current location instead of requesting fresh position
     const currentLocationPos = {
       lat: currentLocation.lat,
@@ -852,9 +1164,24 @@ const startNavigation = async () => {
     // Get duration in seconds from the route
     const durationSeconds = selectedRoute.durationValue
 
-    // Start navigation with shared state (including ETA)
+    // Store route steps for turn-by-turn TTS
+    routeStepsData = selectedRoute.steps || []
+
+    // Start navigation with shared state (including ETA and route steps for turn-by-turn)
     const destName = selectedPlace.value.name || 'Destination'
-    navStartNavigation(destName, totalDist, durationSeconds)
+    navStartNavigation(destName, totalDist, durationSeconds, selectedRoute.steps)
+
+    // Announce navigation start
+    if (ttsEnabled && voiceInstructions.value) {
+      try {
+        await TextToSpeech.speak({
+          text: `Navigation started. Your destination is ${destName}. Total distance is ${totalDist.toFixed(1)} kilometers.`,
+          rate: 0.9
+        })
+      } catch (error) {
+        console.error('TTS error:', error)
+      }
+    }
 
     // Start navigation mode
     isNavigating.value = true
@@ -869,9 +1196,10 @@ const startNavigation = async () => {
     navUpdateRoutePath(routePath.value)
 
     // Replace current location marker with arrow marker
-    await GoogleMapsNative.removeMarker({ id: 'current-location' })
+    await GoogleMapsNative.removeMarker({ mapId: 'navigation', id: 'current-location' })
 
     await GoogleMapsNative.addMarker({
+      mapId: 'navigation',
       id: 'current-location',
       lat: currentLocationPos.lat,
       lng: currentLocationPos.lng,
@@ -882,10 +1210,11 @@ const startNavigation = async () => {
     })
 
     // Clear all other routes, keep only the selected one
-    await GoogleMapsNative.clearRoute()
+    await GoogleMapsNative.clearRoute({ mapId: 'navigation' })
 
     const points = decodePolyline(selectedRoute.polyline)
     await GoogleMapsNative.drawRoute({
+      mapId: 'navigation',
       points: points.map((p: any) => ({ lat: p.lat, lng: p.lng })),
       color: '#4285F4',
       width: 14
@@ -915,6 +1244,7 @@ const startNavigation = async () => {
 
     // Focus camera on current location with navigation view (tilt, zoom, bearing)
     await GoogleMapsNative.setCenter({
+      mapId: 'navigation',
       lat: currentLocationPos.lat,
       lng: currentLocationPos.lng,
       zoom: 19,
@@ -933,6 +1263,22 @@ const startNavigation = async () => {
 }
 
 const stopNavigation = async () => {
+  // Stop any ongoing TTS
+  if (ttsEnabled) {
+    try {
+      await TextToSpeech.stop()
+    } catch (error) {
+      console.error('Error stopping TTS:', error)
+    }
+  }
+
+  // Reset TTS state
+  currentStepIndex.value = 0
+  lastAnnouncedStepIndex.value = -1
+  announcedStepsAt.clear()
+  routeStepsData = []
+  currentSpeedMps = 0 // Reset speed
+
   // Clear ETA update interval
   if (etaUpdateInterval) {
     clearInterval(etaUpdateInterval)
@@ -946,7 +1292,7 @@ const stopNavigation = async () => {
   }
 
   // Clear the route
-  await GoogleMapsNative.clearRoute().catch(err => console.error('Error clearing route:', err))
+  await GoogleMapsNative.clearRoute({ mapId: 'navigation' }).catch(err => console.error('Error clearing route:', err))
 
   // Reset navigation state
   isNavigating.value = false
@@ -958,8 +1304,9 @@ const stopNavigation = async () => {
   isFollowingLocation.value = false
 
   // Replace arrow marker with blue dot marker
-  await GoogleMapsNative.removeMarker({ id: 'current-location' })
+  await GoogleMapsNative.removeMarker({ mapId: 'navigation', id: 'current-location' })
   await GoogleMapsNative.addMarker({
+    mapId: 'navigation',
     id: 'current-location',
     lat: currentLocation.lat,
     lng: currentLocation.lng,
@@ -991,6 +1338,7 @@ const centerOnCurrentLocation = async () => {
 
     // Center native map
     await GoogleMapsNative.setCenter({
+      mapId: 'navigation',
       lat: preciseLocation.lat,
       lng: preciseLocation.lng,
       zoom: 17,
@@ -1005,6 +1353,14 @@ onMounted(() => {
   initMap()
 })
 
+// Expose cleanup method for parent component
+defineExpose({
+  async cleanupNavigation() {
+    console.log('NavigationMap: Cleaning up navigation from parent call')
+    await stopNavigation()
+  }
+})
+
 onUnmounted(async () => {
   if (watchId) {
     Geolocation.clearWatch({ id: watchId })
@@ -1012,7 +1368,7 @@ onUnmounted(async () => {
 
   // Cleanup native map
   try {
-    await GoogleMapsNative.destroy()
+    await GoogleMapsNative.destroy({ mapId: 'navigation' })
   } catch (err) {
     console.error('Error destroying native map:', err)
   }
@@ -1466,5 +1822,28 @@ onUnmounted(async () => {
 .cancel-btn .nav-icon {
   width: 1.125rem;
   height: 1.125rem;
+}
+
+/* Test Arrival Button */
+.test-arrival-button {
+  position: absolute;
+  bottom: 2rem;
+  left: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: rgb(239, 68, 68);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s;
+}
+
+.test-arrival-button:hover {
+  background: rgb(220, 38, 38);
+  transform: scale(1.05);
 }
 </style>

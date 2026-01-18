@@ -471,8 +471,15 @@ export function useMusicPlayer() {
       }
     },
     onPause: async () => {
-      if (isPlaying.value) {
-        await togglePlay()
+      if (useNativeAudio) {
+        try {
+          await NativeAudio.pause({ assetId: AUDIO_ID })
+          isPlaying.value = false
+          stopProgressTracking()
+          updateMediaSession()
+        } catch (error) {
+          console.error('Failed to pause music:', error)
+        }
       }
     },
     onNext: async () => {
@@ -513,6 +520,21 @@ export function useMusicPlayer() {
     await playTrack(currentTrackIndex.value)
   }
 
+  // Set a custom queue and play from a specific track
+  const setCustomQueue = async (trackIndices: number[], startIndex: number = 0) => {
+    if (trackIndices.length === 0) return
+
+    // Set the custom queue
+    queue.value = trackIndices
+    queuePosition.value = startIndex
+
+    // Set current track to the track at start position
+    currentTrackIndex.value = trackIndices[startIndex]
+
+    // Play the track
+    await playTrack(currentTrackIndex.value)
+  }
+
   return {
     // State
     tracks,
@@ -533,6 +555,7 @@ export function useMusicPlayer() {
     formatTime,
     playTrack,
     selectAndPlayTrack,
+    setCustomQueue,
     togglePlay,
     nextTrack,
     previousTrack,

@@ -14,16 +14,21 @@
         <div v-show="activeTab === 'riding'" class="tab-content dashboard-view">
           <div class="dashboard-container">
             <!-- LEFT INFO - Overlaid on gauge in landscape, above speedometer in portrait -->
-            <div class="info-overlay info-left">
+            <div v-if="showDetailsOnNavigation || isNavigating" class="info-overlay info-left">
               <!-- Mini Map - Hidden when not navigating or disabled in settings -->
-              <div class="map-widget-small" :class="{ 'map-hidden': !isNavigating }">
+              <div class="map-widget-small" :class="{ 'map-hidden': isNavigating }">
                 <MiniMap
                   v-if="isNavigating && showMinimap"
                   :distance="remainingDistance"
                   :unit="unit"
-                  :currentLocation="currentLocation"
-                  :routePath="routePath"
-                  nextTurn="Main Street"
+                  :current-location="currentLocation"
+                  :route-path="routePath"
+                  :bearing="bearing"
+                  :next-turn="nextTurnInstruction"
+                  :map-style="mapStyle"
+                  :is-visible="activeTab === 'riding'"
+                  @expand="activeTab = 'nav'"
+                  @arrived="handleArrival"
                 />
               </div>
 
@@ -186,7 +191,7 @@
 
         <!-- Navigation Tab - Use v-show to preserve map state when switching tabs -->
         <div v-show="activeTab === 'nav'" class="tab-content map-tab">
-          <NavigationMap :theme="currentTheme" @update:isSearching="isSearchingLocation = $event" />
+          <NavigationMap ref="navigationMapRef" :theme="currentTheme" @update:isSearching="isSearchingLocation = $event" />
         </div>
 
         <!-- Music Tab - Use v-show to preserve music player state -->
@@ -234,6 +239,7 @@ import { useNavigation } from '../composables/useNavigation'
 import { useSlope } from '../composables/useSlope'
 import { Geolocation } from '@capacitor/geolocation'
 import { GoogleMapsNative } from '../plugins/googlemaps'
+import { Dialog } from '@capacitor/dialog';
 
 // Get music player state and controls
 const {
@@ -262,19 +268,47 @@ const closeMiniPlayer = () => {
 const { temperature, weatherData, isLoading: weatherLoading, error: weatherError } = useWeather()
 
 // Get navigation state
-const { isNavigating, remainingDistance, totalDistance: navTotalDistance, destination, formattedETA, routePath } = useNavigation()
+const { isNavigating, remainingDistance, totalDistance: navTotalDistance, destination, formattedETA, routePath, nextTurnInstruction, stopNavigation } = useNavigation()
 
 // Get slope calculation state
-const { currentSlope, formattedSlope, slopeDirection, updateSlope, resetSlope } = useSlope()
+const { formattedSlope, slopeDirection, updateSlope } = useSlope()
 
 // Navigation-specific duration tracking
 const navigationDuration = ref(0)
 let navigationInterval: number | null = null
 
+// Reference to NavigationMap component
+const navigationMapRef = ref<InstanceType<typeof NavigationMap> | null>(null)
+
 // Use ETA from navigation composable (gets updated from Google Directions API)
 const estimatedTimeOfArrival = computed(() => {
   return formattedETA.value || '--:--'
 })
+
+// Handle user arrival at destination
+const handleArrival = async () => {
+
+  await Dialog.alert({
+    title: 'Success',
+    message: `You have arrived at ${destination.value}!`,
+  });
+
+  // Clean up NavigationMap component state (routes, markers, etc.)
+  if (navigationMapRef.value) {
+    await navigationMapRef.value.cleanupNavigation()
+  }
+
+  // Stop navigation in shared state
+  stopNavigation()
+
+  // Clear the navigation interval
+  if (navigationInterval !== null) {
+    clearInterval(navigationInterval)
+    navigationInterval = null
+  }
+
+  navigationDuration.value = 0
+}
 
 interface TripData {
   distance: number
@@ -287,9 +321,9 @@ interface TripData {
 
 const speed = ref(0)
 const altitude = ref(0)
+const bearing = ref(0) // GPS heading/direction
 const isTracking = ref(false)
 const activeTab = ref<'nav' | 'music' | 'riding' | 'settings'>('riding')
-const riderName = useLocalStorage('riderName', 'Lennon Flores')
 const isSearchingLocation = ref(false)
 const currentLocation = ref<{ lat: number; lng: number } | null>(null)
 
@@ -299,7 +333,7 @@ let tooltipTimeout: number | null = null
 
 
 // Use shared settings state
-const { theme, unit, keepScreenOn, showMinimap } = useSettings()
+const { theme, unit, keepScreenOn, showMinimap, showDetailsOnNavigation, mapStyle } = useSettings()
 
 // Compute current theme based on selection
 const currentTheme = computed(() => {
@@ -660,6 +694,7 @@ const startTracking = async () => {
         const speedThreshold = unit.value === 'mph' ? 1.24 : 2
         speed.value = currentSpeed > speedThreshold ? currentSpeed : 0
         altitude.value = location.altitude || 0
+        bearing.value = location.bearing || 0
 
         // Update current location for MiniMap
         currentLocation.value = {
@@ -736,6 +771,7 @@ const startTracking = async () => {
           const speedThreshold = unit.value === 'mph' ? 1.24 : 2
           speed.value = currentSpeed > speedThreshold ? currentSpeed : 0
           altitude.value = position.coords.altitude || 0
+          bearing.value = position.coords.heading || 0
 
           // Update current location for MiniMap
           currentLocation.value = {
@@ -1168,6 +1204,7 @@ onUnmounted(() => {
   margin-bottom: 0.5rem;
   border-radius: 6px;
   overflow: hidden;
+  width: 100%; /* Full width of parent container */
 }
 
 .map-widget-small.map-hidden {
@@ -1591,10 +1628,6 @@ onUnmounted(() => {
     font-size: 0.95rem;
   }
   
-  .map-widget-small {
-    width: 80px;
-  }
-  
   .center-bottom-info {
     padding: 0.4rem 0.75rem;
     gap: 0.75rem;
@@ -1657,14 +1690,13 @@ onUnmounted(() => {
   }
 }
 
-@media (orientation: landscape) { 
-/* MiniMap */
-
-.info-overlay.info-left{
-  width: 25%;
-}
-  .map-widget-small{
-    width: 100%;
+@media (orientation: landscape) {
+/* Landscape mode - info overlay sizing and positioning */
+  .info-overlay.info-left {
+    width: 25%;
+    max-width: 240px;
+    bottom: 1rem; /* Push down from top instead of centering */
+    transform: translateY(0); 
   }
 }
 

@@ -17,6 +17,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(GoogleMapsPlugin.class);
         registerPlugin(GooglePlacesPlugin.class);
         registerPlugin(MediaSessionPlugin.class);
+        registerPlugin(TextToSpeechPlugin.class);
         super.onCreate(savedInstanceState);
     }
 
@@ -28,6 +29,17 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+
+        // Send pause event to JavaScript when app comes to foreground
+        try {
+            MediaSessionPlugin plugin = (MediaSessionPlugin) getBridge()
+                .getPlugin("MediaSession").getInstance();
+            if (plugin != null) {
+                plugin.sendPauseEvent();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error sending pause event", e);
+        }
     }
 
     @Override

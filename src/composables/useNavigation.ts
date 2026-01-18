@@ -8,15 +8,24 @@ const destination = ref<string>('')
 const estimatedTimeSeconds = ref(0) // ETA in seconds
 const startTime = ref<number>(0) // Start timestamp
 const routePath = ref<Array<{ lat: number; lng: number }>>([]) // Current route path
+const routeSteps = ref<Array<any>>([]) // Turn-by-turn steps from Google Directions API
+const nextTurnInstruction = ref<string>('') // Next turn instruction
 
 export function useNavigation() {
-  const startNavigation = (dest: string, totalDist: number, etaSeconds: number) => {
+  const startNavigation = (dest: string, totalDist: number, etaSeconds: number, steps?: Array<any>) => {
     isNavigating.value = true
     destination.value = dest
     totalDistance.value = totalDist
     remainingDistance.value = totalDist
     estimatedTimeSeconds.value = etaSeconds
     startTime.value = Date.now()
+
+    // Store route steps for turn-by-turn navigation
+    if (steps) {
+      routeSteps.value = steps
+      // Set first instruction
+      updateNextTurnInstruction()
+    }
   }
 
   const updateRemainingDistance = (distance: number) => {
@@ -31,6 +40,28 @@ export function useNavigation() {
     routePath.value = path
   }
 
+  const updateNextTurnInstruction = (currentLocation?: { lat: number; lng: number }) => {
+    if (!routeSteps.value || routeSteps.value.length === 0) {
+      nextTurnInstruction.value = ''
+      return
+    }
+
+    // Find the next step based on current location
+    // For now, use the first step with remaining distance
+    // In a full implementation, you'd calculate which step is closest ahead
+    const nextStep = routeSteps.value.find((step: any) => {
+      // Simple heuristic: find steps that haven't been passed yet
+      // This is simplified - production would need proper distance calculations
+      return true // Return first step for now
+    })
+
+    if (nextStep && nextStep.html_instructions) {
+      // Strip HTML tags from instruction
+      const instruction = nextStep.html_instructions.replace(/<[^>]*>/g, ' ').trim()
+      nextTurnInstruction.value = instruction
+    }
+  }
+
   const stopNavigation = () => {
     isNavigating.value = false
     totalDistance.value = 0
@@ -39,6 +70,8 @@ export function useNavigation() {
     estimatedTimeSeconds.value = 0
     startTime.value = 0
     routePath.value = []
+    routeSteps.value = []
+    nextTurnInstruction.value = ''
   }
 
   // Computed ETA as formatted time (12-hour format with AM/PM)
@@ -70,12 +103,15 @@ export function useNavigation() {
     destination,
     estimatedTimeSeconds,
     routePath,
+    routeSteps,
+    nextTurnInstruction,
     formattedETA,
     elapsedTime,
     startNavigation,
     updateRemainingDistance,
     updateEstimatedTime,
     updateRoutePath,
+    updateNextTurnInstruction,
     stopNavigation
   }
 }

@@ -15,6 +15,7 @@ export interface CameraPosition {
 }
 
 export interface MarkerOptions {
+  mapId?: string
   id?: string
   lat: number
   lng: number
@@ -23,9 +24,11 @@ export interface MarkerOptions {
   iconType?: 'default' | 'arrow' | 'dot'
   rotation?: number
   flat?: boolean
+  scale?: number // Scale factor for icon size (e.g., 0.5 for half size, 2 for double size)
 }
 
 export interface RouteOptions {
+  mapId?: string
   points: LatLng[]
   color?: string
   width?: number
@@ -36,12 +39,22 @@ export interface GoogleMapsNativePlugin {
   /**
    * Create and initialize the native map
    */
-  create(options: { lat: number; lng: number; zoom?: number }): Promise<{ success: boolean }>
+  create(options: {
+    mapId?: string
+    lat: number
+    lng: number
+    zoom?: number
+    type?: 'fullscreen' | 'minimap'
+    x?: number
+    y?: number
+    width?: number
+    height?: number
+  }): Promise<{ success: boolean }>
 
   /**
    * Set the map center with optional zoom, tilt, and bearing
    */
-  setCenter(options: CameraPosition): Promise<void>
+  setCenter(options: CameraPosition & { mapId?: string }): Promise<void>
 
   /**
    * Add a marker to the map
@@ -51,12 +64,12 @@ export interface GoogleMapsNativePlugin {
   /**
    * Remove a marker from the map
    */
-  removeMarker(options: { id: string }): Promise<void>
+  removeMarker(options: { mapId?: string; id: string }): Promise<void>
 
   /**
    * Update marker position and/or rotation
    */
-  updateMarker(options: { id: string; lat?: number; lng?: number; rotation?: number; flat?: boolean }): Promise<void>
+  updateMarker(options: { mapId?: string; id: string; lat?: number; lng?: number; rotation?: number; flat?: boolean }): Promise<void>
 
   /**
    * Draw a route on the map
@@ -66,7 +79,7 @@ export interface GoogleMapsNativePlugin {
   /**
    * Clear the current route
    */
-  clearRoute(): Promise<void>
+  clearRoute(options?: { mapId?: string }): Promise<void>
 
   /**
    * Update the existing route without clearing (no blink)
@@ -76,28 +89,28 @@ export interface GoogleMapsNativePlugin {
   /**
    * Set the map type
    */
-  setMapType(options: { type: 'normal' | 'satellite' | 'hybrid' | 'terrain' }): Promise<void>
+  setMapType(options: { mapId?: string; type: 'normal' | 'satellite' | 'hybrid' | 'terrain' }): Promise<void>
 
   /**
    * Show the map
    */
-  show(): Promise<void>
+  show(options?: { mapId?: string }): Promise<void>
 
   /**
    * Hide the map
    */
-  hide(): Promise<void>
+  hide(options?: { mapId?: string }): Promise<void>
 
   /**
    * Destroy the map and free resources
    */
-  destroy(): Promise<void>
+  destroy(options?: { mapId?: string }): Promise<void>
 
   /**
    * Set the map style (for theme support)
    * @param options.style - JSON string for map styling or null to reset to default
    */
-  setMapStyle(options: { style: string | null }): Promise<void>
+  setMapStyle(options: { mapId?: string; style: string | null }): Promise<void>
 
   /**
    * Add a listener for camera move started events (detects user gestures)

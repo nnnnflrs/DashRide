@@ -353,6 +353,11 @@ public class MediaSessionPlugin extends Plugin {
         return mediaSession;
     }
 
+    // Public method that MainActivity can call to send pause event
+    public void sendPauseEvent() {
+        notifyListener("pause", null);
+    }
+
     @Override
     protected void handleOnDestroy() {
         if (mediaSession != null) {

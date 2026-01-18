@@ -8,6 +8,8 @@ export function useSettings() {
   const avoidTolls = useLocalStorage('avoidTolls', true)
   const showMinimap = useLocalStorage('showMinimap', true)
   const mapStyle = useLocalStorage<'dark' | 'light'>('mapStyle', 'light')
+  const showDetailsOnNavigation = useLocalStorage('showDetailsOnNavigation', true)
+  const voiceInstructions = useLocalStorage('voiceInstructions', true)
 
   return {
     theme,
@@ -15,6 +17,8 @@ export function useSettings() {
     keepScreenOn,
     avoidTolls,
     showMinimap,
-    mapStyle
+    mapStyle,
+    showDetailsOnNavigation,
+    voiceInstructions
   }
 }

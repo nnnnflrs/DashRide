@@ -109,13 +109,12 @@ const displaySpeed = computed(() => testMode.value ? testSpeed.value : props.spe
 const maxSpeed = computed(() => props.unit === 'mph' ? 140 : 220)
 const speedPercentage = computed(() => Math.min((displaySpeed.value / maxSpeed.value), 1))
 
-// Color based on speed percentage
+// Color based on actual speed value (km/h)
 const gaugeColor = computed(() => {
-  const percentage = speedPercentage.value * 100
-  if (percentage < 40) return '#22c55e' // Green
-  if (percentage < 60) return '#eab308' // Yellow
-  if (percentage < 80) return '#f97316' // Orange
-  return '#ef4444' // Red
+  const speed = displaySpeed.value
+  if (speed < 60) return '#22c55e' // Green (0-60 km/h)
+  if (speed < 90) return '#f97316' // Orange (60-80 km/h)
+  return '#ef4444' // Red (80+ km/h)
 })
 
 const gaugeGlow = computed(() => {

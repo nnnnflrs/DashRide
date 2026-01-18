@@ -3,6 +3,7 @@ package com.motorcycle.dashride.ph;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -62,12 +63,15 @@ import java.util.Map;
 )
 public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
     private static final String TAG = "GoogleMapsPlugin";
-    private MapView mapView;
-    private GoogleMap googleMap;
-    private FrameLayout mapContainer;
-    private Map<String, Marker> markers = new HashMap<>();
-    private Polyline routePolyline;
-    private List<Polyline> routePolylines = new ArrayList<>();
+
+    // Multi-map instance support
+    private Map<String, MapView> mapViews = new HashMap<>();
+    private Map<String, GoogleMap> googleMaps = new HashMap<>();
+    private Map<String, FrameLayout> mapContainers = new HashMap<>();
+    private Map<String, Map<String, Marker>> markersMap = new HashMap<>();
+    private Map<String, List<Polyline>> routePolylinesMap = new HashMap<>();
+    private String currentMapIdInitializing; // Track which map is being initialized
+
     private Handler mainHandler;
 
     // Location tracking
@@ -86,6 +90,8 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
     public void create(PluginCall call) {
         Log.d(TAG, "create() called");
 
+        String mapId = call.getString("mapId", "default");
+        String type = call.getString("type", "fullscreen");
         double lat = call.getDouble("lat", 0.0);
         double lng = call.getDouble("lng", 0.0);
         int zoom = call.getInt("zoom", 15);
@@ -93,42 +99,117 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
         mainHandler.post(() -> {
             try {
                 // Create MapView
-                mapView = new MapView(getContext());
+                MapView mapView = new MapView(getContext());
                 mapView.onCreate(null);
                 mapView.onResume();
 
                 // Create container for the map
-                mapContainer = new FrameLayout(getContext());
+                FrameLayout mapContainer = new FrameLayout(getContext());
 
                 // Get the WebView's position and size to match its bounds
                 android.view.View webView = getBridge().getWebView();
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                );
+                FrameLayout.LayoutParams containerParams;
+                FrameLayout.LayoutParams mapViewParams;
 
-                mapContainer.setLayoutParams(params);
+                if ("minimap".equals(type)) {
+                    // Minimap: use exact bounds from JavaScript if provided
+                    Float x = call.getFloat("x");
+                    Float y = call.getFloat("y");
+                    Float width = call.getFloat("width");
+                    Float height = call.getFloat("height");
 
-                // Add mapView to container
-                mapContainer.addView(mapView);
+                    int widthPx;
+                    int heightPx;
+                    int leftMarginPx;
+                    int topMarginPx;
 
-                // Add container to the bridge's web view parent at index 0 (behind WebView)
+                    // Only use JS bounds if they are valid (greater than 0)
+                    // getBoundingClientRect returns 0 for elements not in layout
+                    if (width != null && height != null && width > 0 && height > 0) {
+                        // Use exact pixel values from JavaScript getBoundingClientRect
+                        widthPx = Math.round(width);
+                        heightPx = Math.round(height);
+                        leftMarginPx = (x != null && x > 0) ? Math.round(x) : dpToPx(16);
+                        topMarginPx = (y != null && y > 0) ? Math.round(y) : dpToPx(16);
+                        Log.d(TAG, "Using JS bounds: x=" + leftMarginPx + ", y=" + topMarginPx +
+                              ", width=" + widthPx + ", height=" + heightPx);
+                    } else {
+                        // Fallback to default dp values when bounds are invalid
+                        widthPx = dpToPx(230);
+                        heightPx = dpToPx(180);  // Reduced height for better fit
+                        leftMarginPx = dpToPx(30);
+                        topMarginPx = dpToPx(50);
+                        Log.d(TAG, "Using default dp bounds (JS bounds were invalid or zero)");
+                    }
+
+                    // Container params with positioning
+                    containerParams = new FrameLayout.LayoutParams(widthPx, heightPx);
+                    containerParams.leftMargin = leftMarginPx;
+                    containerParams.topMargin = topMarginPx;
+                    containerParams.gravity = android.view.Gravity.TOP | android.view.Gravity.LEFT;
+
+                    // MapView params to fill container
+                    mapViewParams = new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    );
+                } else {
+                    // Fullscreen: match parent
+                    containerParams = new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    );
+
+                    mapViewParams = new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    );
+                }
+
+                // Add mapView to container with specific layout params
+                mapContainer.addView(mapView, mapViewParams);
+
+                // Enable clipping for minimap to prevent overflow
+                if ("minimap".equals(type)) {
+                    mapContainer.setClipToOutline(true);
+                    mapContainer.setClipChildren(true);
+                }
+
+                // Add container to the bridge's web view parent
                 ViewGroup bridgeView = (ViewGroup) getBridge().getWebView().getParent();
-                bridgeView.addView(mapContainer, 0);
+
+                if ("minimap".equals(type)) {
+                    // Minimap: add as overlay with specific layout params
+                    bridgeView.addView(mapContainer, containerParams);
+                } else {
+                    // Fullscreen: add at index 0 (behind WebView) with params
+                    bridgeView.addView(mapContainer, 0, containerParams);
+                }
 
                 // Make WebView background transparent so map shows through
                 webView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
                 webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
 
                 // Intercept touch events and pass them to the native map
-                webView.setOnTouchListener((v, event) -> {
-                    // Pass all touch events to the native map container
-                    if (mapContainer != null && mapContainer.getVisibility() == android.view.View.VISIBLE) {
-                        mapContainer.dispatchTouchEvent(event);
-                    }
-                    // Return false to let WebView also handle the touch for UI elements
-                    return false;
-                });
+                if ("fullscreen".equals(type)) {
+                    webView.setOnTouchListener((v, event) -> {
+                        // Pass all touch events to the native map container
+                        if (mapContainer != null && mapContainer.getVisibility() == android.view.View.VISIBLE) {
+                            mapContainer.dispatchTouchEvent(event);
+                        }
+                        // Return false to let WebView also handle the touch for UI elements
+                        return false;
+                    });
+                }
+
+                // Store references in HashMaps
+                mapViews.put(mapId, mapView);
+                mapContainers.put(mapId, mapContainer);
+                markersMap.put(mapId, new HashMap<>());
+                routePolylinesMap.put(mapId, new ArrayList<>());
+
+                // Track which map is being initialized
+                currentMapIdInitializing = mapId;
 
                 // Get the map asynchronously
                 mapView.getMapAsync(this);
@@ -137,11 +218,13 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                 call.getData().put("initialLat", lat);
                 call.getData().put("initialLng", lng);
                 call.getData().put("initialZoom", zoom);
+                call.getData().put("mapId", mapId);
+                call.getData().put("type", type);
 
                 // Store call for later resolution
                 saveCall(call);
 
-                Log.d(TAG, "MapView created successfully");
+                Log.d(TAG, "MapView created successfully for mapId: " + mapId + ", type: " + type);
             } catch (Exception e) {
                 Log.e(TAG, "Error creating map", e);
                 call.reject("Failed to create map: " + e.getMessage());
@@ -149,38 +232,60 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
         });
     }
 
+    private int dpToPx(int dp) {
+        return (int) (dp * getContext().getResources().getDisplayMetrics().density);
+    }
+
     @Override
     public void onMapReady(GoogleMap map) {
-        Log.d(TAG, "onMapReady() called");
-        this.googleMap = map;
+        Log.d(TAG, "onMapReady() called for mapId: " + currentMapIdInitializing);
+
+        // Store the map instance with its ID
+        String mapId = currentMapIdInitializing;
+        googleMaps.put(mapId, map);
 
         try {
-            // Enable ALL gestures including rotation and tilt
-            googleMap.getUiSettings().setRotateGesturesEnabled(true);
-            googleMap.getUiSettings().setTiltGesturesEnabled(true);
-            googleMap.getUiSettings().setZoomGesturesEnabled(true);
-            googleMap.getUiSettings().setScrollGesturesEnabled(true);
-            googleMap.getUiSettings().setCompassEnabled(true);
-            googleMap.getUiSettings().setMyLocationButtonEnabled(false);
-            googleMap.getUiSettings().setMapToolbarEnabled(false);
-            googleMap.getUiSettings().setAllGesturesEnabled(true);
-
-            // Enable 3D buildings for better rotation visualization
-            googleMap.setBuildingsEnabled(true);
-            googleMap.setIndoorEnabled(true);
-
-            // Set map type to normal (supports 3D buildings)
-            googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
-
-            // Add padding to move compass and zoom controls away from info panel
-            // Padding: left, top, right, bottom (in pixels)
-            // Top padding: 400px to avoid info panel
-            // Right padding: 20px for margin
-            // Bottom padding: 180px to keep controls above locate button
-            googleMap.setPadding(0, 400, 20, 180);
-
             // Get saved call
             PluginCall call = getSavedCall();
+            String type = "fullscreen";
+
+            if (call != null) {
+                String callType = call.getString("type");
+                if (callType != null) {
+                    type = callType;
+                }
+            }
+
+            if ("minimap".equals(type)) {
+                // Minimap configuration: disable gestures, no UI controls
+                map.getUiSettings().setAllGesturesEnabled(false);
+                map.getUiSettings().setCompassEnabled(false);
+                map.getUiSettings().setMyLocationButtonEnabled(false);
+                map.getUiSettings().setMapToolbarEnabled(false);
+                map.getUiSettings().setZoomControlsEnabled(false);
+                map.setBuildingsEnabled(true);
+                map.setIndoorEnabled(false);
+                map.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+                // No padding for minimap
+                map.setPadding(0, 0, 0, 0);
+            } else {
+                // Fullscreen configuration: enable all gestures
+                map.getUiSettings().setRotateGesturesEnabled(true);
+                map.getUiSettings().setTiltGesturesEnabled(true);
+                map.getUiSettings().setZoomGesturesEnabled(true);
+                map.getUiSettings().setScrollGesturesEnabled(true);
+                map.getUiSettings().setCompassEnabled(true);
+                map.getUiSettings().setMyLocationButtonEnabled(false);
+                map.getUiSettings().setMapToolbarEnabled(false);
+                map.getUiSettings().setAllGesturesEnabled(true);
+                map.setBuildingsEnabled(true);
+                map.setIndoorEnabled(true);
+                map.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+                // Add padding to move compass and zoom controls away from info panel
+                map.setPadding(0, 400, 20, 180);
+            }
+
+            // Get saved call and set initial camera position
             if (call != null) {
                 try {
                     double lat = call.getData().getDouble("initialLat");
@@ -195,65 +300,72 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                         .bearing(0)
                         .build();
 
-                    googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+                    map.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
 
                     JSObject result = new JSObject();
                     result.put("success", true);
                     call.resolve(result);
-                    Log.d(TAG, "Map initialized successfully");
+                    Log.d(TAG, "Map initialized successfully for mapId: " + mapId);
                 } catch (JSONException e) {
                     Log.e(TAG, "Error getting initial position", e);
                     call.reject("Error initializing map");
                 }
             }
 
-            // Set up listeners for map events
-            setupMapListeners();
+            // Set up listeners for map events (only for fullscreen)
+            if ("fullscreen".equals(type)) {
+                setupMapListeners(mapId);
+            }
 
         } catch (Exception e) {
             Log.e(TAG, "Error in onMapReady", e);
         }
     }
 
-    private void setupMapListeners() {
-        if (googleMap == null) return;
+    private void setupMapListeners(String mapId) {
+        GoogleMap map = googleMaps.get(mapId);
+        if (map == null) return;
 
         // Listen for camera move start to detect user gestures
-        googleMap.setOnCameraMoveStartedListener(reason -> {
+        map.setOnCameraMoveStartedListener(reason -> {
             // REASON_GESTURE = 1 means user initiated the move (drag, pinch, rotate, tilt)
             if (reason == GoogleMap.OnCameraMoveStartedListener.REASON_GESTURE) {
                 JSObject data = new JSObject();
                 data.put("gesture", true);
+                data.put("mapId", mapId);
                 notifyListeners("cameraMoveStarted", data);
             }
         });
 
         // Listen for camera changes (rotation, tilt, zoom, pan)
-        googleMap.setOnCameraMoveListener(() -> {
-            CameraPosition position = googleMap.getCameraPosition();
+        map.setOnCameraMoveListener(() -> {
+            CameraPosition position = map.getCameraPosition();
             JSObject data = new JSObject();
             data.put("lat", position.target.latitude);
             data.put("lng", position.target.longitude);
             data.put("zoom", position.zoom);
             data.put("tilt", position.tilt);
             data.put("bearing", position.bearing);
+            data.put("mapId", mapId);
             notifyListeners("cameraMove", data);
         });
 
         // Listen for map clicks
-        googleMap.setOnMapClickListener(latLng -> {
+        map.setOnMapClickListener(latLng -> {
             JSObject data = new JSObject();
             data.put("lat", latLng.latitude);
             data.put("lng", latLng.longitude);
+            data.put("mapId", mapId);
             notifyListeners("mapClick", data);
         });
 
         // Listen for polyline clicks
-        googleMap.setOnPolylineClickListener(polyline -> {
+        map.setOnPolylineClickListener(polyline -> {
             Object tag = polyline.getTag();
             if (tag != null) {
                 JSObject data = new JSObject();
                 data.put("routeIndex", (Integer) tag);
+                data.put("mapId", mapId);
                 notifyListeners("polylineClick", data);
             }
         });
@@ -261,8 +373,11 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
 
     @PluginMethod
     public void setCenter(PluginCall call) {
-        if (googleMap == null) {
-            call.reject("Map not initialized");
+        String mapId = call.getString("mapId", "default");
+        GoogleMap map = googleMaps.get(mapId);
+
+        if (map == null) {
+            call.reject("Map not initialized for mapId: " + mapId);
             return;
         }
 
@@ -285,9 +400,9 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                 CameraPosition cameraPosition = builder.build();
 
                 if (animate) {
-                    googleMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+                    map.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
                 } else {
-                    googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+                    map.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
                 }
 
                 call.resolve();
@@ -300,8 +415,11 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
 
     @PluginMethod
     public void addMarker(PluginCall call) {
-        if (googleMap == null) {
-            call.reject("Map not initialized");
+        String mapId = call.getString("mapId", "default");
+        GoogleMap map = googleMaps.get(mapId);
+
+        if (map == null) {
+            call.reject("Map not initialized for mapId: " + mapId);
             return;
         }
 
@@ -313,9 +431,17 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
         String iconType = call.getString("iconType", "default");
         Float rotation = call.getFloat("rotation");
         Boolean flat = call.getBoolean("flat");
+        Float scale = call.getFloat("scale"); // Scale factor for icon size
 
         mainHandler.post(() -> {
             try {
+                // Get markers map for this map instance
+                Map<String, Marker> markers = markersMap.get(mapId);
+                if (markers == null) {
+                    markers = new HashMap<>();
+                    markersMap.put(mapId, markers);
+                }
+
                 // Remove existing marker with same ID to prevent duplicates
                 Marker existingMarker = markers.get(id);
                 if (existingMarker != null) {
@@ -338,11 +464,24 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                           .anchor(0.5f, 0.5f); // Center the dot
                 } else if ("arrow".equals(iconType)) {
                     // Use arrow PNG resource for navigation
-                    options.icon(BitmapDescriptorFactory.fromResource(
-                            getContext().getResources().getIdentifier("up_arrow", "drawable", getContext().getPackageName())
-                          ))
-                          .anchor(0.5f, 0.5f) // Center the arrow
-                          .flat(flat != null ? flat : true); // Flat by default for navigation arrows
+                    int arrowResId = getContext().getResources().getIdentifier("up_arrow", "drawable", getContext().getPackageName());
+
+                    // If scale is provided, create a scaled bitmap
+                    if (scale != null && scale > 0) {
+                        Bitmap originalBitmap = BitmapFactory.decodeResource(getContext().getResources(), arrowResId);
+                        int scaledWidth = Math.round(originalBitmap.getWidth() * scale);
+                        int scaledHeight = Math.round(originalBitmap.getHeight() * scale);
+                        Bitmap scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, scaledWidth, scaledHeight, true);
+                        options.icon(BitmapDescriptorFactory.fromBitmap(scaledBitmap))
+                              .anchor(0.5f, 0.5f) // Center the arrow
+                              .flat(flat != null ? flat : true);
+                        originalBitmap.recycle(); // Free memory
+                    } else {
+                        // Use original size
+                        options.icon(BitmapDescriptorFactory.fromResource(arrowResId))
+                              .anchor(0.5f, 0.5f) // Center the arrow
+                              .flat(flat != null ? flat : true);
+                    }
 
                     // Apply rotation if provided
                     if (rotation != null) {
@@ -362,7 +501,7 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                     }
                 }
 
-                Marker marker = googleMap.addMarker(options);
+                Marker marker = map.addMarker(options);
                 markers.put(id, marker);
 
                 JSObject result = new JSObject();
@@ -377,35 +516,51 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
 
     @PluginMethod
     public void removeMarker(PluginCall call) {
+        String mapId = call.getString("mapId", "default");
         String id = call.getString("id");
+
         if (id == null) {
             call.reject("Marker ID required");
             return;
         }
 
         mainHandler.post(() -> {
-            Marker marker = markers.get(id);
-            if (marker != null) {
-                marker.remove();
-                markers.remove(id);
-                call.resolve();
+            Map<String, Marker> markers = markersMap.get(mapId);
+            if (markers != null) {
+                Marker marker = markers.get(id);
+                if (marker != null) {
+                    marker.remove();
+                    markers.remove(id);
+                    call.resolve();
+                } else {
+                    call.reject("Marker not found");
+                }
             } else {
-                call.reject("Marker not found");
+                call.reject("Map not found");
             }
         });
     }
 
     @PluginMethod
     public void updateMarker(PluginCall call) {
+        String mapId = call.getString("mapId", "default");
         String id = call.getString("id");
+
         if (id == null) {
             call.reject("Marker ID required");
             return;
         }
 
-        Log.d(TAG, "updateMarker called for id: " + id);
+        Log.d(TAG, "updateMarker called for mapId: " + mapId + ", id: " + id);
 
         mainHandler.post(() -> {
+            Map<String, Marker> markers = markersMap.get(mapId);
+            if (markers == null) {
+                Log.e(TAG, "Map not found: " + mapId);
+                call.reject("Map not found");
+                return;
+            }
+
             Marker marker = markers.get(id);
             if (marker == null) {
                 Log.e(TAG, "Marker not found: " + id);
@@ -446,8 +601,11 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
 
     @PluginMethod
     public void drawRoute(PluginCall call) {
-        if (googleMap == null) {
-            call.reject("Map not initialized");
+        String mapId = call.getString("mapId", "default");
+        GoogleMap map = googleMaps.get(mapId);
+
+        if (map == null) {
+            call.reject("Map not initialized for mapId: " + mapId);
             return;
         }
 
@@ -478,14 +636,20 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                     .geodesic(true)
                     .clickable(true);
 
-                Polyline polyline = googleMap.addPolyline(polylineOptions);
+                Polyline polyline = map.addPolyline(polylineOptions);
 
                 // Set tag for route identification
                 if (routeIndex != null) {
                     polyline.setTag(routeIndex);
                 }
 
-                routePolylines.add(polyline);
+                // Get or create polyline list for this map
+                List<Polyline> polylines = routePolylinesMap.get(mapId);
+                if (polylines == null) {
+                    polylines = new ArrayList<>();
+                    routePolylinesMap.put(mapId, polylines);
+                }
+                polylines.add(polyline);
 
                 call.resolve();
             } catch (Exception e) {
@@ -497,19 +661,18 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
 
     @PluginMethod
     public void clearRoute(PluginCall call) {
-        mainHandler.post(() -> {
-            // Clear all polylines from the list
-            for (Polyline polyline : routePolylines) {
-                if (polyline != null) {
-                    polyline.remove();
-                }
-            }
-            routePolylines.clear();
+        String mapId = call.getString("mapId", "default");
 
-            // Also clear old single polyline if exists (for backwards compatibility)
-            if (routePolyline != null) {
-                routePolyline.remove();
-                routePolyline = null;
+        mainHandler.post(() -> {
+            List<Polyline> polylines = routePolylinesMap.get(mapId);
+            if (polylines != null) {
+                // Clear all polylines from the list
+                for (Polyline polyline : polylines) {
+                    if (polyline != null) {
+                        polyline.remove();
+                    }
+                }
+                polylines.clear();
             }
             call.resolve();
         });
@@ -517,8 +680,11 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
 
     @PluginMethod
     public void updateRoute(PluginCall call) {
-        if (googleMap == null) {
-            call.reject("Map not initialized");
+        String mapId = call.getString("mapId", "default");
+        GoogleMap map = googleMaps.get(mapId);
+
+        if (map == null) {
+            call.reject("Map not initialized for mapId: " + mapId);
             return;
         }
 
@@ -538,10 +704,18 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                     routePoints.add(new LatLng(lat, lng));
                 }
 
+                // Get polylines list for this map
+                List<Polyline> polylines = routePolylinesMap.get(mapId);
+                if (polylines == null) {
+                    polylines = new ArrayList<>();
+                    routePolylinesMap.put(mapId, polylines);
+                }
+
                 // Update existing polyline if it exists, otherwise create new one
+                Polyline routePolyline = polylines.isEmpty() ? null : polylines.get(0);
                 if (routePolyline != null) {
                     routePolyline.setPoints(routePoints);
-                    Log.d(TAG, "Updated route polyline with " + routePoints.size() + " points");
+                    Log.d(TAG, "Updated route polyline with " + routePoints.size() + " points for mapId: " + mapId);
                 } else {
                     // Create new polyline if it doesn't exist
                     String color = call.getString("color", "#4285F4");
@@ -554,8 +728,9 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                         .geodesic(true)
                         .clickable(false);
 
-                    routePolyline = googleMap.addPolyline(polylineOptions);
-                    Log.d(TAG, "Created new route polyline with " + routePoints.size() + " points");
+                    routePolyline = map.addPolyline(polylineOptions);
+                    polylines.add(routePolyline);
+                    Log.d(TAG, "Created new route polyline with " + routePoints.size() + " points for mapId: " + mapId);
                 }
 
                 call.resolve();
@@ -568,8 +743,11 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
 
     @PluginMethod
     public void setMapType(PluginCall call) {
-        if (googleMap == null) {
-            call.reject("Map not initialized");
+        String mapId = call.getString("mapId", "default");
+        GoogleMap map = googleMaps.get(mapId);
+
+        if (map == null) {
+            call.reject("Map not initialized for mapId: " + mapId);
             return;
         }
 
@@ -591,15 +769,18 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                     mapType = GoogleMap.MAP_TYPE_NORMAL;
             }
 
-            googleMap.setMapType(mapType);
+            map.setMapType(mapType);
             call.resolve();
         });
     }
 
     @PluginMethod
     public void setMapStyle(PluginCall call) {
-        if (googleMap == null) {
-            call.reject("Map not initialized");
+        String mapId = call.getString("mapId", "default");
+        GoogleMap map = googleMaps.get(mapId);
+
+        if (map == null) {
+            call.reject("Map not initialized for mapId: " + mapId);
             return;
         }
 
@@ -609,15 +790,15 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
             try {
                 if (style == null || style.isEmpty() || style.equals("null")) {
                     // Reset to default style
-                    googleMap.setMapStyle(null);
-                    Log.d(TAG, "Map style reset to default");
+                    map.setMapStyle(null);
+                    Log.d(TAG, "Map style reset to default for mapId: " + mapId);
                 } else {
                     // Apply custom style
-                    boolean success = googleMap.setMapStyle(new MapStyleOptions(style));
+                    boolean success = map.setMapStyle(new MapStyleOptions(style));
                     if (success) {
-                        Log.d(TAG, "Map style applied successfully");
+                        Log.d(TAG, "Map style applied successfully for mapId: " + mapId);
                     } else {
-                        Log.w(TAG, "Map style parsing failed");
+                        Log.w(TAG, "Map style parsing failed for mapId: " + mapId);
                     }
                 }
                 call.resolve();
@@ -630,52 +811,87 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
 
     @PluginMethod
     public void show(PluginCall call) {
+        String mapId = call.getString("mapId", "default");
+
         mainHandler.post(() -> {
-            if (mapContainer != null) {
-                mapContainer.setVisibility(View.VISIBLE);
+            FrameLayout container = mapContainers.get(mapId);
+            if (container != null) {
+                container.setVisibility(View.VISIBLE);
+
+                // Only bring to front if it's a minimap (overlay), not fullscreen
+                if ("minimap".equals(mapId)) {
+                    container.bringToFront();
+                }
 
                 // Ensure WebView remains transparent
                 getBridge().getWebView().setBackgroundColor(android.graphics.Color.TRANSPARENT);
 
                 call.resolve();
+                Log.d(TAG, "Map shown for mapId: " + mapId);
             } else {
-                call.reject("Map not created");
+                call.reject("Map not created for mapId: " + mapId);
             }
         });
     }
 
     @PluginMethod
     public void hide(PluginCall call) {
+        String mapId = call.getString("mapId", "default");
+
         mainHandler.post(() -> {
-            if (mapContainer != null) {
-                mapContainer.setVisibility(View.GONE);
+            FrameLayout container = mapContainers.get(mapId);
+            if (container != null) {
+                container.setVisibility(View.GONE);
                 call.resolve();
             } else {
-                call.reject("Map not created");
+                call.reject("Map not created for mapId: " + mapId);
             }
         });
     }
 
     @PluginMethod
     public void destroy(PluginCall call) {
+        String mapId = call.getString("mapId", "default");
+
         mainHandler.post(() -> {
             try {
+                MapView mapView = mapViews.get(mapId);
                 if (mapView != null) {
                     mapView.onPause();
                     mapView.onDestroy();
+                    mapViews.remove(mapId);
                 }
 
+                FrameLayout mapContainer = mapContainers.get(mapId);
                 if (mapContainer != null && mapContainer.getParent() != null) {
                     ((ViewGroup) mapContainer.getParent()).removeView(mapContainer);
+                    mapContainers.remove(mapId);
                 }
 
-                markers.clear();
-                googleMap = null;
-                mapView = null;
-                mapContainer = null;
-                routePolyline = null;
+                // Clear markers for this map
+                Map<String, Marker> markers = markersMap.get(mapId);
+                if (markers != null) {
+                    markers.clear();
+                    markersMap.remove(mapId);
+                }
+
+                // Clear polylines for this map
+                List<Polyline> polylines = routePolylinesMap.get(mapId);
+                if (polylines != null) {
+                    for (Polyline polyline : polylines) {
+                        if (polyline != null) {
+                            polyline.remove();
+                        }
+                    }
+                    polylines.clear();
+                    routePolylinesMap.remove(mapId);
+                }
+
+                // Remove map instance
+                googleMaps.remove(mapId);
 
                 call.resolve();
+                Log.d(TAG, "Map destroyed for mapId: " + mapId);
             } catch (Exception e) {
                 Log.e(TAG, "Error destroying map", e);
                 call.reject("Failed to destroy map: " + e.getMessage());
@@ -731,24 +947,30 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
     @Override
     protected void handleOnPause() {
         super.handleOnPause();
-        if (mapView != null) {
-            mapView.onPause();
+        for (MapView mapView : mapViews.values()) {
+            if (mapView != null) {
+                mapView.onPause();
+            }
         }
     }
 
     @Override
     protected void handleOnResume() {
         super.handleOnResume();
-        if (mapView != null) {
-            mapView.onResume();
+        for (MapView mapView : mapViews.values()) {
+            if (mapView != null) {
+                mapView.onResume();
+            }
         }
     }
 
     @Override
     protected void handleOnDestroy() {
         super.handleOnDestroy();
-        if (mapView != null) {
-            mapView.onDestroy();
+        for (MapView mapView : mapViews.values()) {
+            if (mapView != null) {
+                mapView.onDestroy();
+            }
         }
     }
 
