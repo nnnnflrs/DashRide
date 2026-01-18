@@ -13,57 +13,121 @@
         <!-- Riding Tab -->
         <div v-show="activeTab === 'riding'" class="tab-content dashboard-view">
           <div class="dashboard-container">
-            <!-- CENTER - MASSIVE SPEEDOMETER with overlaid info -->
-            <div class="gauge-wrapper">
-              <SpeedometerGauge :speed="speed" :unit="unit" :class="{ 'with-music-container': showMiniPlayer }" />
-              
-              <!-- LEFT INFO - Overlaid on gauge -->
-              <div class="info-overlay info-left">
-                <!-- Mini Map - Hidden when not navigating but space reserved -->
-                <div class="map-widget-small" :class="{ 'map-hidden': !isNavigating }">
-                  <MiniMap v-if="isNavigating" :distance="remainingDistance" :unit="unit" nextTurn="Main Street" />
+            <!-- LEFT INFO - Overlaid on gauge in landscape, above speedometer in portrait -->
+            <div class="info-overlay info-left">
+              <!-- Mini Map - Hidden when not navigating or disabled in settings -->
+              <div class="map-widget-small" :class="{ 'map-hidden': !isNavigating }">
+                <MiniMap
+                  v-if="isNavigating && showMinimap"
+                  :distance="remainingDistance"
+                  :unit="unit"
+                  :currentLocation="currentLocation"
+                  :routePath="routePath"
+                  nextTurn="Main Street"
+                />
+              </div>
+
+              <div class="info-items-row">
+                <!-- Destination Name -->
+                <div class="info-item" @click="showTooltip('Destination')">
+                  <MapPin class="info-icon" />
+                  <span class="info-value" :class="{ 'marquee': destination && destination.length > 20 }">
+                    <span class="marquee-content">{{ destination || 'No destination' }}</span>
+                  </span>
+                  <div v-if="activeTooltip === 'Destination'" class="info-tooltip">Destination</div>
                 </div>
 
                 <!-- ETA - Show estimated time of arrival -->
-                <div class="info-item">
+                <div class="info-item" @click="showTooltip('Estimated Arrival')">
                   <Clock class="info-icon" />
-                  <div class="info-text">
-                    <div class="info-label">Estimated Arrival</div>
-                    <div class="info-sublabel">{{ estimatedTimeOfArrival }}</div>
-                  </div>
+                  <span class="info-value">{{ estimatedTimeOfArrival }}</span>
+                  <div v-if="activeTooltip === 'Estimated Arrival'" class="info-tooltip">Estimated Arrival</div>
                 </div>
 
-                <!-- Navigation Distance - Only show during navigation -->
-                <div class="info-item">
-                  <MapPin class="info-icon" />
-                  <div class="info-text">
-                    <div class="info-label">To Destination</div>
-                    <div class="info-sublabel">{{ remainingDistance.toFixed(1) ?? 0 }} km</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- RIGHT INFO - Overlaid on gauge -->
-              <div class="info-overlay info-right">
-                <!-- Duration - Only show during navigation -->
-                <div v-if="isNavigating" class="info-item" @click="showTooltip('Duration')">
+                <!-- Duration - Navigation trip time -->
+                <div class="info-item" @click="showTooltip('Duration')">
                   <Timer class="info-icon" />
                   <span class="info-value">{{ formattedTripTime }}</span>
                   <div v-if="activeTooltip === 'Duration'" class="info-tooltip">Duration</div>
                 </div>
 
-                <!-- Average Speed -->
-                <div class="info-item" @click="showTooltip('Average Speed')">
-                  <TrendingUp class="info-icon" />
-                  <span class="info-value">{{ avgSpeed.toFixed(1) }} {{ unit === 'mph' ? 'mph' : 'km/h' }}</span>
-                  <div v-if="activeTooltip === 'Average Speed'" class="info-tooltip">Average Speed</div>
+                <!-- Total Distance -->
+                <div class="info-item" @click="showTooltip('Total Distance')">
+                  <Target class="info-icon" />
+                  <span class="info-value">{{ navTotalDistance.toFixed(1) }} km</span>
+                  <div v-if="activeTooltip === 'Total Distance'" class="info-tooltip">Total Distance</div>
                 </div>
 
-                <!-- Maximum Speed -->
-                <div class="info-item" @click="showTooltip('Maximum Speed')">
+                <!-- Remaining Distance - Only show during navigation -->
+                <div class="info-item" @click="showTooltip('Remaining Distance')">
+                  <Navigation class="info-icon" />
+                  <span class="info-value">{{ remainingDistance.toFixed(1) ?? 0 }} km</span>
+                  <div v-if="activeTooltip === 'Remaining Distance'" class="info-tooltip">Remaining Distance</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CENTER - MASSIVE SPEEDOMETER with overlaid info -->
+            <div class="gauge-wrapper">
+              <SpeedometerGauge :speed="speed" :unit="unit" :class="{ 'with-music-container': showMiniPlayer }" />
+
+              <!-- RIGHT INFO - Overlaid on gauge -->
+              <div class="info-overlay info-right">
+                <!-- Average Speed (with reset on long-press) -->
+                <div
+                  class="info-item"
+                  :class="{ 'resetting': isResettingAvg }"
+                  @touchstart="startReset('avg')"
+                  @touchend="cancelReset('avg')"
+                  @touchcancel="cancelReset('avg')"
+                  @mousedown="startReset('avg')"
+                  @mouseup="cancelReset('avg')"
+                  @mouseleave="cancelReset('avg')"
+                  @click="showTooltip('Average Speed')"
+                >
+                  <TrendingUp class="info-icon" />
+                  <span class="info-value">{{ avgSpeed.toFixed(1) }} {{ unit === 'mph' ? 'mph' : 'km/h' }}</span>
+                  <div v-if="activeTooltip === 'Average Speed' && !isResettingAvg" class="info-tooltip">Average Speed</div>
+                  <div v-if="isResettingAvg" class="info-tooltip reset-tooltip">Hold to reset average speed</div>
+                  <div v-if="isResettingAvg" class="reset-progress" :style="{ width: resetProgressAvg + '%' }"></div>
+                </div>
+
+                <!-- Maximum Speed (with reset on long-press) -->
+                <div
+                  class="info-item"
+                  :class="{ 'resetting': isResettingMax }"
+                  @touchstart="startReset('max')"
+                  @touchend="cancelReset('max')"
+                  @touchcancel="cancelReset('max')"
+                  @mousedown="startReset('max')"
+                  @mouseup="cancelReset('max')"
+                  @mouseleave="cancelReset('max')"
+                  @click="showTooltip('Maximum Speed')"
+                >
                   <Zap class="info-icon" />
                   <span class="info-value">{{ tripData.maxSpeed.toFixed(1) }} {{ unit === 'mph' ? 'mph' : 'km/h' }}</span>
-                  <div v-if="activeTooltip === 'Maximum Speed'" class="info-tooltip">Maximum Speed</div>
+                  <div v-if="activeTooltip === 'Maximum Speed' && !isResettingMax" class="info-tooltip">Maximum Speed</div>
+                  <div v-if="isResettingMax" class="info-tooltip reset-tooltip">Hold to reset max speed</div>
+                  <div v-if="isResettingMax" class="reset-progress" :style="{ width: resetProgressMax + '%' }"></div>
+                </div>
+
+                <!-- Trip (with reset on long-press) -->
+                <div
+                  class="info-item"
+                  :class="{ 'resetting': isResettingTrip }"
+                  @touchstart="startReset('trip')"
+                  @touchend="cancelReset('trip')"
+                  @touchcancel="cancelReset('trip')"
+                  @mousedown="startReset('trip')"
+                  @mouseup="cancelReset('trip')"
+                  @mouseleave="cancelReset('trip')"
+                  @click="showTooltip('Trip')"
+                >
+                  <Route class="info-icon" />
+                  <span class="info-value">{{ tripData.distance.toFixed(1) }} {{ unit === 'mph' ? 'mi' : 'km' }}</span>
+                  <div v-if="activeTooltip === 'Trip' && !isResettingTrip" class="info-tooltip">Trip</div>
+                  <div v-if="isResettingTrip" class="info-tooltip reset-tooltip">Hold to reset trip</div>
+                  <div v-if="isResettingTrip" class="reset-progress" :style="{ width: resetProgressTrip + '%' }"></div>
                 </div>
 
                 <!-- Altitude -->
@@ -73,18 +137,18 @@
                   <div v-if="activeTooltip === 'Altitude'" class="info-tooltip">Altitude</div>
                 </div>
 
-                <!-- Slope/Gradient -->
-                <div class="info-item" @click="showTooltip('Slope/Gradient')">
+                <!-- Slope -->
+                <div class="info-item" @click="showTooltip('Slope')">
                   <component :is="slopeIcon" :class="['info-icon', slopeColorClass]" />
                   <span class="info-value">{{ formattedSlope }}</span>
-                  <div v-if="activeTooltip === 'Slope/Gradient'" class="info-tooltip">Slope/Gradient</div>
+                  <div v-if="activeTooltip === 'Slope'" class="info-tooltip">Slope</div>
                 </div>
 
                 <!-- Weather -->
-                <div class="info-item" @click="showTooltip('Temperature')">
+                <div class="info-item" @click="showTooltip('Weather')">
                   <component :is="weatherIcon" class="info-icon weather" />
                   <span class="info-value">{{ temperature }}°C</span>
-                  <div v-if="activeTooltip === 'Temperature'" class="info-tooltip">Temperature</div>
+                  <div v-if="activeTooltip === 'Weather'" class="info-tooltip">Weather</div>
                 </div>
               </div>
 
@@ -152,8 +216,9 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { IonApp } from '@ionic/vue'
 import { useLocalStorage } from '@vueuse/core'
 import { toast } from 'vue-sonner'
-import { Clock, MapPin, Timer, Sun, Cloud, CloudRain, Music, TrendingUp, TrendingDown, Minus, Zap, Mountain, Play, Pause, SkipBack, SkipForward, X } from 'lucide-vue-next'
+import { Clock, MapPin,Target, Navigation , Timer, Sun, Cloud, CloudRain, Music, TrendingUp, TrendingDown, Minus, Zap, Mountain, Play, Pause, SkipBack, SkipForward, X, Route } from 'lucide-vue-next'
 import { StatusBar as CapStatusBar } from '@capacitor/status-bar'
+import { Haptics, ImpactStyle } from '@capacitor/haptics'
 import { Capacitor } from '@capacitor/core'
 import SpeedometerGauge from './components/SpeedometerGauge.vue'
 import StatusBar from './components/StatusBar.vue'
@@ -168,6 +233,7 @@ import { useSettings } from '../composables/useSettings'
 import { useNavigation } from '../composables/useNavigation'
 import { useSlope } from '../composables/useSlope'
 import { Geolocation } from '@capacitor/geolocation'
+import { GoogleMapsNative } from '../plugins/googlemaps'
 
 // Get music player state and controls
 const {
@@ -196,7 +262,7 @@ const closeMiniPlayer = () => {
 const { temperature, weatherData, isLoading: weatherLoading, error: weatherError } = useWeather()
 
 // Get navigation state
-const { isNavigating, remainingDistance, totalDistance: navTotalDistance, destination, formattedETA } = useNavigation()
+const { isNavigating, remainingDistance, totalDistance: navTotalDistance, destination, formattedETA, routePath } = useNavigation()
 
 // Get slope calculation state
 const { currentSlope, formattedSlope, slopeDirection, updateSlope, resetSlope } = useSlope()
@@ -225,6 +291,7 @@ const isTracking = ref(false)
 const activeTab = ref<'nav' | 'music' | 'riding' | 'settings'>('riding')
 const riderName = useLocalStorage('riderName', 'Lennon Flores')
 const isSearchingLocation = ref(false)
+const currentLocation = ref<{ lat: number; lng: number } | null>(null)
 
 // Tooltip state
 const activeTooltip = ref<string | null>(null)
@@ -232,7 +299,7 @@ let tooltipTimeout: number | null = null
 
 
 // Use shared settings state
-const { theme, unit, keepScreenOn } = useSettings()
+const { theme, unit, keepScreenOn, showMinimap } = useSettings()
 
 // Compute current theme based on selection
 const currentTheme = computed(() => {
@@ -255,8 +322,8 @@ const tripData = useLocalStorage<TripData>('tripData', {
   totalDistance: 230,
 })
 
-let watchId: number | null = null
-let lastPosition: GeolocationPosition | null = null
+let watchId: string | null = null
+let lastPosition: any = null
 let tripInterval: number | null = null
 let wakeLock: any = null
 
@@ -272,7 +339,7 @@ onMounted(async () => {
     try {
       await CapStatusBar.hide()
     } catch (error) {
-      alert('Status bar hide failed')
+      console.log("Status bar hide failed'")
     }  
 
   startTracking();
@@ -291,9 +358,194 @@ onUnmounted(() => {
   if (navigationInterval) clearInterval(navigationInterval)
 })
 
-const avgSpeed = computed(() => 
+const avgSpeed = computed(() =>
   tripData.value.speedSamples > 0 ? tripData.value.totalSpeed / tripData.value.speedSamples : 0
 )
+
+// Reset functionality for speed stats - separate for avg and max
+const isResettingAvg = ref(false)
+const resetProgressAvg = ref(0)
+let resetTimerAvg: number | null = null
+let resetProgressIntervalAvg: number | null = null
+
+const isResettingMax = ref(false)
+const resetProgressMax = ref(0)
+let resetTimerMax: number | null = null
+let resetProgressIntervalMax: number | null = null
+
+const isResettingTrip = ref(false)
+const resetProgressTrip = ref(0)
+let resetTimerTrip: number | null = null
+let resetProgressIntervalTrip: number | null = null
+
+const startReset = (type: 'avg' | 'max' | 'trip') => {
+  const duration = 2000 // 2 seconds
+  const delayBeforeShow = 300 // 300ms delay before showing reset UI
+
+  if (type === 'avg') {
+    resetProgressAvg.value = 0
+
+    // Delay before showing reset UI to allow click events to fire
+    setTimeout(() => {
+      if (resetTimerAvg !== null) { // Only show if still holding
+        isResettingAvg.value = true
+      }
+    }, delayBeforeShow)
+
+    const startTime = Date.now()
+
+    // Update progress bar
+    resetProgressIntervalAvg = window.setInterval(() => {
+      const elapsed = Date.now() - startTime
+      resetProgressAvg.value = Math.min((elapsed / duration) * 100, 100)
+    }, 50)
+
+    // Trigger haptic feedback
+    try {
+      Haptics.impact({ style: ImpactStyle.Light })
+    } catch (error) {
+      console.log('Haptics not available')
+    }
+
+    // Set timer to reset after 2 seconds
+    resetTimerAvg = window.setTimeout(() => {
+      // Reset average speed statistics only
+      tripData.value = {
+        ...tripData.value,
+        totalSpeed: 0,
+        speedSamples: 0
+      }
+
+      // Strong haptic feedback on reset
+      try {
+        Haptics.impact({ style: ImpactStyle.Heavy })
+      } catch (error) {
+        console.log('Haptics not available')
+      }
+
+      isResettingAvg.value = false
+      resetProgressAvg.value = 0
+    }, duration)
+  } else if (type === 'max') {
+    resetProgressMax.value = 0
+
+    // Delay before showing reset UI to allow click events to fire
+    setTimeout(() => {
+      if (resetTimerMax !== null) { // Only show if still holding
+        isResettingMax.value = true
+      }
+    }, delayBeforeShow)
+
+    const startTime = Date.now()
+
+    // Update progress bar
+    resetProgressIntervalMax = window.setInterval(() => {
+      const elapsed = Date.now() - startTime
+      resetProgressMax.value = Math.min((elapsed / duration) * 100, 100)
+    }, 50)
+
+    // Trigger haptic feedback
+    try {
+      Haptics.impact({ style: ImpactStyle.Light })
+    } catch (error) {
+      console.log('Haptics not available')
+    }
+
+    // Set timer to reset after 2 seconds
+    resetTimerMax = window.setTimeout(() => {
+      // Reset max speed only
+      tripData.value = {
+        ...tripData.value,
+        maxSpeed: 0
+      }
+
+      // Strong haptic feedback on reset
+      try {
+        Haptics.impact({ style: ImpactStyle.Heavy })
+      } catch (error) {
+        console.log('Haptics not available')
+      }
+
+      isResettingMax.value = false
+      resetProgressMax.value = 0
+    }, duration)
+  } else if (type === 'trip') {
+    resetProgressTrip.value = 0
+
+    // Delay before showing reset UI to allow click events to fire
+    setTimeout(() => {
+      if (resetTimerTrip !== null) { // Only show if still holding
+        isResettingTrip.value = true
+      }
+    }, delayBeforeShow)
+
+    const startTime = Date.now()
+
+    resetProgressIntervalTrip = window.setInterval(() => {
+      const elapsed = Date.now() - startTime
+      resetProgressTrip.value = Math.min((elapsed / duration) * 100, 100)
+    }, 50)
+
+    try {
+      Haptics.impact({ style: ImpactStyle.Light })
+    } catch (error) {
+      console.log('Haptics not available')
+    }
+
+    resetTimerTrip = window.setTimeout(() => {
+      tripData.value = {
+        ...tripData.value,
+        distance: 0
+      }
+
+      try {
+        Haptics.impact({ style: ImpactStyle.Heavy })
+      } catch (error) {
+        console.log('Haptics not available')
+      }
+
+      isResettingTrip.value = false
+      resetProgressTrip.value = 0
+    }, duration)
+  }
+}
+
+const cancelReset = (type: 'avg' | 'max' | 'trip') => {
+  if (type === 'avg') {
+    if (resetTimerAvg) {
+      clearTimeout(resetTimerAvg)
+      resetTimerAvg = null
+    }
+    if (resetProgressIntervalAvg) {
+      clearInterval(resetProgressIntervalAvg)
+      resetProgressIntervalAvg = null
+    }
+    isResettingAvg.value = false
+    resetProgressAvg.value = 0
+  } else if (type === 'max') {
+    if (resetTimerMax) {
+      clearTimeout(resetTimerMax)
+      resetTimerMax = null
+    }
+    if (resetProgressIntervalMax) {
+      clearInterval(resetProgressIntervalMax)
+      resetProgressIntervalMax = null
+    }
+    isResettingMax.value = false
+    resetProgressMax.value = 0
+  } else if (type === 'trip') {
+    if (resetTimerTrip) {
+      clearTimeout(resetTimerTrip)
+      resetTimerTrip = null
+    }
+    if (resetProgressIntervalTrip) {
+      clearInterval(resetProgressIntervalTrip)
+      resetProgressIntervalTrip = null
+    }
+    isResettingTrip.value = false
+    resetProgressTrip.value = 0
+  }
+}
 
 const formattedTripTime = computed(() => {
   const hours = Math.floor(navigationDuration.value / 3600)
@@ -391,81 +643,162 @@ watch(isNavigating, (navigating) => {
 })
 
 const startTracking = async () => {
-  if (!navigator.geolocation) {
-    toast.error('Geolocation is not supported')
-    return
-  }
+  try {
+    // On Android, use native Google Maps location tracking for better speed accuracy
+    if (Capacitor.getPlatform() === 'android') {
+      // Start native location tracking
+      await GoogleMapsNative.startLocationTracking()
 
-  const options = await Geolocation.getCurrentPosition({
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 5000
-    })
+      // Listen for location updates
+      await GoogleMapsNative.addListener('locationUpdate', (location) => {
+        const speedMps = location.speed || 0
+        const speedKmh = speedMps * 3.6
+        const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
 
-  watchId = navigator.geolocation.watchPosition(
-    (position) => {
-      const speedMps = position.coords.speed || 0
-      const speedKmh = speedMps * 3.6
-      const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
+        // Apply speed threshold to filter out GPS noise when stationary
+        // Speeds below 2 km/h (1.24 mph) are considered stationary
+        const speedThreshold = unit.value === 'mph' ? 1.24 : 2
+        speed.value = currentSpeed > speedThreshold ? currentSpeed : 0
+        altitude.value = location.altitude || 0
 
-      speed.value = Math.max(0, currentSpeed)
-      altitude.value = position.coords.altitude || 0
+        // Update current location for MiniMap
+        currentLocation.value = {
+          lat: location.latitude,
+          lng: location.longitude
+        }
 
-      // Update slope calculation with GPS data
-      updateSlope(
-        position.coords.latitude,
-        position.coords.longitude,
-        position.coords.altitude || 0,
-        speedKmh, // Use km/h for slope calculation
-        position.coords.accuracy
-      )
-
-      tripData.value = {
-        ...tripData.value,
-        maxSpeed: Math.max(tripData.value.maxSpeed, currentSpeed),
-        totalSpeed: tripData.value.totalSpeed + currentSpeed,
-        speedSamples: tripData.value.speedSamples + 1,
-      }
-
-      if (lastPosition && currentSpeed > 0.5) {
-        const distance = calculateDistance(
-          lastPosition.coords.latitude,
-          lastPosition.coords.longitude,
-          position.coords.latitude,
-          position.coords.longitude
+        // Update slope calculation with GPS data
+        updateSlope(
+          location.latitude,
+          location.longitude,
+          location.altitude || 0,
+          speedKmh,
+          location.accuracy
         )
 
         tripData.value = {
           ...tripData.value,
-          distance: tripData.value.distance + distance,
+          maxSpeed: Math.max(tripData.value.maxSpeed, currentSpeed),
+          totalSpeed: tripData.value.totalSpeed + currentSpeed,
+          speedSamples: tripData.value.speedSamples + 1,
+        }
+
+        if (lastPosition && currentSpeed > 0.5) {
+          const distance = calculateDistance(
+            lastPosition.latitude,
+            lastPosition.longitude,
+            location.latitude,
+            location.longitude
+          )
+
+          tripData.value = {
+            ...tripData.value,
+            distance: tripData.value.distance + distance,
+          }
+        }
+
+        lastPosition = location
+      })
+
+      watchId = 'native' // Mark as using native tracking
+    } else {
+      // iOS and web: use Capacitor Geolocation
+      const permission = await Geolocation.checkPermissions()
+      if (permission.location !== 'granted') {
+        const requested = await Geolocation.requestPermissions()
+        if (requested.location !== 'granted') {
+          toast.error('Location permission denied')
+          return
         }
       }
 
-      lastPosition = position
-    },
-    (error) => {
-      console.error('GPS error:', error)
-      if (error.code === error.PERMISSION_DENIED) {
-        toast.error('Location permission denied')
-      }
-    },
-    options
-  )
+      watchId = await Geolocation.watchPosition(
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 5000
+        },
+        (position, err) => {
+          if (err) {
+            console.error('GPS error:', err)
+            toast.error('GPS error: ' + err.message)
+            return
+          }
 
-  tripInterval = window.setInterval(() => {
-    tripData.value = {
-      ...tripData.value,
-      duration: tripData.value.duration + 1,
+          if (!position) return
+
+          const speedMps = position.coords.speed || 0
+          const speedKmh = speedMps * 3.6
+          const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
+
+          // Apply speed threshold to filter out GPS noise when stationary
+          // Speeds below 2 km/h (1.24 mph) are considered stationary
+          const speedThreshold = unit.value === 'mph' ? 1.24 : 2
+          speed.value = currentSpeed > speedThreshold ? currentSpeed : 0
+          altitude.value = position.coords.altitude || 0
+
+          // Update current location for MiniMap
+          currentLocation.value = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          }
+
+          updateSlope(
+            position.coords.latitude,
+            position.coords.longitude,
+            position.coords.altitude || 0,
+            speedKmh,
+            position.coords.accuracy
+          )
+
+          tripData.value = {
+            ...tripData.value,
+            maxSpeed: Math.max(tripData.value.maxSpeed, currentSpeed),
+            totalSpeed: tripData.value.totalSpeed + currentSpeed,
+            speedSamples: tripData.value.speedSamples + 1,
+          }
+
+          if (lastPosition && currentSpeed > 0.5) {
+            const distance = calculateDistance(
+              lastPosition.coords.latitude,
+              lastPosition.coords.longitude,
+              position.coords.latitude,
+              position.coords.longitude
+            )
+
+            tripData.value = {
+              ...tripData.value,
+              distance: tripData.value.distance + distance,
+            }
+          }
+
+          lastPosition = position
+        }
+      )
     }
-  }, 1000)
 
-  isTracking.value = true
-  toast.success('GPS tracking started')
+    tripInterval = window.setInterval(() => {
+      tripData.value = {
+        ...tripData.value,
+        duration: tripData.value.duration + 1,
+      }
+    }, 1000)
+
+    isTracking.value = true
+    toast.success('GPS tracking started')
+  } catch (error) {
+    console.error('Error starting tracking:', error)
+    toast.error('Failed to start GPS tracking')
+  }
 }
 
-const stopTracking = () => {
+const stopTracking = async () => {
   if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId)
+    if (Capacitor.getPlatform() === 'android' && watchId === 'native') {
+      await GoogleMapsNative.stopLocationTracking()
+    } else if (typeof watchId === 'string') {
+      await Geolocation.clearWatch({ id: watchId })
+    }
     watchId = null
   }
 
@@ -784,6 +1117,7 @@ onUnmounted(() => {
   height: 100%;
   padding: 0.5rem;
   position: relative;
+  flex-direction: column;
 }
 
 /* Gauge Wrapper - Contains gauge and overlaid info */
@@ -805,12 +1139,20 @@ onUnmounted(() => {
   z-index: 10;
 }
 
+/* Left info overlay - position depends on orientation */
+.dashboard-container {
+  position: relative;
+}
+
 .info-overlay.info-left {
+  position: absolute;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
   align-items: flex-start;
   padding-left: 0.5rem;
+  max-width: 240px;
+  z-index: 10;
 }
 
 .info-overlay.info-right {
@@ -823,8 +1165,6 @@ onUnmounted(() => {
 
 /* Map Widget Small */
 .map-widget-small {
-  width: 230px;
-  height: 200px;
   margin-bottom: 0.5rem;
   border-radius: 6px;
   overflow: hidden;
@@ -839,10 +1179,19 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.25rem 0;
+  padding: 0.15rem 0;
   position: relative;
   cursor: pointer;
   transition: transform 0.2s;
+}
+
+.info-overlay.info-left .info-item {
+  gap: 0.4rem;
+}
+
+.info-overlay.info-left .info-icon {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 .info-item:active {
@@ -854,12 +1203,27 @@ onUnmounted(() => {
   flex-direction: row-reverse;
 }
 
+/* Reset progress indicator */
+.info-item.resetting {
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  overflow: hidden;
+}
+
+.reset-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+  transition: width 0.05s linear;
+  border-radius: 0 0 0.375rem 0.375rem;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+}
+
 /* Tooltip */
 .info-tooltip {
   position: absolute;
-  right: calc(100% + 0.5rem);
-  top: 50%;
-  transform: translateY(-50%);
   background: rgba(17, 24, 39, 0.95);
   color: white;
   padding: 0.5rem 0.75rem;
@@ -871,17 +1235,54 @@ onUnmounted(() => {
   backdrop-filter: blur(8px);
   border: 1px solid rgba(75, 85, 99, 0.5);
   z-index: 1000;
-  animation: tooltipFadeIn 0.2s ease-out;
 }
+
+/* Landscape mode - left side shows tooltip on the right, right side shows on the left (towards center) */
+@media (orientation: landscape) {
+  .info-item {
+    width: fit-content;
+  }
+
+  .info-overlay.info-left .info-tooltip {
+    left: 100%;
+    margin-left: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    animation: tooltipSlideInRight 0.2s ease-out;
+  }
+
+  .info-overlay.info-right .info-tooltip {
+    right: 100%;
+    margin-right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    animation: tooltipSlideInLeft 0.2s ease-out;
+  }
+}
+
+/* Portrait mode - show tooltip centered for both sides */
+@media (orientation: portrait) {
+  .info-tooltip {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    animation: tooltipFadeIn 0.2s ease-out;
+  }
+}
+
+.info-tooltip.reset-tooltip {
+  font-weight: 600;
+}
+
 
 @keyframes tooltipFadeIn {
   from {
     opacity: 0;
-    transform: translateY(-50%) translateX(0.5rem);
+    transform: translate(-50%, -50%) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateY(-50%) translateX(0);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
@@ -921,15 +1322,18 @@ onUnmounted(() => {
 }
 
 .info-label {
-  font-size: 1rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: rgba(156, 163, 175, 0.9);
   letter-spacing: 0.05em;
+  line-height: 1.2;
 }
 
 .info-sublabel {
-  font-size: 0.95rem;
-  color: rgba(156, 163, 175, 0.6);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: white;
+  line-height: 1.2;
 }
 
 .info-value {
@@ -943,6 +1347,30 @@ onUnmounted(() => {
   font-weight: 700;
   color: white;
   text-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
+}
+
+/* Marquee effect for long destination names */
+.info-value.marquee {
+  overflow: hidden;
+  max-width: 200px;
+  position: relative;
+  display: inline-block;
+}
+
+.info-value.marquee .marquee-content {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 10s linear infinite;
+  padding-right: 2rem;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
 }
 
 /* Bottom Center Info (below gauge) */
@@ -1229,6 +1657,18 @@ onUnmounted(() => {
   }
 }
 
+@media (orientation: landscape) { 
+/* MiniMap */
+
+.info-overlay.info-left{
+  width: 25%;
+}
+  .map-widget-small{
+    width: 100%;
+  }
+}
+
+
 /* Landscape mode - wider mini music player */
 @media (orientation: landscape) {
   .mini-music-player {
@@ -1236,7 +1676,6 @@ onUnmounted(() => {
     max-width: 600px;
     padding: 0.6rem 1.5rem;
     gap: 1.5rem;
-    /* top: 1rem; */
     padding-top: 1rem;
   }
 
@@ -1405,17 +1844,75 @@ onUnmounted(() => {
     min-height: auto;
   }
 
+  /* Portrait layout - center everything */
   .info-overlay.info-left {
     position: relative;
-    left: auto;
+    left: 50%;
     top: auto;
-    transform: none;
+    transform: translateX(-50%);
+    width:100%;
+    max-width: 500px;
+    padding: 0.25rem;
+    margin-bottom: 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: stretch;
+  }
+
+  /* Minimap full width - stretch within container */
+  .info-overlay.info-left .map-widget-small {
     width: 100%;
-    padding: 0.5rem 1rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0;
+  }
+
+  /* Info items row container - use grid for precise 2-column layout */
+  .info-items-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    gap: 0.25rem;
+    width: 100%;
+  }
+
+  /* Info items in portrait - grid handles sizing automatically */
+  .info-items-row .info-item {
+    padding: 0.75rem 0.5rem !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    background: rgba(17, 24, 39, 0.6) !important;
+    border-radius: 8px !important;
+    backdrop-filter: blur(8px) !important;
+  }
+
+  /* Last item stretches full width if odd number (3 items) */
+  .info-items-row .info-item:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  /* Readable text in portrait */
+  .info-items-row .info-label {
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .info-items-row .info-sublabel {
+    font-size: 1.15rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .info-items-row .info-icon {
+    width: 1.35rem;
+    height: 1.35rem;
+    flex-shrink: 0;
+  }
+
+  .info-items-row .info-text {
+    min-width: 0;
+    flex: 1;
   }
 
   .info-overlay.info-right {
@@ -1432,12 +1929,6 @@ onUnmounted(() => {
     gap: 0.75rem;
   }
 
-  .map-widget-small {
-    width: 100%;
-    max-width: 100%;
-    height: 160px;
-    grid-column: 1 / -1;
-  }
 
   .info-item {
     justify-content: flex-start;
@@ -1492,9 +1983,6 @@ onUnmounted(() => {
     font-size: 1.3rem;
   }
 
-  .map-widget-small {
-    max-width: 250px;
-    height: 150px;
-  }
+
 }
 </style>

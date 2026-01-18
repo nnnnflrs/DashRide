@@ -69,6 +69,11 @@ export interface GoogleMapsNativePlugin {
   clearRoute(): Promise<void>
 
   /**
+   * Update the existing route without clearing (no blink)
+   */
+  updateRoute(options: RouteOptions): Promise<void>
+
+  /**
    * Set the map type
    */
   setMapType(options: { type: 'normal' | 'satellite' | 'hybrid' | 'terrain' }): Promise<void>
@@ -87,6 +92,12 @@ export interface GoogleMapsNativePlugin {
    * Destroy the map and free resources
    */
   destroy(): Promise<void>
+
+  /**
+   * Set the map style (for theme support)
+   * @param options.style - JSON string for map styling or null to reset to default
+   */
+  setMapStyle(options: { style: string | null }): Promise<void>
 
   /**
    * Add a listener for camera move started events (detects user gestures)
@@ -130,6 +141,32 @@ export interface GoogleMapsNativePlugin {
    * Get directions from Google Directions API
    */
   getDirections(options: { origin: string; destination: string; apiKey: string; avoidTolls?: boolean }): Promise<any>
+
+  /**
+   * Start location tracking using FusedLocationProviderClient (Android only)
+   */
+  startLocationTracking(): Promise<void>
+
+  /**
+   * Stop location tracking
+   */
+  stopLocationTracking(): Promise<void>
+
+  /**
+   * Add listener for location updates with speed data
+   */
+  addListener(
+    eventName: 'locationUpdate',
+    listenerFunc: (data: {
+      latitude: number
+      longitude: number
+      altitude: number
+      accuracy: number
+      speed: number // m/s
+      bearing: number
+      timestamp: number
+    }) => void
+  ): Promise<{ remove: () => void }>
 }
 
 const GoogleMapsNative = registerPlugin<GoogleMapsNativePlugin>('GoogleMapsNative')

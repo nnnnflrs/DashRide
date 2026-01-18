@@ -6,11 +6,15 @@ export function useSettings() {
   const unit = useLocalStorage<'mph' | 'kmh'>('speedUnit', 'kmh')
   const keepScreenOn = useLocalStorage('keepScreenOn', true)
   const avoidTolls = useLocalStorage('avoidTolls', true)
+  const showMinimap = useLocalStorage('showMinimap', true)
+  const mapStyle = useLocalStorage<'dark' | 'light'>('mapStyle', 'light')
 
   return {
     theme,
     unit,
     keepScreenOn,
-    avoidTolls
+    avoidTolls,
+    showMinimap,
+    mapStyle
   }
 }

@@ -9,8 +9,6 @@
       :totalDistance="navTotalDistance"
       :remainingDistance="navRemainingDistance"
       :unit="unit"
-      :slope="formattedSlope"
-      :slopeDirection="slopeDirection"
     />
 
     <!-- Search Input -->
@@ -116,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Geolocation } from '@capacitor/geolocation'
 import { Navigation, X, Locate, LocateFixed } from 'lucide-vue-next'
 import { useSettings } from '../../composables/useSettings'
@@ -154,13 +152,45 @@ const isLoadingRoutes = ref(false)
 let watchId: string | null = null
 let searchTimeout: NodeJS.Timeout | null = null
 let etaUpdateInterval: NodeJS.Timeout | null = null
+let routeUpdateInterval: NodeJS.Timeout | null = null
 let currentLocation = { lat: 0, lng: 0 }
 
 // Native map state
 const nativeMarkers = new Map<string, string>()
+const isMapInitialized = ref(false)
+
+// Dark mode map style
+const DARK_MAP_STYLE = JSON.stringify([
+  { elementType: "geometry", stylers: [{ color: "#1d2c4d" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#8ec3b9" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#1a3646" }] },
+  { featureType: "administrative.country", elementType: "geometry.stroke", stylers: [{ color: "#4b6878" }] },
+  { featureType: "administrative.land_parcel", elementType: "labels.text.fill", stylers: [{ color: "#64779f" }] },
+  { featureType: "administrative.province", elementType: "geometry.stroke", stylers: [{ color: "#4b6878" }] },
+  { featureType: "landscape.man_made", elementType: "geometry.stroke", stylers: [{ color: "#334e87" }] },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#023e58" }] },
+  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#283d6a" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#6f9ba5" }] },
+  { featureType: "poi", elementType: "labels.text.stroke", stylers: [{ color: "#1d2c4d" }] },
+  { featureType: "poi.park", elementType: "geometry.fill", stylers: [{ color: "#023e58" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#3C7680" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#304a7d" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#98a5be" }] },
+  { featureType: "road", elementType: "labels.text.stroke", stylers: [{ color: "#1d2c4d" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#2c6675" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#255763" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#b0d5df" }] },
+  { featureType: "road.highway", elementType: "labels.text.stroke", stylers: [{ color: "#023e58" }] },
+  { featureType: "transit", elementType: "labels.text.fill", stylers: [{ color: "#98a5be" }] },
+  { featureType: "transit", elementType: "labels.text.stroke", stylers: [{ color: "#1d2c4d" }] },
+  { featureType: "transit.line", elementType: "geometry.fill", stylers: [{ color: "#283d6a" }] },
+  { featureType: "transit.station", elementType: "geometry", stylers: [{ color: "#3a4762" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#4e6d70" }] }
+])
 
 // Get settings
-const { unit, avoidTolls } = useSettings()
+const { unit, avoidTolls, theme, mapStyle } = useSettings()
 
 // Get navigation state
 const {
@@ -170,11 +200,43 @@ const {
   destination: navDestination,
   startNavigation: navStartNavigation,
   stopNavigation: navStopNavigation,
-  updateEstimatedTime: navUpdateEstimatedTime
+  updateEstimatedTime: navUpdateEstimatedTime,
+  updateRoutePath: navUpdateRoutePath,
+  updateRemainingDistance: navUpdateRemainingDistance
 } = useNavigation()
 
-// Get slope state
-const { formattedSlope, slopeDirection } = useSlope()
+
+// Compute current theme (resolve 'auto' to 'light' or 'dark') - for UI only
+const currentTheme = computed(() => {
+  if (theme.value === 'auto') {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      return 'light'
+    }
+    return 'dark'
+  }
+  return theme.value
+})
+
+// Apply map style based on mapStyle setting (independent from main theme)
+const applyMapStyle = async () => {
+  if (!isMapInitialized.value) return
+
+  try {
+    if (mapStyle.value === 'dark') {
+      await GoogleMapsNative.setMapStyle({ style: DARK_MAP_STYLE })
+    } else {
+      // Reset to default light style
+      await GoogleMapsNative.setMapStyle({ style: null })
+    }
+  } catch (err) {
+    console.error('Error setting map style:', err)
+  }
+}
+
+// Watch for map style changes
+watch(mapStyle, () => {
+  applyMapStyle()
+})
 
 const getCurrentLocation = async () => {
   const position = await Geolocation.getCurrentPosition({
@@ -335,6 +397,12 @@ const initMap = async () => {
 
     await GoogleMapsNative.show()
 
+    // Mark map as initialized
+    isMapInitialized.value = true
+
+    // Apply initial theme style
+    await applyMapStyle()
+
     // Add current location marker
     const result = await GoogleMapsNative.addMarker({
       id: 'current-location',
@@ -362,20 +430,33 @@ const initMap = async () => {
       selectRoute(data.routeIndex)
     })
 
-    // Watch position changes
+    // Watch position changes with error handling
+    console.log('Starting GPS position watch...')
     watchId = await Geolocation.watchPosition(
       {
         enableHighAccuracy: true,
-        timeout: 5000,
+        timeout: 10000, // Increased timeout to 10 seconds
         maximumAge: 0
       },
-      (position) => {
-        if (!position) return
+      (position, err) => {
+        // Handle errors
+        if (err) {
+          console.error('GPS Error:', err)
+          // Don't stop watching, just log the error and continue
+          return
+        }
+
+        if (!position) {
+          console.log('GPS: No position received')
+          return
+        }
 
         const newLocation = {
           lat: position.coords.latitude,
           lng: position.coords.longitude
         }
+
+        console.log(`GPS Update: lat=${newLocation.lat.toFixed(6)}, lng=${newLocation.lng.toFixed(6)}, isNavigating=${isNavigating.value}`)
 
         // Update current location for search bias
         currentLocation.lat = newLocation.lat
@@ -383,19 +464,24 @@ const initMap = async () => {
 
         // Get bearing/heading for rotation
         const bearing = position.coords.heading
+        console.log(`GPS Bearing: ${bearing}`)
 
         // Update marker based on navigation state
         if (isNavigating.value) {
           // During navigation: use arrow marker with rotation
+          console.log('Updating arrow marker during navigation')
           GoogleMapsNative.updateMarker({
             id: 'current-location',
             lat: newLocation.lat,
             lng: newLocation.lng,
             rotation: bearing !== null && bearing !== undefined ? bearing : 0,
             flat: true
+          }).then(() => {
+            console.log('Arrow marker updated successfully')
           }).catch(err => console.error('Error updating arrow marker:', err))
         } else {
           // When not navigating: use blue dot marker
+          console.log('Adding/updating dot marker (not navigating)')
           GoogleMapsNative.addMarker({
             id: 'current-location',
             lat: newLocation.lat,
@@ -419,11 +505,13 @@ const initMap = async () => {
         }
 
         // Update route progress during navigation
-        if (isNavigating.value) {
+        if (isNavigating.value && routePath.value.length > 0) {
           updateRouteProgress(newLocation)
         }
       }
     )
+
+    console.log('GPS watch started with ID:', watchId)
 
     loading.value = false
   } catch (err: any) {
@@ -609,7 +697,12 @@ const cancelRouteSelection = async () => {
 }
 
 const updateRouteProgress = async (currentLocation: { lat: number; lng: number }) => {
-  if (routePath.value.length === 0) return
+  if (routePath.value.length === 0) {
+    console.log('updateRouteProgress: routePath is empty')
+    return
+  }
+
+  console.log(`updateRouteProgress: Called with ${routePath.value.length} route points`)
 
   // Find the closest point on the route
   let minDistance = Infinity
@@ -625,24 +718,73 @@ const updateRouteProgress = async (currentLocation: { lat: number; lng: number }
     }
   }
 
-  // Remove passed points (points before the closest point)
-  // Keep a small buffer (5 points) behind current location for smooth visualization
-  const bufferPoints = 5
-  const trimIndex = Math.max(0, closestIndex - bufferPoints)
+  console.log(`Closest point index: ${closestIndex}, distance: ${minDistance.toFixed(2)}m`)
 
-  if (trimIndex > 0) {
-    // Remove passed points from the route path
-    routePath.value = routePath.value.slice(trimIndex)
+  // Calculate remaining distance BEFORE trimming
+  let remainingDist = 0
 
-    // Redraw the remaining route
-    await GoogleMapsNative.clearRoute()
-    if (routePath.value.length > 1) {
-      await GoogleMapsNative.drawRoute({
-        points: routePath.value.map((p: any) => ({ lat: p.lat, lng: p.lng })),
-        color: '#4285F4',
-        width: 8
-      })
+  // Add distance from current location to closest point on route
+  if (closestIndex < routePath.value.length) {
+    remainingDist += calculateDistance(
+      currentLocation.lat,
+      currentLocation.lng,
+      routePath.value[closestIndex].lat,
+      routePath.value[closestIndex].lng
+    )
+  }
+
+  // Add distance between remaining route points (from closest point to end)
+  for (let i = closestIndex; i < routePath.value.length - 1; i++) {
+    const point1 = routePath.value[i]
+    const point2 = routePath.value[i + 1]
+    remainingDist += calculateDistance(point1.lat, point1.lng, point2.lat, point2.lng)
+  }
+
+  // Convert meters to kilometers
+  const remainingDistKm = remainingDist / 1000
+
+  // Ensure remaining distance never exceeds total distance
+  const finalRemainingDist = Math.min(remainingDistKm, navTotalDistance.value)
+
+  console.log(`Remaining distance: ${remainingDistKm.toFixed(2)} km (capped at ${finalRemainingDist.toFixed(2)} km, total: ${navTotalDistance.value.toFixed(2)} km)`)
+
+  // Update shared state
+  navUpdateRemainingDistance(finalRemainingDist)
+
+  // Trim the route if we've moved past the first point
+  if (closestIndex > 0) {
+    console.log(`Trimming route: removing first ${closestIndex} points (up to closest), ${routePath.value.length} -> ${routePath.value.length - closestIndex}`)
+
+    // Remove all points before the closest point
+    routePath.value = routePath.value.slice(closestIndex)
+
+    // Update shared navigation state with trimmed route
+    navUpdateRoutePath(routePath.value)
+
+    // Redraw the route when trimming happens
+    try {
+      await GoogleMapsNative.clearRoute()
+      console.log('Route cleared for redraw after trimming')
+
+      if (routePath.value.length > 0) {
+        // Draw route from current location to the remaining route points
+        const routePoints = [
+          { lat: currentLocation.lat, lng: currentLocation.lng }, // Start from current location
+          ...routePath.value.map((p: any) => ({ lat: p.lat, lng: p.lng }))
+        ]
+
+        await GoogleMapsNative.drawRoute({
+          points: routePoints,
+          color: '#4285F4',
+          width: 14
+        })
+        console.log(`Route redrawn with ${routePoints.length} points (from current location to destination)`)
+      }
+    } catch (err) {
+      console.error('Error redrawing route:', err)
     }
+  } else {
+    console.log(`No trimming needed, already at start of route (closestIndex: ${closestIndex})`)
   }
 }
 
@@ -723,6 +865,9 @@ const startNavigation = async () => {
     // Store the selected route path for progress tracking
     routePath.value = decodePolyline(selectedRoute.polyline)
 
+    // Update shared navigation state with initial route
+    navUpdateRoutePath(routePath.value)
+
     // Replace current location marker with arrow marker
     await GoogleMapsNative.removeMarker({ id: 'current-location' })
 
@@ -743,7 +888,7 @@ const startNavigation = async () => {
     await GoogleMapsNative.drawRoute({
       points: points.map((p: any) => ({ lat: p.lat, lng: p.lng })),
       color: '#4285F4',
-      width: 8
+      width: 14
     })
 
     // Start periodic ETA updates (every 30 seconds)
@@ -755,6 +900,18 @@ const startNavigation = async () => {
     setTimeout(() => {
       updateETA()
     }, 3000)
+
+    // Start aggressive route update interval (every 1 second)
+    // This ensures the route line is always updated even if GPS updates are slow
+    routeUpdateInterval = setInterval(() => {
+      if (routePath.value.length > 0 && currentLocation.lat !== 0 && currentLocation.lng !== 0) {
+        console.log('Route update interval triggered')
+        updateRouteProgress({
+          lat: currentLocation.lat,
+          lng: currentLocation.lng
+        })
+      }
+    }, 1000)
 
     // Focus camera on current location with navigation view (tilt, zoom, bearing)
     await GoogleMapsNative.setCenter({
@@ -780,6 +937,12 @@ const stopNavigation = async () => {
   if (etaUpdateInterval) {
     clearInterval(etaUpdateInterval)
     etaUpdateInterval = null
+  }
+
+  // Clear route update interval
+  if (routeUpdateInterval) {
+    clearInterval(routeUpdateInterval)
+    routeUpdateInterval = null
   }
 
   // Clear the route

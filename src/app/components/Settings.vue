@@ -46,23 +46,32 @@
       </div>
     </div>
 
-    <!-- Fuel Consumption Setting -->
-    <div class="setting-card">
-      <label class="setting-label">
-        Fuel Consumption ({{ unit === 'mph' ? 'MPG' : 'L/100km' }})
-      </label>
-      <input
-        type="number"
-        step="0.1"
-        v-model.number="fuelConsumption"
-        class="fuel-input"
-      />
-    </div>
-
     <!-- Map Settings Section -->
     <div class="setting-card">
       <label class="setting-label">Map Settings</label>
-      
+
+      <!-- Map Style Selection -->
+      <div style="margin-bottom: 1rem;">
+        <label class="toggle-title" style="padding-bottom: 1rem;">Map Style</label>
+        <p class="toggle-description" style="padding-bottom: 1rem;">
+          Choose the color scheme for navigation map
+        </p>
+        <div class="unit-buttons">
+          <button
+            @click="mapStyle = 'dark'"
+            :class="['unit-button', { active: mapStyle === 'dark' }]"
+          >
+            Dark
+          </button>
+          <button
+            @click="mapStyle = 'light'"
+            :class="['unit-button', { active: mapStyle === 'light' }]"
+          >
+            Light
+          </button>
+        </div>
+      </div>
+
       <!-- Avoid Tolls Toggle -->
       <div class="toggle-row">
         <div>
@@ -76,6 +85,22 @@
           :class="['toggle-button', { active: avoidTolls }]"
         >
           <div :class="['toggle-knob', { active: avoidTolls }]" />
+        </button>
+      </div>
+
+      <!-- Show Minimap Toggle -->
+      <div class="toggle-row" style="margin-top: 1rem;">
+        <div>
+          <div class="toggle-title">Show Minimap</div>
+          <div class="toggle-description">
+            Display minimap in riding view during navigation
+          </div>
+        </div>
+        <button
+          @click="showMinimap = !showMinimap"
+          :class="['toggle-button', { active: showMinimap }]"
+        >
+          <div :class="['toggle-knob', { active: showMinimap }]" />
         </button>
       </div>
     </div>
@@ -98,24 +123,88 @@
       </div>
     </div>
 
+    <!-- Skins Section (Coming Soon) -->
+    <div class="setting-card coming-soon-card">
+      <label class="setting-label">Skins</label>
+      <div class="coming-soon-content">
+        <div class="coming-soon-text">
+          <span class="coming-soon-badge">Coming Soon</span>
+          <p class="coming-soon-description">Customize your dashboard with different visual themes and styles</p>
+        </div>
+      </div>
+    </div>
+
     <!-- About Section -->
     <div class="setting-card">
       <h3 class="about-title">About</h3>
       <div class="about-content">
-        <p>Modern TFT-style motorcycle dashboard using phone sensors.</p>
+        <p>Modern TFT-style motorcycle dashboard application that transforms your phone into a comprehensive riding companion with real-time data visualization and navigation.</p>
+
+        <p class="data-sources-title">
+          <span class="bold">Key Features:</span>
+        </p>
+        <ul class="data-sources-list">
+          <li>Real-time speedometer with color-coded zones</li>
+          <li>GPS navigation with turn-by-turn directions</li>
+          <li>Interactive minimap during navigation</li>
+          <li>Music player with native audio integration</li>
+          <li>Trip tracking (distance, duration, avg/max speed)</li>
+          <li>Slope calculation and altitude display</li>
+          <li>Real-time weather information</li>
+          <li>Dark and light themes</li>
+          <li>Landscape fullscreen mode optimized for mounting</li>
+        </ul>
+
         <p class="data-sources-title">
           <span class="bold">Data Sources:</span>
         </p>
         <ul class="data-sources-list">
-          <li>GPS for speed and location</li>
-          <li>Device sensors for motion data</li>
-          <li>Real-time weather from Open-Meteo API</li>
-          <li>User input for fuel consumption</li>
+          <li>GPS (Geolocation API) - Speed, location, and navigation</li>
+          <li>Device sensors - Motion data for slope calculation</li>
+          <li>Google Maps API - Navigation and route planning</li>
+          <li>Google Places API - Location search and autocomplete</li>
+          <li>Open-Meteo API - Real-time weather information</li>
+          <li>MediaStore API - Local music library access</li>
         </ul>
-        
+
+        <p class="data-sources-title">
+          <span class="bold">Technology Stack:</span>
+        </p>
+        <ul class="data-sources-list">
+          <li>Vue 3 with Composition API</li>
+          <li>Ionic Framework for native features</li>
+          <li>Capacitor for cross-platform compatibility</li>
+          <li>Native Android integration for maps and audio</li>
+        </ul>
+
+        <!-- Share Section -->
+        <div class="share-section">
+          <p class="data-sources-title">
+            <span class="bold">Share DashRide:</span>
+          </p>
+          <div class="share-buttons">
+            <button @click="shareToFacebook" class="share-button facebook">
+              <svg class="share-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+            </button>
+            <button @click="shareToTwitter" class="share-button twitter">
+              <svg class="share-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+              
+            </button>
+            <button @click="shareToInstagram" class="share-button instagram">
+              <svg class="share-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
         <!-- Buy Me a Coffee - Compact -->
         <div class="donation-section">
-          <p class="donation-title">☕ Bili mo ako ng kape huhu</p>
+          <p class="donation-title">☕ Bili mo ako ng kape</p>
           <div class="donation-row">
             <svg class="solana-icon-small" viewBox="0 0 397.7 311.7" xmlns="http://www.w3.org/2000/svg">
               <defs>
@@ -152,7 +241,7 @@ interface Props {
 defineProps<Props>()
 
 // Use shared settings state
-const { theme: settingsTheme, unit, fuelConsumption, keepScreenOn, avoidTolls } = useSettings()
+const { theme: settingsTheme, unit, keepScreenOn, avoidTolls, showMinimap, mapStyle } = useSettings()
 
 // Wallet address for donations
 const walletAddress = '37qjhJQno7bybHembmiCYcaTXGAauQompfjwS8ki2uz8'
@@ -168,6 +257,32 @@ const copyWalletAddress = async () => {
   } catch {
     // Clipboard not available
   }
+}
+
+// Share functions
+const appUrl = 'https://github.com/yourusername/dashride' // Update with actual URL
+const shareText = 'Check out DashRide - A modern motorcycle dashboard app with GPS navigation, speedometer, and music player! 🏍️'
+
+const shareToFacebook = () => {
+  const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(appUrl)}`
+  window.open(url, '_blank', 'width=600,height=400')
+}
+
+const shareToTwitter = () => {
+  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(appUrl)}`
+  window.open(url, '_blank', 'width=600,height=400')
+}
+
+const shareToInstagram = () => {
+  // Instagram doesn't have a direct web share API like Facebook/Twitter
+  // Open Instagram app or web profile
+  // For web, we'll copy the text and open Instagram
+  navigator.clipboard.writeText(`${shareText}\n${appUrl}`).then(() => {
+    alert('Share text copied! Paste it in your Instagram post.')
+    window.open('https://www.instagram.com/', '_blank')
+  }).catch(() => {
+    alert('Please share manually on Instagram')
+  })
 }
 </script>
 
@@ -492,5 +607,120 @@ const copyWalletAddress = async () => {
 
 .icon-small.success {
   color: rgb(74, 222, 128);
+}
+
+/* Coming Soon Card */
+.coming-soon-card {
+  opacity: 0.7;
+  position: relative;
+}
+
+.coming-soon-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.coming-soon-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.coming-soon-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: linear-gradient(135deg, rgb(59, 130, 246), rgb(147, 51, 234));
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  width: fit-content;
+}
+
+.coming-soon-description {
+  font-size: 0.875rem;
+  color: rgba(156, 163, 175, 1);
+  margin: 0;
+}
+
+.settings-container[data-theme="light"] .coming-soon-description {
+  color: rgb(71, 85, 105);
+}
+
+/* Share Section */
+.share-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(55, 65, 81, 0.3);
+}
+
+.share-buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.share-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.share-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.share-button.facebook {
+  background: #1877F2;
+}
+
+.share-button.facebook:hover {
+  background: #0d65d9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(24, 119, 242, 0.4);
+}
+
+.share-button.twitter {
+  background: #000000;
+}
+
+.share-button.twitter:hover {
+  background: #000000;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(29, 161, 242, 0.4);
+}
+
+.share-button.instagram {
+  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+}
+
+.share-button.instagram:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(188, 24, 136, 0.4);
+}
+
+.share-button:active {
+  transform: translateY(0);
+}
+
+/* Light theme adjustments for share section */
+.settings-container[data-theme="light"] .share-section {
+  border-top-color: rgba(148, 163, 184, 0.3);
 }
 </style>

@@ -7,6 +7,7 @@ const remainingDistance = ref(0)
 const destination = ref<string>('')
 const estimatedTimeSeconds = ref(0) // ETA in seconds
 const startTime = ref<number>(0) // Start timestamp
+const routePath = ref<Array<{ lat: number; lng: number }>>([]) // Current route path
 
 export function useNavigation() {
   const startNavigation = (dest: string, totalDist: number, etaSeconds: number) => {
@@ -26,6 +27,10 @@ export function useNavigation() {
     estimatedTimeSeconds.value = etaSeconds
   }
 
+  const updateRoutePath = (path: Array<{ lat: number; lng: number }>) => {
+    routePath.value = path
+  }
+
   const stopNavigation = () => {
     isNavigating.value = false
     totalDistance.value = 0
@@ -33,6 +38,7 @@ export function useNavigation() {
     destination.value = ''
     estimatedTimeSeconds.value = 0
     startTime.value = 0
+    routePath.value = []
   }
 
   // Computed ETA as formatted time (12-hour format with AM/PM)
@@ -63,11 +69,13 @@ export function useNavigation() {
     remainingDistance,
     destination,
     estimatedTimeSeconds,
+    routePath,
     formattedETA,
     elapsedTime,
     startNavigation,
     updateRemainingDistance,
     updateEstimatedTime,
+    updateRoutePath,
     stopNavigation
   }
 }

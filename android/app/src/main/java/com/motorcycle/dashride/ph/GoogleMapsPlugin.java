@@ -1,10 +1,12 @@
 package com.motorcycle.dashride.ph;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.location.Location;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -29,8 +31,15 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -60,6 +69,11 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
     private Polyline routePolyline;
     private List<Polyline> routePolylines = new ArrayList<>();
     private Handler mainHandler;
+
+    // Location tracking
+    private FusedLocationProviderClient fusedLocationClient;
+    private LocationCallback locationCallback;
+    private boolean isLocationTrackingStarted = false;
 
     @Override
     public void load() {
@@ -157,6 +171,13 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
 
             // Set map type to normal (supports 3D buildings)
             googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+
+            // Add padding to move compass and zoom controls away from info panel
+            // Padding: left, top, right, bottom (in pixels)
+            // Top padding: 400px to avoid info panel
+            // Right padding: 20px for margin
+            // Bottom padding: 180px to keep controls above locate button
+            googleMap.setPadding(0, 400, 20, 180);
 
             // Get saved call
             PluginCall call = getSavedCall();
@@ -295,6 +316,13 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
 
         mainHandler.post(() -> {
             try {
+                // Remove existing marker with same ID to prevent duplicates
+                Marker existingMarker = markers.get(id);
+                if (existingMarker != null) {
+                    existingMarker.remove();
+                    markers.remove(id);
+                }
+
                 MarkerOptions options = new MarkerOptions()
                     .position(new LatLng(lat, lng));
 
@@ -375,9 +403,12 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
             return;
         }
 
+        Log.d(TAG, "updateMarker called for id: " + id);
+
         mainHandler.post(() -> {
             Marker marker = markers.get(id);
             if (marker == null) {
+                Log.e(TAG, "Marker not found: " + id);
                 call.reject("Marker not found");
                 return;
             }
@@ -387,12 +418,14 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                 Double lat = call.getDouble("lat");
                 Double lng = call.getDouble("lng");
                 if (lat != null && lng != null) {
+                    Log.d(TAG, "Updating marker position: lat=" + lat + ", lng=" + lng);
                     marker.setPosition(new LatLng(lat, lng));
                 }
 
                 // Update rotation/bearing if provided
                 Float rotation = call.getFloat("rotation");
                 if (rotation != null) {
+                    Log.d(TAG, "Updating marker rotation: " + rotation);
                     marker.setRotation(rotation);
                 }
 
@@ -402,6 +435,7 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                     marker.setFlat(flat);
                 }
 
+                Log.d(TAG, "Marker updated successfully");
                 call.resolve();
             } catch (Exception e) {
                 Log.e(TAG, "Error updating marker", e);
@@ -424,7 +458,7 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
         }
 
         String color = call.getString("color", "#4285F4");
-        int width = call.getInt("width", 5);
+        int width = call.getInt("width", 12);
         Integer routeIndex = call.getInt("routeIndex");
 
         mainHandler.post(() -> {
@@ -482,6 +516,57 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
     }
 
     @PluginMethod
+    public void updateRoute(PluginCall call) {
+        if (googleMap == null) {
+            call.reject("Map not initialized");
+            return;
+        }
+
+        JSArray points = call.getArray("points");
+        if (points == null) {
+            call.reject("Points array required");
+            return;
+        }
+
+        mainHandler.post(() -> {
+            try {
+                List<LatLng> routePoints = new ArrayList<>();
+                for (int i = 0; i < points.length(); i++) {
+                    JSONObject point = points.getJSONObject(i);
+                    double lat = point.getDouble("lat");
+                    double lng = point.getDouble("lng");
+                    routePoints.add(new LatLng(lat, lng));
+                }
+
+                // Update existing polyline if it exists, otherwise create new one
+                if (routePolyline != null) {
+                    routePolyline.setPoints(routePoints);
+                    Log.d(TAG, "Updated route polyline with " + routePoints.size() + " points");
+                } else {
+                    // Create new polyline if it doesn't exist
+                    String color = call.getString("color", "#4285F4");
+                    int width = call.getInt("width", 14);
+
+                    PolylineOptions polylineOptions = new PolylineOptions()
+                        .addAll(routePoints)
+                        .width(width)
+                        .color(Color.parseColor(color))
+                        .geodesic(true)
+                        .clickable(false);
+
+                    routePolyline = googleMap.addPolyline(polylineOptions);
+                    Log.d(TAG, "Created new route polyline with " + routePoints.size() + " points");
+                }
+
+                call.resolve();
+            } catch (Exception e) {
+                Log.e(TAG, "Error updating route", e);
+                call.reject("Failed to update route: " + e.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
     public void setMapType(PluginCall call) {
         if (googleMap == null) {
             call.reject("Map not initialized");
@@ -508,6 +593,38 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
 
             googleMap.setMapType(mapType);
             call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void setMapStyle(PluginCall call) {
+        if (googleMap == null) {
+            call.reject("Map not initialized");
+            return;
+        }
+
+        String style = call.getString("style");
+
+        mainHandler.post(() -> {
+            try {
+                if (style == null || style.isEmpty() || style.equals("null")) {
+                    // Reset to default style
+                    googleMap.setMapStyle(null);
+                    Log.d(TAG, "Map style reset to default");
+                } else {
+                    // Apply custom style
+                    boolean success = googleMap.setMapStyle(new MapStyleOptions(style));
+                    if (success) {
+                        Log.d(TAG, "Map style applied successfully");
+                    } else {
+                        Log.w(TAG, "Map style parsing failed");
+                    }
+                }
+                call.resolve();
+            } catch (Exception e) {
+                Log.e(TAG, "Error setting map style", e);
+                call.reject("Error setting map style: " + e.getMessage());
+            }
         });
     }
 
@@ -698,5 +815,85 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                 call.reject("Failed to fetch directions: " + e.getMessage());
             }
         }).start();
+    }
+
+    @SuppressLint("MissingPermission")
+    @PluginMethod
+    public void startLocationTracking(PluginCall call) {
+        if (isLocationTrackingStarted) {
+            call.resolve();
+            return;
+        }
+
+        mainHandler.post(() -> {
+            try {
+                if (fusedLocationClient == null) {
+                    fusedLocationClient = LocationServices.getFusedLocationProviderClient(getActivity());
+                }
+
+                LocationRequest locationRequest = new LocationRequest.Builder(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    1000 // Update interval: 1 second
+                )
+                .setMinUpdateIntervalMillis(500)
+                .build();
+
+                locationCallback = new LocationCallback() {
+                    @Override
+                    public void onLocationResult(LocationResult locationResult) {
+                        if (locationResult == null) return;
+
+                        for (Location location : locationResult.getLocations()) {
+                            JSObject data = new JSObject();
+                            data.put("latitude", location.getLatitude());
+                            data.put("longitude", location.getLongitude());
+                            data.put("altitude", location.getAltitude());
+                            data.put("accuracy", location.getAccuracy());
+                            data.put("speed", location.getSpeed()); // m/s
+                            data.put("bearing", location.getBearing());
+                            data.put("timestamp", location.getTime());
+
+                            // Notify listeners
+                            notifyListeners("locationUpdate", data);
+                        }
+                    }
+                };
+
+                fusedLocationClient.requestLocationUpdates(
+                    locationRequest,
+                    locationCallback,
+                    Looper.getMainLooper()
+                );
+
+                isLocationTrackingStarted = true;
+                call.resolve();
+                Log.d(TAG, "Location tracking started");
+            } catch (Exception e) {
+                Log.e(TAG, "Error starting location tracking", e);
+                call.reject("Failed to start location tracking: " + e.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void stopLocationTracking(PluginCall call) {
+        if (!isLocationTrackingStarted) {
+            call.resolve();
+            return;
+        }
+
+        mainHandler.post(() -> {
+            try {
+                if (fusedLocationClient != null && locationCallback != null) {
+                    fusedLocationClient.removeLocationUpdates(locationCallback);
+                    isLocationTrackingStarted = false;
+                    Log.d(TAG, "Location tracking stopped");
+                }
+                call.resolve();
+            } catch (Exception e) {
+                Log.e(TAG, "Error stopping location tracking", e);
+                call.reject("Failed to stop location tracking: " + e.getMessage());
+            }
+        });
     }
 }

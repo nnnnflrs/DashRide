@@ -23,14 +23,6 @@
         <div class="info-value">{{ remainingDistance.toFixed(1) }} {{ distanceUnit }}</div>
       </div>
     </div>
-
-    <div class="info-item">
-      <component :is="slopeIcon" :class="['info-icon', slopeClass]" />
-      <div class="info-content">
-        <div class="info-label">SLOPE/GRADIENT</div>
-        <div class="info-value">{{ slope }}</div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -43,25 +35,12 @@ interface Props {
   totalDistance: number
   remainingDistance: number
   unit: 'mph' | 'kmh'
-  slope: string
   slopeDirection: 'uphill' | 'downhill' | 'flat'
 }
 
 const props = defineProps<Props>()
 
 const distanceUnit = computed(() => props.unit === 'mph' ? 'mi' : 'km')
-
-const slopeIcon = computed(() => {
-  if (props.slopeDirection === 'uphill') return TrendingUp
-  if (props.slopeDirection === 'downhill') return TrendingDown
-  return Minus
-})
-
-const slopeClass = computed(() => {
-  if (props.slopeDirection === 'uphill') return 'slope-uphill'
-  if (props.slopeDirection === 'downhill') return 'slope-downhill'
-  return 'slope-flat'
-})
 </script>
 
 <style scoped>

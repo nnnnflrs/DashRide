@@ -459,6 +459,10 @@ onUnmounted(() => {
 .track-details {
   flex: 1;
   text-align: center;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
 }
 
 .track-title {
@@ -906,11 +910,13 @@ onUnmounted(() => {
 
 /* Portrait Orientation Styles */
 @media (orientation: portrait) {
+
   .music-player {
     padding: 1rem;
   }
 
   .player-content {
+    padding-top: 6rem;
     flex-direction: column;
     gap: 1.5rem;
     align-items: center;
