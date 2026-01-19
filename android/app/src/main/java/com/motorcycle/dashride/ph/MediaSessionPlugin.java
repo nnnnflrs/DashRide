@@ -329,8 +329,6 @@ public class MediaSessionPlugin extends Plugin {
                 new Intent(getContext(), getActivity().getClass())
             );
         }
-
-        notificationManager.notify(NOTIFICATION_ID, notification);
     }
 
     @PluginMethod
