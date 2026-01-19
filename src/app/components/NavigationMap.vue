@@ -115,7 +115,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { Geolocation } from '@capacitor/geolocation'
 import { Navigation, X, Locate, LocateFixed } from 'lucide-vue-next'
 import { Capacitor } from '@capacitor/core'
 import { useSettings } from '../../composables/useSettings'
@@ -151,7 +150,6 @@ const isSearching = ref(false)
 const availableRoutes = ref<any[]>([])
 const selectedRouteIndex = ref(0)
 const isLoadingRoutes = ref(false)
-let watchId: string | null = null
 let searchTimeout: NodeJS.Timeout | null = null
 let etaUpdateInterval: NodeJS.Timeout | null = null
 let routeUpdateInterval: NodeJS.Timeout | null = null
@@ -286,18 +284,8 @@ const handleArrival = async () => {
     hasArrived = false
 }
 
-const getCurrentLocation = async () => {
-  const position = await Geolocation.getCurrentPosition({
-    enableHighAccuracy: true,
-    timeout: 10000,
-    maximumAge: 5000
-  })
-  return {
-    lat: position.coords.latitude,
-    lng: position.coords.longitude,
-    accuracy: position.coords.accuracy
-  }
-}
+// getCurrentLocation is now handled by the location listener
+// Current location is cached in the currentLocation variable
 
 // Search functions
 const onSearchFocus = () => {
@@ -427,153 +415,116 @@ const initMap = async () => {
   error.value = ''
 
   try {
-    // Request location permission
-    const permission = await Geolocation.requestPermissions()
-    if (permission.location !== 'granted') {
-      throw new Error('Location permission denied')
-    }
+    // Start native location tracking first
+    await GoogleMapsNative.startLocationTracking()
 
-    // Get current position
-    const location = await getCurrentLocation()
-    currentLocation.lat = location.lat
-    currentLocation.lng = location.lng
+    // Set up location listener to cache current position and update map
+    await GoogleMapsNative.addListener('locationUpdate', (location) => {
+      // Cache location
+      currentLocation.lat = location.latitude
+      currentLocation.lng = location.longitude
+      currentSpeedMps = location.speed || 0
 
-    // Initialize native Google Maps with mapId
-    await GoogleMapsNative.create({
-      mapId: 'navigation',
-      type: 'fullscreen',
-      lat: currentLocation.lat,
-      lng: currentLocation.lng,
-      zoom: 17
-    })
+      console.log(`GPS Update: lat=${location.latitude.toFixed(6)}, lng=${location.longitude.toFixed(6)}, isNavigating=${isNavigating.value}`)
 
-    await GoogleMapsNative.show({ mapId: 'navigation' })
+      // Get bearing/heading for rotation
+      const bearing = location.bearing || 0
+      console.log(`GPS Bearing: ${bearing}, Speed: ${currentSpeedMps.toFixed(2)} m/s`)
 
-    // Mark map as initialized
-    isMapInitialized.value = true
+      // Initialize map on first location update if not already initialized
+      if (!isMapInitialized.value) {
+        GoogleMapsNative.create({
+          mapId: 'navigation',
+          type: 'fullscreen',
+          lat: location.latitude,
+          lng: location.longitude,
+          zoom: 17
+        }).then(async () => {
+          await GoogleMapsNative.show({ mapId: 'navigation' })
+          isMapInitialized.value = true
 
-    // Apply initial theme style
-    await applyMapStyle()
+          // Apply initial theme style
+          await applyMapStyle()
 
-    // Add current location marker
-    const result = await GoogleMapsNative.addMarker({
-      mapId: 'navigation',
-      id: 'current-location',
-      lat: currentLocation.lat,
-      lng: currentLocation.lng,
-      title: 'Your Location',
-      color: '#4285F4',
-      iconType: 'dot'
-    })
-
-    nativeMarkers.set('current-location', result.id)
-
-    // Stop auto-centering after initial load
-    isFollowingLocation.value = false
-
-    // Listen for user gestures on native map to stop auto-centering
-    GoogleMapsNative.addListener('cameraMoveStarted', (data) => {
-      if (data.gesture) {
-        isFollowingLocation.value = false
-      }
-    })
-
-    // Listen for polyline clicks to select routes
-    GoogleMapsNative.addListener('polylineClick', (data) => {
-      selectRoute(data.routeIndex)
-    })
-
-    // Watch position changes with error handling
-    console.log('Starting GPS position watch...')
-    watchId = await Geolocation.watchPosition(
-      {
-        enableHighAccuracy: true,
-        timeout: 10000, // Increased timeout to 10 seconds
-        maximumAge: 0
-      },
-      (position, err) => {
-        // Handle errors
-        if (err) {
-          console.error('GPS Error:', err)
-          // Don't stop watching, just log the error and continue
-          return
-        }
-
-        if (!position) {
-          console.log('GPS: No position received')
-          return
-        }
-
-        const newLocation = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        }
-
-        console.log(`GPS Update: lat=${newLocation.lat.toFixed(6)}, lng=${newLocation.lng.toFixed(6)}, isNavigating=${isNavigating.value}`)
-
-        // Update current location for search bias
-        currentLocation.lat = newLocation.lat
-        currentLocation.lng = newLocation.lng
-
-        // Update current speed for TTS timing calculations (convert to m/s if available)
-        if (position.coords.speed !== null && position.coords.speed !== undefined) {
-          currentSpeedMps = position.coords.speed // Already in m/s from Geolocation API
-          console.log(`GPS Speed: ${currentSpeedMps.toFixed(2)} m/s (${(currentSpeedMps * 3.6).toFixed(1)} km/h)`)
-        }
-
-        // Get bearing/heading for rotation
-        const bearing = position.coords.heading
-        console.log(`GPS Bearing: ${bearing}`)
-
-        // Update marker based on navigation state
-        if (isNavigating.value) {
-          // During navigation: use arrow marker with rotation
-          console.log('Updating arrow marker during navigation')
-          GoogleMapsNative.updateMarker({
+          // Add initial location marker
+          await GoogleMapsNative.addMarker({
             mapId: 'navigation',
             id: 'current-location',
-            lat: newLocation.lat,
-            lng: newLocation.lng,
-            rotation: bearing !== null && bearing !== undefined ? bearing : 0,
-            flat: true
-          }).then(() => {
-            console.log('Arrow marker updated successfully')
-          }).catch(err => console.error('Error updating arrow marker:', err))
-        } else {
-          // When not navigating: use blue dot marker
-          console.log('Adding/updating dot marker (not navigating)')
-          GoogleMapsNative.addMarker({
-            mapId: 'navigation',
-            id: 'current-location',
-            lat: newLocation.lat,
-            lng: newLocation.lng,
+            lat: location.latitude,
+            lng: location.longitude,
             title: 'Your Location',
             color: '#4285F4',
             iconType: 'dot'
-          }).catch(err => console.error('Error updating native marker:', err))
-        }
+          })
 
-        // Center map on location if following (always follow during navigation)
-        if (isFollowingLocation.value || isNavigating.value) {
-          GoogleMapsNative.setCenter({
-            mapId: 'navigation',
-            lat: newLocation.lat,
-            lng: newLocation.lng,
-            zoom: isNavigating.value ? 19 : 17,
-            tilt: isNavigating.value ? 45 : 0,
-            bearing: isNavigating.value && bearing !== null && bearing !== undefined ? bearing : undefined,
-            animate: true
-          }).catch(err => console.error('Error centering native map:', err))
-        }
+          // Stop auto-centering after initial load
+          isFollowingLocation.value = false
 
-        // Update route progress during navigation
-        if (isNavigating.value && routePath.value.length > 0) {
-          updateRouteProgress(newLocation)
-        }
+          // Listen for user gestures on native map to stop auto-centering
+          GoogleMapsNative.addListener('cameraMoveStarted', (data) => {
+            if (data.gesture) {
+              isFollowingLocation.value = false
+            }
+          })
+
+          // Listen for polyline clicks to select routes
+          GoogleMapsNative.addListener('polylineClick', (data) => {
+            selectRoute(data.routeIndex)
+          })
+
+          loading.value = false
+        }).catch(err => {
+          console.error('Error initializing map:', err)
+          error.value = 'Failed to initialize map'
+          loading.value = false
+        })
+        return
       }
-    )
 
-    console.log('GPS watch started with ID:', watchId)
+      // Update marker based on navigation state
+      if (isNavigating.value) {
+        // During navigation: use arrow marker with rotation
+        GoogleMapsNative.updateMarker({
+          mapId: 'navigation',
+          id: 'current-location',
+          lat: location.latitude,
+          lng: location.longitude,
+          rotation: bearing,
+          flat: true
+        }).catch(err => console.error('Error updating arrow marker:', err))
+      } else {
+        // When not navigating: use blue dot marker
+        GoogleMapsNative.addMarker({
+          mapId: 'navigation',
+          id: 'current-location',
+          lat: location.latitude,
+          lng: location.longitude,
+          title: 'Your Location',
+          color: '#4285F4',
+          iconType: 'dot'
+        }).catch(err => console.error('Error updating native marker:', err))
+      }
+
+      // Center map on location only when following is enabled
+      if (isFollowingLocation.value) {
+        GoogleMapsNative.setCenter({
+          mapId: 'navigation',
+          lat: location.latitude,
+          lng: location.longitude,
+          zoom: isNavigating.value ? 19 : 17,
+          tilt: isNavigating.value ? 45 : 0,
+          bearing: isNavigating.value ? bearing : undefined,
+          animate: true
+        }).catch(err => console.error('Error centering native map:', err))
+      }
+
+      // Update route progress during navigation
+      if (isNavigating.value && routePath.value.length > 0) {
+        updateRouteProgress({ lat: location.latitude, lng: location.longitude })
+      }
+    })
+
+    console.log('Location tracking started')
 
     loading.value = false
   } catch (err: any) {
@@ -589,13 +540,12 @@ const showDirections = async () => {
   try {
     isLoadingRoutes.value = true
 
-    // Get current location
-    const currentPos = await getCurrentLocation()
+    // Use cached current location (updated by location listener)
+    const origin = `${currentLocation.lat},${currentLocation.lng}`
+    const destination = `${selectedPlace.value.location.lat},${selectedPlace.value.location.lng}`
 
     // Fetch routes from Google Directions API using native method
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-    const origin = `${currentPos.lat},${currentPos.lng}`
-    const destination = `${selectedPlace.value.location.lat},${selectedPlace.value.location.lng}`
 
     const data = await GoogleMapsNative.getDirections({
       origin,
@@ -642,18 +592,17 @@ const zoomToShowRoutes = async () => {
   if (!selectedPlace.value || availableRoutes.value.length === 0) return
 
   try {
-    // Get current location
-    const currentPos = await getCurrentLocation()
+    // Use cached current location
 
     // Calculate the center point between current location and destination
     const destLat = selectedPlace.value.location.lat
     const destLng = selectedPlace.value.location.lng
-    const centerLat = (currentPos.lat + destLat) / 2
-    const centerLng = (currentPos.lng + destLng) / 2
+    const centerLat = (currentLocation.lat + destLat) / 2
+    const centerLng = (currentLocation.lng + destLng) / 2
 
     // Calculate distance to determine zoom level
-    const latDiff = Math.abs(currentPos.lat - destLat)
-    const lngDiff = Math.abs(currentPos.lng - destLng)
+    const latDiff = Math.abs(currentLocation.lat - destLat)
+    const lngDiff = Math.abs(currentLocation.lng - destLng)
     const maxDiff = Math.max(latDiff, lngDiff)
 
     // Determine zoom level based on distance
@@ -1321,31 +1270,20 @@ const stopNavigation = async () => {
 
 const centerOnCurrentLocation = async () => {
   try {
-    // Get fresh location
-    const currentLocation = await Geolocation.getCurrentPosition({
-      enableHighAccuracy: true,
-      timeout: 5000,
-      maximumAge: 5000
-    })
-
-    const preciseLocation = {
-      lat: currentLocation.coords.latitude,
-      lng: currentLocation.coords.longitude
-    }
-
+    // Use cached current location (updated by location listener)
     // Enable location following
     isFollowingLocation.value = true
 
-    // Center native map
+    // Center native map on cached location
     await GoogleMapsNative.setCenter({
       mapId: 'navigation',
-      lat: preciseLocation.lat,
-      lng: preciseLocation.lng,
+      lat: currentLocation.lat,
+      lng: currentLocation.lng,
       zoom: 17,
       animate: true
     })
   } catch (err) {
-    console.error('Error getting current location:', err)
+    console.error('Error centering on current location:', err)
   }
 }
 
@@ -1362,8 +1300,11 @@ defineExpose({
 })
 
 onUnmounted(async () => {
-  if (watchId) {
-    Geolocation.clearWatch({ id: watchId })
+  // Stop native location tracking
+  try {
+    await GoogleMapsNative.stopLocationTracking()
+  } catch (err) {
+    console.error('Error stopping location tracking:', err)
   }
 
   // Cleanup native map
