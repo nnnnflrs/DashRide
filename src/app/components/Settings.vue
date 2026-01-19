@@ -318,7 +318,7 @@ const copyWalletAddress = async () => {
 }
 
 // Share functions
-const appUrl = 'https://github.com/yourusername/dashride' // Update with actual URL
+const appUrl = 'https://play.google.com/store/apps/details?id=com.motorcycle.dashride.ph'
 const shareText = 'Check out DashRide - A modern motorcycle dashboard app with GPS navigation, speedometer, and music player! 🏍️'
 
 const shareToFacebook = () => {
