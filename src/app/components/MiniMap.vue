@@ -95,8 +95,8 @@ const DARK_MAP_STYLE = JSON.stringify([
   { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#4e6d70" }] }
 ])
 
-// Initialize minimap
-const initMinimap = async () => {
+// Initialize minimap with retry logic for better device compatibility
+const initMinimap = async (retryCount = 0) => {
   if (!props.currentLocation) {
     console.log('MiniMap: No current location, skipping init')
     return
@@ -108,28 +108,44 @@ const initMinimap = async () => {
   }
 
   try {
-    console.log('MiniMap: Initializing native minimap')
+    console.log('MiniMap: Initializing native minimap (attempt ' + (retryCount + 1) + ')')
 
     // Get the container's actual bounds from the DOM
     const rect = containerRef.value.getBoundingClientRect()
-    console.log('MiniMap: Container bounds:', { x: rect.x, y: rect.y, width: rect.width, height: rect.height })
 
-    // If bounds are still 0, log warning but continue with fallback
-    if (rect.width === 0 || rect.height === 0) {
-      console.warn('MiniMap: Container has zero bounds, native plugin will use fallback dp values')
+    // Scale bounds by device pixel ratio for native rendering
+    const dpr = window.devicePixelRatio || 1
+    const scaledX = rect.x * dpr
+    const scaledY = rect.y * dpr
+    const scaledWidth = rect.width * dpr
+    const scaledHeight = rect.height * dpr
+
+    console.log(`MiniMap: Container bounds: x=${rect.x}, y=${rect.y}, width=${rect.width}, height=${rect.height}, dpr=${dpr}`)
+    console.log(`MiniMap: Scaled bounds: x=${scaledX}, y=${scaledY}, width=${scaledWidth}, height=${scaledHeight}`)
+
+    // If bounds are still 0 after a few retries, wait a bit longer and retry
+    if ((rect.width === 0 || rect.height === 0) && retryCount < 3) {
+      console.warn('MiniMap: Container has zero bounds, retrying in 200ms...')
+      setTimeout(() => initMinimap(retryCount + 1), 200)
+      return
     }
 
-    // Create native minimap with type="minimap" and exact bounds
+    // Log if we're using fallback (native plugin has defaults)
+    if (rect.width === 0 || rect.height === 0) {
+      console.warn('MiniMap: Container still has zero bounds after retries, native plugin will use fallback dp values')
+    }
+
+    // Create native minimap with type="minimap" and exact bounds (scaled for device pixels)
     await GoogleMapsNative.create({
       mapId,
       type: 'minimap',
       lat: props.currentLocation.lat,
       lng: props.currentLocation.lng,
       zoom: 17,
-      x: rect.x,
-      y: rect.y,
-      width: rect.width,
-      height: rect.height
+      x: scaledX,
+      y: scaledY,
+      width: scaledWidth,
+      height: scaledHeight
     })
 
     // Set initial camera with bearing to match heading direction
@@ -282,13 +298,31 @@ watch(() => props.isVisible, async (visible) => {
       await GoogleMapsNative.show({ mapId })
 
       // When becoming visible, check if we need to update bounds
-      // (in case they were 0 on initial mount)
+      // (in case they were 0 on initial mount or layout changed)
       if (containerRef.value) {
         const rect = containerRef.value.getBoundingClientRect()
         if (rect.width > 0 && rect.height > 0) {
-          console.log('MiniMap: Updating bounds on visibility change:', { x: rect.x, y: rect.y, width: rect.width, height: rect.height })
-          // Note: The plugin doesn't have an updateBounds method yet,
-          // but we can log this for debugging
+          // Scale bounds by device pixel ratio
+          const dpr = window.devicePixelRatio || 1
+          const scaledX = rect.x * dpr
+          const scaledY = rect.y * dpr
+          const scaledWidth = rect.width * dpr
+          const scaledHeight = rect.height * dpr
+
+          console.log(`MiniMap: Updating bounds on visibility change: x=${rect.x}, y=${rect.y}, width=${rect.width}, height=${rect.height}`)
+          console.log(`MiniMap: Scaled update bounds: x=${scaledX}, y=${scaledY}, width=${scaledWidth}, height=${scaledHeight}`)
+          try {
+            await GoogleMapsNative.updateBounds({
+              mapId,
+              x: scaledX,
+              y: scaledY,
+              width: scaledWidth,
+              height: scaledHeight
+            })
+            console.log('MiniMap: Bounds updated successfully')
+          } catch (boundsErr) {
+            console.error('MiniMap: Error updating bounds:', boundsErr)
+          }
         }
       }
     } else {
@@ -332,14 +366,14 @@ onUnmounted(async () => {
 .mini-map {
   position: relative;
   width: 100%;
-  max-width: 230px;
-  aspect-ratio: 23 / 20; /* Maintain 230:200 ratio */
+  height: 100%; /* Match parent container height */
   border-radius: 0.5rem;
   border: 1px solid rgba(55, 65, 81, 0.5);
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   /* Native map renders inside this container via plugin positioning */
+  box-sizing: border-box; /* Include borders in size calculations */
 }
 
 /* Dark map style */

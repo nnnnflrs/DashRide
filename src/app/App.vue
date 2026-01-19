@@ -16,7 +16,7 @@
             <!-- LEFT INFO - Overlaid on gauge in landscape, above speedometer in portrait -->
             <div v-if="showDetailsOnNavigation || isNavigating" class="info-overlay info-left">
               <!-- Mini Map - Hidden when not navigating or disabled in settings -->
-              <div class="map-widget-small" :class="{ 'map-hidden': isNavigating }">
+              <div class="map-widget-small" :class="{ 'map-hidden': !isNavigating}">
                 <MiniMap
                   v-if="isNavigating && showMinimap"
                   :distance="remainingDistance"
@@ -326,6 +326,29 @@ const isTracking = ref(false)
 const activeTab = ref<'nav' | 'music' | 'riding' | 'settings'>('riding')
 const isSearchingLocation = ref(false)
 const currentLocation = ref<{ lat: number; lng: number } | null>(null)
+
+// Speed smoothing - moving average of last 3 readings to filter GPS noise
+const speedReadings = ref<number[]>([])
+const maxSpeedReadings = 3
+
+// Smooth speed using moving average
+const smoothSpeed = (rawSpeed: number): number => {
+  // Add the new reading
+  speedReadings.value.push(rawSpeed)
+
+  // Keep only the last N readings
+  if (speedReadings.value.length > maxSpeedReadings) {
+    speedReadings.value.shift()
+  }
+
+  // Calculate average
+  const average = speedReadings.value.reduce((sum, val) => sum + val, 0) / speedReadings.value.length
+
+  // Apply threshold - speeds below 3 km/h (1.86 mph) are considered stationary
+  const speedThreshold = unit.value === 'mph' ? 1.86 : 3
+
+  return average > speedThreshold ? average : 0
+}
 
 // Tooltip state
 const activeTooltip = ref<string | null>(null)
@@ -689,10 +712,15 @@ const startTracking = async () => {
         const speedKmh = speedMps * 3.6
         const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
 
-        // Apply speed threshold to filter out GPS noise when stationary
-        // Speeds below 2 km/h (1.24 mph) are considered stationary
-        const speedThreshold = unit.value === 'mph' ? 1.24 : 2
-        speed.value = currentSpeed > speedThreshold ? currentSpeed : 0
+        // Apply smoothing and threshold filtering to prevent GPS noise spikes
+        // Also filter out readings with poor accuracy (>20m)
+        if (location.accuracy && location.accuracy > 20) {
+          // Poor GPS signal - use last known speed or 0
+          speed.value = smoothSpeed(0)
+        } else {
+          speed.value = smoothSpeed(currentSpeed)
+        }
+
         altitude.value = location.altitude || 0
         bearing.value = location.bearing || 0
 
@@ -766,10 +794,13 @@ const startTracking = async () => {
           const speedKmh = speedMps * 3.6
           const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
 
-          // Apply speed threshold to filter out GPS noise when stationary
-          // Speeds below 2 km/h (1.24 mph) are considered stationary
-          const speedThreshold = unit.value === 'mph' ? 1.24 : 2
-          speed.value = currentSpeed > speedThreshold ? currentSpeed : 0
+          
+          if (position.coords.accuracy && position.coords.accuracy > 20) {
+            speed.value = smoothSpeed(0)
+          } else {
+            speed.value = smoothSpeed(currentSpeed)
+          }
+
           altitude.value = position.coords.altitude || 0
           bearing.value = position.coords.heading || 0
 
@@ -1187,7 +1218,7 @@ onUnmounted(() => {
   transform: translateY(-50%);
   align-items: flex-start;
   padding-left: 0.5rem;
-  max-width: 240px;
+  max-width: 350px; /* Larger max width */
   z-index: 10;
 }
 
@@ -1199,16 +1230,28 @@ onUnmounted(() => {
   padding-right: 0.5rem;
 }
 
-/* Map Widget Small */
+/* Info items row - no background, just vertical layout */
+.info-items-row {
+    padding-left: 0.5rem;
+    gap: 0.4rem;
+}
+
 .map-widget-small {
-  margin-bottom: 0.5rem;
-  border-radius: 6px;
-  overflow: hidden;
-  width: 100%; /* Full width of parent container */
+  height: 10rem;
+  width: 13rem;
 }
 
 .map-widget-small.map-hidden {
   visibility: hidden;
+  display: none; /* Also hide from layout when not visible */
+}
+
+
+.info-items-row .info-value {
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+  flex: 1;
 }
 
 /* Info Items - Simple Text, No Tiles */
@@ -1693,10 +1736,14 @@ onUnmounted(() => {
 @media (orientation: landscape) {
 /* Landscape mode - info overlay sizing and positioning */
   .info-overlay.info-left {
-    width: 25%;
-    max-width: 240px;
-    bottom: 1rem; /* Push down from top instead of centering */
-    transform: translateY(0); 
+    width: 300px; /* Fixed width to match destination container */
+    max-width: 300px;
+    top: 0;
+    bottom: 0;
+    transform: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 }
 

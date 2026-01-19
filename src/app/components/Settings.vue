@@ -186,6 +186,18 @@
       </div>
     </div>
 
+    <!-- Feedback Section -->
+    <div class="setting-card">
+      <label class="setting-label">Feedback</label>
+      <button @click="openFeedbackForm" class="feedback-button">
+        <svg class="feedback-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+        </svg>
+        <span>Report Bug / Request Feature</span>
+      </button>
+      <p class="feedback-description">Spot a bug or have an idea? Let me know!</p>
+    </div>
+
     <!-- About Section -->
     <div class="setting-card">
       <h3 class="about-title">About</h3>
@@ -221,16 +233,6 @@
           <li>Google Places API - Location search and autocomplete</li>
           <li>Open-Meteo API - Real-time weather information</li>
           <li>MediaStore API - Local music library access</li>
-        </ul>
-
-        <p class="data-sources-title">
-          <span class="bold">Technology Stack:</span>
-        </p>
-        <ul class="data-sources-list">
-          <li>Vue 3 with Composition API</li>
-          <li>Ionic Framework for native features</li>
-          <li>Capacitor for cross-platform compatibility</li>
-          <li>Native Android integration for maps and audio</li>
         </ul>
 
         <!-- Share Section -->
@@ -339,6 +341,11 @@ const shareToInstagram = () => {
   }).catch(() => {
     alert('Please share manually on Instagram')
   })
+}
+
+// Feedback form
+const openFeedbackForm = () => {
+  window.open('https://docs.google.com/forms/d/e/1FAIpQLSfNBAYi-nCqQOsg2e574fyrr8EH7Tdkp8n60ckY4XfanKjB6Q/viewform', '_blank')
 }
 </script>
 
@@ -793,5 +800,51 @@ const shareToInstagram = () => {
 /* Light theme adjustments for share section */
 .settings-container[data-theme="light"] .share-section {
   border-top-color: rgba(148, 163, 184, 0.3);
+}
+
+/* Feedback Section */
+.feedback-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, rgb(59, 130, 246), rgb(37, 99, 235));
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 0.5rem;
+}
+
+.feedback-button:hover {
+  background: linear-gradient(135deg, rgb(37, 99, 235), rgb(29, 78, 216));
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.feedback-button:active {
+  transform: translateY(0);
+}
+
+.feedback-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.feedback-description {
+  font-size: 0.8125rem;
+  color: rgba(156, 163, 175, 1);
+  text-align: center;
+  margin: 0;
+}
+
+.settings-container[data-theme="light"] .feedback-description {
+  color: rgb(71, 85, 105);
 }
 </style>

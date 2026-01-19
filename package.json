@@ -12,7 +12,12 @@
     "androidDebug": "bun run build && bunx cap sync android && bunx cap run android --target=b755084c",
     "ios": "bun run build && bunx cap sync ios && bunx cap run ios --target=40BFA551-0C44-4975-8B1D-8993EF3BC65A",
     "sync": "bunx cap sync",
-    "gradle": "cd android && ./gradlew clean && ./gradlew assembleDebug"
+    "gradle": "cd android && ./gradlew clean && ./gradlew assembleDebug",
+    "release:build": "bun run build && bunx cap sync android && cd android && ./gradlew clean assembleRelease",
+    "release:bundle": "bun run build && bunx cap sync android && cd android && ./gradlew clean bundleRelease",
+    "release:install": "bun run release:build && cd android && ./gradlew installRelease",
+    "release:apk": "bun run release:build && echo '\n✓ Release APK created at: android/app/build/outputs/apk/release/app-release.apk'",
+    "release:aab": "bun run release:bundle && echo '\n✓ Release AAB created at: android/app/build/outputs/bundle/release/app-release.aab'"
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^7.3.0",

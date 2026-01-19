@@ -123,8 +123,13 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                     int leftMarginPx;
                     int topMarginPx;
 
+                    // Get screen dimensions
+                    android.util.DisplayMetrics displayMetrics = getContext().getResources().getDisplayMetrics();
+                    int screenWidth = displayMetrics.widthPixels;
+                    int screenHeight = displayMetrics.heightPixels;
+
                     // Only use JS bounds if they are valid (greater than 0)
-                    // getBoundingClientRect returns 0 for elements not in layout
+                    // getBoundingClientRect returns CSS pixels - use them directly as physical pixels
                     if (width != null && height != null && width > 0 && height > 0) {
                         // Use exact pixel values from JavaScript getBoundingClientRect
                         widthPx = Math.round(width);
@@ -134,12 +139,13 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                         Log.d(TAG, "Using JS bounds: x=" + leftMarginPx + ", y=" + topMarginPx +
                               ", width=" + widthPx + ", height=" + heightPx);
                     } else {
-                        // Fallback to default dp values when bounds are invalid
-                        widthPx = dpToPx(230);
-                        heightPx = dpToPx(180);  // Reduced height for better fit
-                        leftMarginPx = dpToPx(30);
-                        topMarginPx = dpToPx(50);
-                        Log.d(TAG, "Using default dp bounds (JS bounds were invalid or zero)");
+                        // Fallback: Use reasonable dp values
+                        widthPx = dpToPx(208);
+                        heightPx = dpToPx(160);
+                        leftMarginPx = dpToPx(16);
+                        topMarginPx = dpToPx(60);
+                        Log.d(TAG, "Using fallback dp bounds: x=" + leftMarginPx + ", y=" + topMarginPx +
+                              ", width=" + widthPx + ", height=" + heightPx);
                     }
 
                     // Container params with positioning
@@ -845,6 +851,63 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                 call.resolve();
             } else {
                 call.reject("Map not created for mapId: " + mapId);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void updateBounds(PluginCall call) {
+        String mapId = call.getString("mapId", "default");
+        Float x = call.getFloat("x");
+        Float y = call.getFloat("y");
+        Float width = call.getFloat("width");
+        Float height = call.getFloat("height");
+
+        mainHandler.post(() -> {
+            FrameLayout container = mapContainers.get(mapId);
+            if (container != null && width != null && height != null && width > 0 && height > 0) {
+                try {
+                    // Update container layout params with new bounds
+                    int widthPx = Math.round(width);
+                    int heightPx = Math.round(height);
+                    int leftMarginPx = (x != null && x > 0) ? Math.round(x) : 0;
+                    int topMarginPx = (y != null && y > 0) ? Math.round(y) : 0;
+
+                    // Get existing layout params and modify them to preserve the correct type
+                    ViewGroup.LayoutParams existingParams = container.getLayoutParams();
+                    if (existingParams instanceof ViewGroup.MarginLayoutParams) {
+                        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) existingParams;
+                        params.width = widthPx;
+                        params.height = heightPx;
+                        params.leftMargin = leftMarginPx;
+                        params.topMargin = topMarginPx;
+
+                        // Set gravity if it's a FrameLayout.LayoutParams
+                        if (params instanceof FrameLayout.LayoutParams) {
+                            ((FrameLayout.LayoutParams) params).gravity = android.view.Gravity.TOP | android.view.Gravity.LEFT;
+                        }
+
+                        container.setLayoutParams(params);
+                        container.requestLayout();
+                    } else {
+                        // Fallback: create new FrameLayout.LayoutParams
+                        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(widthPx, heightPx);
+                        params.leftMargin = leftMarginPx;
+                        params.topMargin = topMarginPx;
+                        params.gravity = android.view.Gravity.TOP | android.view.Gravity.LEFT;
+                        container.setLayoutParams(params);
+                        container.requestLayout();
+                    }
+
+                    Log.d(TAG, "Updated bounds for mapId " + mapId + ": x=" + leftMarginPx +
+                          ", y=" + topMarginPx + ", width=" + widthPx + ", height=" + heightPx);
+                    call.resolve();
+                } catch (Exception e) {
+                    Log.e(TAG, "Error updating bounds", e);
+                    call.reject("Failed to update bounds: " + e.getMessage());
+                }
+            } else {
+                call.reject("Invalid bounds or map not found for mapId: " + mapId);
             }
         });
     }

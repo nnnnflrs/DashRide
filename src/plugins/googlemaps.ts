@@ -102,6 +102,11 @@ export interface GoogleMapsNativePlugin {
   hide(options?: { mapId?: string }): Promise<void>
 
   /**
+   * Update map bounds (position and size) - useful for handling device rotation or layout changes
+   */
+  updateBounds(options: { mapId?: string; x: number; y: number; width: number; height: number }): Promise<void>
+
+  /**
    * Destroy the map and free resources
    */
   destroy(options?: { mapId?: string }): Promise<void>

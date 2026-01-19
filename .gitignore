@@ -84,6 +84,9 @@ credentials/
 certs/
 *.jks
 *.keystore
+keystore.properties
+android/keystore.properties
+android/app/keystore.properties
 
 resources/ios/**/*
 resources/android/**/*
