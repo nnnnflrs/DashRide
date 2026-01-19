@@ -98,7 +98,7 @@
 
     <div v-if="error" class="error-overlay">
       <p class="error-text">{{ error }}</p>
-      <button @click="initMap" class="retry-button">Retry</button>
+      <button @click="initMap" class="retry-button">Request permission</button>
     </div>
 
     <button
@@ -117,6 +117,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Navigation, X, Locate, LocateFixed } from 'lucide-vue-next'
 import { Capacitor } from '@capacitor/core'
+import { Geolocation } from '@capacitor/geolocation'
 import { useSettings } from '../../composables/useSettings'
 import { useNavigation } from '../../composables/useNavigation'
 import { GoogleMapsNative } from '../../plugins/googlemaps'
@@ -410,15 +411,87 @@ const clearSearch = () => {
   selectedRouteIndex.value = 0
 }
 
+const requestLocationPermission = async () => {
+    const permissionStatus = await Geolocation.checkPermissions()
+    if (permissionStatus.location !== 'granted') {
+      const result = await Geolocation.requestPermissions()
+      if (result.location !== 'granted') {
+        throw new Error('Location permission is required for navigation')
+      }
+    } else {
+      console.log('Location permission already granted')
+    }
+}
+
+
 const initMap = async () => {
   loading.value = true
   error.value = ''
 
   try {
-    // Start native location tracking first
+
+    await requestLocationPermission()
+
+    // Get immediate location to initialize map quickly
+    console.log('Getting current location...')
+    const position = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 10000
+    })
+
+    // Cache initial location
+    currentLocation.lat = position.coords.latitude
+    currentLocation.lng = position.coords.longitude
+    console.log(`Initial location: lat=${position.coords.latitude.toFixed(6)}, lng=${position.coords.longitude.toFixed(6)}`)
+
+    // Create map immediately with current location
+    await GoogleMapsNative.create({
+      mapId: 'navigation',
+      type: 'fullscreen',
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+      zoom: 17
+    })
+
+    await GoogleMapsNative.show({ mapId: 'navigation' })
+    isMapInitialized.value = true
+    console.log('Map initialized successfully')
+
+    // Apply initial theme style
+    await applyMapStyle()
+
+    // Add initial location marker
+    await GoogleMapsNative.addMarker({
+      mapId: 'navigation',
+      id: 'current-location',
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+      title: 'Your Location',
+      color: '#4285F4',
+      iconType: 'dot'
+    })
+
+    // Stop auto-centering after initial load
+    isFollowingLocation.value = false
+
+    // Listen for user gestures on native map to stop auto-centering
+    GoogleMapsNative.addListener('cameraMoveStarted', (data) => {
+      if (data.gesture) {
+        isFollowingLocation.value = false
+      }
+    })
+
+    // Listen for polyline clicks to select routes
+    GoogleMapsNative.addListener('polylineClick', (data) => {
+      selectRoute(data.routeIndex)
+    })
+
+    loading.value = false
+
+    // Start native location tracking for continuous updates
     await GoogleMapsNative.startLocationTracking()
 
-    // Set up location listener to cache current position and update map
+    // Set up location listener to update map with live location
     await GoogleMapsNative.addListener('locationUpdate', (location) => {
       // Cache location
       currentLocation.lat = location.latitude
@@ -430,56 +503,6 @@ const initMap = async () => {
       // Get bearing/heading for rotation
       const bearing = location.bearing || 0
       console.log(`GPS Bearing: ${bearing}, Speed: ${currentSpeedMps.toFixed(2)} m/s`)
-
-      // Initialize map on first location update if not already initialized
-      if (!isMapInitialized.value) {
-        GoogleMapsNative.create({
-          mapId: 'navigation',
-          type: 'fullscreen',
-          lat: location.latitude,
-          lng: location.longitude,
-          zoom: 17
-        }).then(async () => {
-          await GoogleMapsNative.show({ mapId: 'navigation' })
-          isMapInitialized.value = true
-
-          // Apply initial theme style
-          await applyMapStyle()
-
-          // Add initial location marker
-          await GoogleMapsNative.addMarker({
-            mapId: 'navigation',
-            id: 'current-location',
-            lat: location.latitude,
-            lng: location.longitude,
-            title: 'Your Location',
-            color: '#4285F4',
-            iconType: 'dot'
-          })
-
-          // Stop auto-centering after initial load
-          isFollowingLocation.value = false
-
-          // Listen for user gestures on native map to stop auto-centering
-          GoogleMapsNative.addListener('cameraMoveStarted', (data) => {
-            if (data.gesture) {
-              isFollowingLocation.value = false
-            }
-          })
-
-          // Listen for polyline clicks to select routes
-          GoogleMapsNative.addListener('polylineClick', (data) => {
-            selectRoute(data.routeIndex)
-          })
-
-          loading.value = false
-        }).catch(err => {
-          console.error('Error initializing map:', err)
-          error.value = 'Failed to initialize map'
-          loading.value = false
-        })
-        return
-      }
 
       // Update marker based on navigation state
       if (isNavigating.value) {
@@ -1287,8 +1310,8 @@ const centerOnCurrentLocation = async () => {
   }
 }
 
-onMounted(() => {
-  initMap()
+onMounted( async() => {
+  await initMap()
 })
 
 // Expose cleanup method for parent component

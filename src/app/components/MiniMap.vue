@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, onBeforeMount } from 'vue'
 import { Navigation, TrendingUp } from 'lucide-vue-next'
 import { GoogleMapsNative } from '../../plugins/googlemaps'
 
@@ -333,8 +333,45 @@ watch(() => props.isVisible, async (visible) => {
   }
 })
 
-// Initialize on mount
+// Handle orientation changes to update map bounds
+const handleOrientationChange = async () => {
+  if (!isInitialized.value || !containerRef.value) return
+
+  console.log('MiniMap: Orientation changed, updating bounds')
+
+  // Wait a bit for the layout to settle after orientation change
+  await new Promise(resolve => setTimeout(resolve, 300))
+
+  const rect = containerRef.value.getBoundingClientRect()
+  if (rect.width > 0 && rect.height > 0) {
+    const dpr = window.devicePixelRatio || 1
+    const scaledX = rect.x * dpr
+    const scaledY = rect.y * dpr
+    const scaledWidth = rect.width * dpr
+    const scaledHeight = rect.height * dpr
+
+    console.log(`MiniMap: Updating bounds after orientation: x=${rect.x}, y=${rect.y}, width=${rect.width}, height=${rect.height}`)
+
+    try {
+      await GoogleMapsNative.updateBounds({
+        mapId,
+        x: scaledX,
+        y: scaledY,
+        width: scaledWidth,
+        height: scaledHeight
+      })
+      console.log('MiniMap: Bounds updated successfully after orientation change')
+    } catch (err) {
+      console.error('MiniMap: Error updating bounds after orientation:', err)
+    }
+  }
+}
+
+// Initialize on mount and listen for orientation changes
 onMounted(async () => {
+  window.addEventListener('orientationchange', handleOrientationChange)
+  window.addEventListener('resize', handleOrientationChange)
+
   // Wait for next tick to ensure DOM is fully rendered
   await nextTick()
 
@@ -349,6 +386,10 @@ onMounted(async () => {
 
 // Cleanup on unmount
 onUnmounted(async () => {
+  // Remove orientation change listeners
+  window.removeEventListener('orientationchange', handleOrientationChange)
+  window.removeEventListener('resize', handleOrientationChange)
+
   if (isInitialized.value) {
     try {
       // Hide the map first before destroying

@@ -239,7 +239,7 @@ import { useNavigation } from '../composables/useNavigation'
 import { useSlope } from '../composables/useSlope'
 import { Geolocation } from '@capacitor/geolocation'
 import { GoogleMapsNative } from '../plugins/googlemaps'
-import { Dialog } from '@capacitor/dialog';
+import { Dialog } from '@capacitor/dialog'
 
 // Get music player state and controls
 const {
@@ -391,13 +391,45 @@ const currentTime = ref(new Date().toLocaleTimeString('en-US', {
 }))
 
 let timeInterval: number | null = null
-onMounted(async () => {
 
-    try {
-      await CapStatusBar.hide()
-    } catch (error) {
-      console.log("Status bar hide failed'")
-    }  
+// Request all permissions on app mount
+const requestAllPermissions = async () => {
+  if (!Capacitor.isNativePlatform()) {
+    console.log('Running on web, skipping permission requests')
+    return
+  }
+
+  try {
+    // Request location permissions (required for GPS tracking and maps)
+    console.log('Requesting location permissions...')
+    const locationStatus = await Geolocation.checkPermissions()
+    if (locationStatus.location !== 'granted') {
+      const result = await Geolocation.requestPermissions()
+      if (result.location === 'granted') {
+        console.log('Location permission granted')
+      } else {
+        console.warn('Location permission denied')
+        toast.warning('Location permission is required for GPS tracking and navigation')
+      }
+    } else {
+      console.log('Location permission already granted')
+    }
+
+    console.log('Permissions requested successfully')
+  } catch (error) {
+    console.error('Error requesting permissions:', error)
+  }
+}
+
+onMounted(async () => {
+  // Request all permissions first
+  // await requestAllPermissions()
+
+  try {
+    await CapStatusBar.hide()
+  } catch (error) {
+    console.log("Status bar hide failed'")
+  }
 
   startTracking();
 
