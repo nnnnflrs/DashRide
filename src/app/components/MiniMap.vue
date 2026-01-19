@@ -204,10 +204,23 @@ const initMinimap = async (retryCount = 0) => {
   }
 }
 
-// Watch for location changes and update map
-watch(() => props.currentLocation, async (newLocation) => {
-  if (!newLocation || !isInitialized.value) return
+// Watch for location changes - initialize map if not yet initialized, otherwise update
+watch(() => props.currentLocation, async (newLocation, oldLocation) => {
+  console.log('MiniMap: Location watcher fired - old:', oldLocation, 'new:', newLocation, 'isInitialized:', isInitialized.value)
 
+  if (!newLocation) {
+    console.log('MiniMap: No location available yet')
+    return
+  }
+
+  // If map hasn't been initialized yet and we just got location, initialize it now!
+  if (!isInitialized.value) {
+    console.log('MiniMap: Map not initialized yet, but location is now available - initializing!')
+    await initMinimap()
+    return
+  }
+
+  // Map is already initialized, just update the location
   try {
     // Update marker position
     await GoogleMapsNative.updateMarker({
@@ -230,7 +243,7 @@ watch(() => props.currentLocation, async (newLocation) => {
   } catch (err) {
     console.error('MiniMap: Error updating location:', err)
   }
-}, { deep: true })
+}, { deep: true, immediate: true })
 
 // Watch for route changes and draw route
 watch(() => props.routePath, async (newPath) => {

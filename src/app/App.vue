@@ -392,46 +392,21 @@ const currentTime = ref(new Date().toLocaleTimeString('en-US', {
 
 let timeInterval: number | null = null
 
-// Request all permissions on app mount
-const requestAllPermissions = async () => {
-  if (!Capacitor.isNativePlatform()) {
-    console.log('Running on web, skipping permission requests')
-    return
-  }
-
-  try {
-    // Request location permissions (required for GPS tracking and maps)
-    console.log('Requesting location permissions...')
-    const locationStatus = await Geolocation.checkPermissions()
-    if (locationStatus.location !== 'granted') {
-      const result = await Geolocation.requestPermissions()
-      if (result.location === 'granted') {
-        console.log('Location permission granted')
-      } else {
-        console.warn('Location permission denied')
-        toast.warning('Location permission is required for GPS tracking and navigation')
-      }
-    } else {
-      console.log('Location permission already granted')
-    }
-
-    console.log('Permissions requested successfully')
-  } catch (error) {
-    console.error('Error requesting permissions:', error)
-  }
-}
-
 onMounted(async () => {
-  // Request all permissions first
-  // await requestAllPermissions()
+  console.log('App.vue: Component mounted')
+
+  // Permissions are now requested natively in MainActivity on app launch
+  // No need to request them here in JavaScript
 
   try {
     await CapStatusBar.hide()
   } catch (error) {
-    console.log("Status bar hide failed'")
+    console.log("Status bar hide failed")
   }
 
-  startTracking();
+  // Start GPS tracking - permissions should already be granted by MainActivity
+  console.log('App.vue: Starting GPS tracking...')
+  startTracking()
 
   timeInterval = window.setInterval(() => {
     currentTime.value = new Date().toLocaleTimeString('en-US', {

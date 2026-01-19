@@ -390,13 +390,68 @@ const handlePlayFilteredTrack = async (track: Track) => {
   showFilteredTracks.value = false
 }
 
+// Permission check interval
+let permissionCheckInterval: number | null = null
+
+const checkPermissionsAndScan = async () => {
+  if (!Capacitor.isNativePlatform()) {
+    console.log('MusicPlayer: Running on web, skipping permission check')
+    await scanForMusic()
+    return
+  }
+
+  try {
+    console.log('MusicPlayer: Checking media permissions...')
+    const result = await MediaStore.checkPermissions()
+    console.log('MusicPlayer: Permission granted =', result.granted)
+
+    if (result.granted) {
+      console.log('MusicPlayer: Permissions granted, scanning for music...')
+
+      // Clear interval if running
+      if (permissionCheckInterval) {
+        clearInterval(permissionCheckInterval)
+        permissionCheckInterval = null
+      }
+
+      // Only scan if we don't have tracks already
+      if (tracks.value.length === 0) {
+        await scanForMusic()
+      }
+    } else {
+      console.log('MusicPlayer: Permissions not granted yet')
+    }
+  } catch (err) {
+    console.error('MusicPlayer: Error checking permissions:', err)
+  }
+}
+
 onMounted(async () => {
-  await scanForMusic()
+  console.log('MusicPlayer: Component mounted')
+
+  // Restore playback state first
   await restorePlaybackState()
   updateMediaSession()
+
+  // Check permissions and scan for music
+  await checkPermissionsAndScan()
+
+  // If no tracks found (no permission), set up interval to check every 500ms
+  if (tracks.value.length === 0 && Capacitor.isNativePlatform()) {
+    console.log('MusicPlayer: Setting up permission check interval...')
+    permissionCheckInterval = window.setInterval(async () => {
+      await checkPermissionsAndScan()
+    }, 500)
+  }
 })
 
 onUnmounted(() => {
+  // Clear permission check interval
+  if (permissionCheckInterval) {
+    clearInterval(permissionCheckInterval)
+    permissionCheckInterval = null
+  }
+
   // Don't stop progress tracking - it's needed for auto-advancing tracks
   // The progress tracking is managed globally by the music player composable
   // and should continue running even when this component is unmounted

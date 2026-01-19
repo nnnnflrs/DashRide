@@ -59,15 +59,23 @@ public class MediaStorePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void checkPermissions(PluginCall call) {
+        Log.d(TAG, "checkPermissions called");
+        JSObject result = new JSObject();
+        result.put("granted", hasRequiredPermissions());
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void getAlbumArt(PluginCall call) {
         Log.d(TAG, "getAlbumArt called");
-        
+
         // Try to get audioId as Integer first, then as Long
         Integer audioIdInt = call.getInt("audioId");
         Long audioId = audioIdInt != null ? audioIdInt.longValue() : call.getLong("audioId");
-        
+
         Log.d(TAG, "audioId parameter: " + audioId);
-        
+
         if (audioId == null) {
             Log.e(TAG, "audioId is null!");
             call.reject("audioId is required");
@@ -78,7 +86,7 @@ public class MediaStorePlugin extends Plugin {
             Log.d(TAG, "Extracting album art from audio file ID: " + audioId);
             String albumArtBase64 = getAlbumArtFromAudioFile(audioId);
             Log.d(TAG, "getAlbumArtFromAudioFile returned: " + (albumArtBase64 != null ? "data (length: " + albumArtBase64.length() + ")" : "null"));
-            
+
             JSObject result = new JSObject();
             if (albumArtBase64 != null) {
                 result.put("albumArt", albumArtBase64);

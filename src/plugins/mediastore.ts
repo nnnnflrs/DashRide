@@ -1,6 +1,7 @@
 import { registerPlugin } from '@capacitor/core'
 
 export interface MediaStorePlugin {
+  checkPermissions(): Promise<{ granted: boolean }>
   scanAudioFiles(): Promise<{ files: AudioFile[] }>
   getAlbumArt(options: { audioId: number }): Promise<{ albumArt: string | null }>
 }

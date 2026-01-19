@@ -1310,8 +1310,52 @@ const centerOnCurrentLocation = async () => {
   }
 }
 
-onMounted( async() => {
-  await initMap()
+// Check permissions and initialize map
+let permissionCheckInterval: number | null = null
+
+const checkPermissionsAndInitMap = async () => {
+  console.log('NavigationMap: Checking if permissions are granted...')
+
+  try {
+    const permissionStatus = await Geolocation.checkPermissions()
+    console.log('NavigationMap: Permission status =', permissionStatus.location)
+
+    if (permissionStatus.location === 'granted') {
+      console.log('NavigationMap: Permissions granted! Initializing map...')
+
+      // Clear interval if running
+      if (permissionCheckInterval) {
+        clearInterval(permissionCheckInterval)
+        permissionCheckInterval = null
+      }
+
+      // Initialize map
+      await initMap()
+    } else {
+      console.log('NavigationMap: Permissions not granted yet')
+      error.value = 'Location permission is required for navigation'
+      loading.value = false
+    }
+  } catch (err) {
+    console.error('NavigationMap: Error checking permissions:', err)
+    error.value = 'Failed to check permissions'
+    loading.value = false
+  }
+}
+
+onMounted(async () => {
+  console.log('NavigationMap: Component mounted')
+
+  // Check permissions immediately
+  await checkPermissionsAndInitMap()
+
+  // If map didn't initialize (no permissions), poll every 500ms
+  if (!isMapInitialized.value) {
+    console.log('NavigationMap: Setting up permission polling...')
+    permissionCheckInterval = window.setInterval(async () => {
+      await checkPermissionsAndInitMap()
+    }, 500)
+  }
 })
 
 // Expose cleanup method for parent component
@@ -1323,6 +1367,12 @@ defineExpose({
 })
 
 onUnmounted(async () => {
+  // Clear permission check interval
+  if (permissionCheckInterval) {
+    clearInterval(permissionCheckInterval)
+    permissionCheckInterval = null
+  }
+
   // Stop native location tracking
   try {
     await GoogleMapsNative.stopLocationTracking()
