@@ -117,11 +117,11 @@ export function useMediaSession(handlers: MediaSessionHandlers) {
    */
   const updatePosition = (currentTime: number, duration: number, playbackRate = 1.0) => {
     if (isNative) {
-      // Position is updated via updatePlaybackState on native
-      MediaSession.updatePlaybackState({
-        state: 'playing',
-        position: currentTime
-      }).catch(() => {})
+      // On native, position updates don't need to call updatePlaybackState
+      // The position is already tracked by the progress interval
+      // and state is managed separately by updatePlaybackState()
+      // Calling updatePlaybackState here was causing the state to be
+      // incorrectly set to 'playing' even when paused
     } else if (mediaSession) {
       // Use web Media Session API
       try {

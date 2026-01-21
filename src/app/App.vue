@@ -225,6 +225,7 @@ import { Clock, MapPin,Target, Navigation , Timer, Sun, Cloud, CloudRain, Music,
 import { StatusBar as CapStatusBar } from '@capacitor/status-bar'
 import { Haptics, ImpactStyle } from '@capacitor/haptics'
 import { Capacitor } from '@capacitor/core'
+import { App as CapApp } from '@capacitor/app'
 import SpeedometerGauge from './components/SpeedometerGauge.vue'
 import StatusBar from './components/StatusBar.vue'
 import MiniMap from './components/MiniMap.vue'
@@ -403,6 +404,16 @@ onMounted(async () => {
   } catch (error) {
     console.log("Status bar hide failed")
   }
+
+  // Listen to app state changes to debug background audio
+  CapApp.addListener('appStateChange', ({ isActive }) => {
+    console.log('[App] App state changed, isActive:', isActive)
+    if (isActive) {
+      console.log('[App] App came to foreground')
+    } else {
+      console.log('[App] App went to background')
+    }
+  })
 
   // Start GPS tracking - permissions should already be granted by MainActivity
   console.log('App.vue: Starting GPS tracking...')
@@ -1244,8 +1255,8 @@ onUnmounted(() => {
 }
 
 .map-widget-small {
-  height: 10rem;
-  width: 13rem;
+  height: 13rem;
+  width: 15rem;
 }
 
 .map-widget-small.map-hidden {

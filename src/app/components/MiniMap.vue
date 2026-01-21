@@ -1,7 +1,6 @@
 <template>
   <div ref="containerRef" class="mini-map" :data-style="mapStyle" @dblclick="$emit('expand')">
     <!-- Native minimap renders here via GoogleMapsPlugin with mapId="minimap" -->
-    <!-- The native map is positioned to match this container's bounds -->
 
     <!-- Distance badge overlay -->
     <div class="distance-badge">
@@ -26,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick, onBeforeMount } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Navigation, TrendingUp } from 'lucide-vue-next'
 import { GoogleMapsNative } from '../../plugins/googlemaps'
 
@@ -36,9 +35,9 @@ interface Props {
   nextTurn?: string
   currentLocation?: { lat: number; lng: number } | null
   routePath?: Array<{ lat: number; lng: number }>
-  bearing?: number // Device heading for arrow rotation
+  bearing?: number
   mapStyle?: 'light' | 'dark'
-  isVisible?: boolean // Whether the component is visible (on riding tab)
+  isVisible?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -49,11 +48,13 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   expand: []
-  arrived: [] // Emitted when user arrives at destination
+  arrived: []
 }>()
 
 const mapId = 'minimap'
 const isInitialized = ref(false)
+const isDestroying = ref(false)
+const isInitializing = ref(false)
 const containerRef = ref<HTMLElement | null>(null)
 
 const distanceUnit = computed(() => props.unit === 'mph' ? 'mi' : 'km')
@@ -65,7 +66,7 @@ const displayDistance = computed(() => {
   return `${props.distance.toFixed(1)}${distanceUnit.value}`
 })
 
-// Dark mode map style (same as NavigationMap)
+// Dark mode map style
 const DARK_MAP_STYLE = JSON.stringify([
   { elementType: "geometry", stylers: [{ color: "#1d2c4d" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#8ec3b9" }] },
@@ -97,45 +98,33 @@ const DARK_MAP_STYLE = JSON.stringify([
 
 // Initialize minimap with retry logic for better device compatibility
 const initMinimap = async (retryCount = 0) => {
-  if (!props.currentLocation) {
-    console.log('MiniMap: No current location, skipping init')
-    return
-  }
+  if (!containerRef.value) return
 
-  if (!containerRef.value) {
-    console.log('MiniMap: Container ref not available, skipping init')
-    return
-  }
+  // Prevent initialization race conditions
+  if (isDestroying.value || isInitialized.value || isInitializing.value) return
+
+  // Location must be available at this point (called from location watcher)
+  if (!props.currentLocation) return
 
   try {
-    console.log('MiniMap: Initializing native minimap (attempt ' + (retryCount + 1) + ')')
+    isInitializing.value = true
 
-    // Get the container's actual bounds from the DOM
+    // Get container bounds scaled for device pixel ratio
     const rect = containerRef.value.getBoundingClientRect()
-
-    // Scale bounds by device pixel ratio for native rendering
     const dpr = window.devicePixelRatio || 1
     const scaledX = rect.x * dpr
     const scaledY = rect.y * dpr
     const scaledWidth = rect.width * dpr
     const scaledHeight = rect.height * dpr
 
-    console.log(`MiniMap: Container bounds: x=${rect.x}, y=${rect.y}, width=${rect.width}, height=${rect.height}, dpr=${dpr}`)
-    console.log(`MiniMap: Scaled bounds: x=${scaledX}, y=${scaledY}, width=${scaledWidth}, height=${scaledHeight}`)
-
-    // If bounds are still 0 after a few retries, wait a bit longer and retry
+    // Retry if bounds are zero (container not fully rendered)
     if ((rect.width === 0 || rect.height === 0) && retryCount < 3) {
-      console.warn('MiniMap: Container has zero bounds, retrying in 200ms...')
+      isInitializing.value = false
       setTimeout(() => initMinimap(retryCount + 1), 200)
       return
     }
 
-    // Log if we're using fallback (native plugin has defaults)
-    if (rect.width === 0 || rect.height === 0) {
-      console.warn('MiniMap: Container still has zero bounds after retries, native plugin will use fallback dp values')
-    }
-
-    // Create native minimap with type="minimap" and exact bounds (scaled for device pixels)
+    // Create native minimap
     await GoogleMapsNative.create({
       mapId,
       type: 'minimap',
@@ -148,24 +137,24 @@ const initMinimap = async (retryCount = 0) => {
       height: scaledHeight
     })
 
-    // Set initial camera with bearing to match heading direction
+    // Set initial camera with bearing
     await GoogleMapsNative.setCenter({
       mapId,
       lat: props.currentLocation.lat,
       lng: props.currentLocation.lng,
       zoom: 17,
-      bearing: props.bearing || 0, // Rotate map to match heading direction
+      bearing: props.bearing || 0,
       animate: false
     })
 
-    // Apply map style based on prop
+    // Apply map style
     if (props.mapStyle === 'dark') {
       await GoogleMapsNative.setMapStyle({ mapId, style: DARK_MAP_STYLE })
     } else {
       await GoogleMapsNative.setMapStyle({ mapId, style: null })
     }
 
-    // Add arrow marker for current location (for navigation)
+    // Add arrow marker
     await GoogleMapsNative.addMarker({
       mapId,
       id: 'minimap-location',
@@ -175,12 +164,11 @@ const initMinimap = async (retryCount = 0) => {
       color: '#4285F4',
       rotation: props.bearing || 0,
       flat: true,
-      scale: 0.5 // Make arrow smaller for minimap (50% of original size)
+      scale: 0.5
     })
 
-    // Draw route if it already exists (user is already navigating)
+    // Draw initial route if available
     if (props.routePath && props.routePath.length > 1) {
-      console.log('MiniMap: Drawing initial route with', props.routePath.length, 'points')
       await GoogleMapsNative.drawRoute({
         mapId,
         points: props.routePath.map(p => ({ lat: p.lat, lng: p.lng })),
@@ -189,73 +177,62 @@ const initMinimap = async (retryCount = 0) => {
       })
     }
 
-    // Only show the minimap if it should be visible (on riding tab)
+    // Show/hide based on visibility prop
     if (props.isVisible) {
       await GoogleMapsNative.show({ mapId })
     } else {
-      // Hide it immediately if we're not on the riding tab
       await GoogleMapsNative.hide({ mapId })
     }
 
     isInitialized.value = true
-    console.log('MiniMap: Native minimap initialized successfully')
+    isInitializing.value = false
   } catch (err) {
-    console.error('MiniMap: Error initializing minimap:', err)
+    isInitializing.value = false
+    console.error('MiniMap: Error initializing:', err)
   }
 }
 
-// Watch for location changes - initialize map if not yet initialized, otherwise update
-watch(() => props.currentLocation, async (newLocation, oldLocation) => {
-  console.log('MiniMap: Location watcher fired - old:', oldLocation, 'new:', newLocation, 'isInitialized:', isInitialized.value)
+watch(() => props.currentLocation, async (newLocation) => {
+  if (!newLocation) return
 
-  if (!newLocation) {
-    console.log('MiniMap: No location available yet')
-    return
-  }
+  if (isDestroying.value) return
 
-  // If map hasn't been initialized yet and we just got location, initialize it now!
-  if (!isInitialized.value) {
-    console.log('MiniMap: Map not initialized yet, but location is now available - initializing!')
+  if (!isInitialized.value && !isInitializing.value) {
     await initMinimap()
     return
   }
 
-  // Map is already initialized, just update the location
-  try {
-    // Update marker position
-    await GoogleMapsNative.updateMarker({
-      mapId,
-      id: 'minimap-location',
-      lat: newLocation.lat,
-      lng: newLocation.lng,
-      rotation: props.bearing || 0
-    })
+  if (isInitialized.value) {
+    try {
+      await GoogleMapsNative.updateMarker({
+        mapId,
+        id: 'minimap-location',
+        lat: newLocation.lat,
+        lng: newLocation.lng,
+        rotation: props.bearing || 0
+      })
 
-    // Center map on new location with bearing (so it points in the direction of travel)
-    await GoogleMapsNative.setCenter({
-      mapId,
-      lat: newLocation.lat,
-      lng: newLocation.lng,
-      zoom: 17,
-      bearing: props.bearing || 0, // Rotate map to match heading direction
-      animate: true
-    })
-  } catch (err) {
-    console.error('MiniMap: Error updating location:', err)
+      await GoogleMapsNative.setCenter({
+        mapId,
+        lat: newLocation.lat,
+        lng: newLocation.lng,
+        zoom: 17,
+        bearing: props.bearing || 0,
+        animate: true
+      })
+    } catch (err) {
+      console.error('MiniMap: Error updating location:', err)
+    }
   }
-}, { deep: true, immediate: true })
+}, { deep: true, immediate: true, flush: 'post' })
 
-// Watch for route changes and draw route
+// Watch for route changes
 watch(() => props.routePath, async (newPath) => {
   if (!newPath || !isInitialized.value) return
 
   try {
-    console.log('MiniMap: Route path changed, redrawing route with', newPath.length, 'points')
-
-    // Clear existing route
     await GoogleMapsNative.clearRoute({ mapId })
 
-    // Draw new route
     if (newPath.length > 1) {
       await GoogleMapsNative.drawRoute({
         mapId,
@@ -263,7 +240,6 @@ watch(() => props.routePath, async (newPath) => {
         color: '#4285F4',
         width: 8
       })
-      console.log('MiniMap: Route drawn successfully')
     }
   } catch (err) {
     console.error('MiniMap: Error updating route:', err)
@@ -285,19 +261,17 @@ watch(() => props.mapStyle, async (newStyle) => {
   }
 })
 
-// Watch for arrival (distance becomes 0 or very close to 0)
+// Watch for arrival
 let hasArrived = false
 watch(() => props.distance, (newDistance, oldDistance) => {
-  // Reset hasArrived flag when starting a new navigation (distance jumps from 0 to a large value)
+  // Reset flag on new navigation
   if (oldDistance < 0.1 && newDistance > 1) {
     hasArrived = false
-    console.log('MiniMap: New navigation started, reset arrival flag')
   }
 
-  // Detect arrival: distance is less than 50 meters (0.05 km) or 0
+  // Detect arrival (< 50 meters)
   if (!hasArrived && newDistance < 0.05 && newDistance >= 0) {
     hasArrived = true
-    console.log('MiniMap: User has arrived at destination!')
     emit('arrived')
   }
 })
@@ -310,32 +284,18 @@ watch(() => props.isVisible, async (visible) => {
     if (visible) {
       await GoogleMapsNative.show({ mapId })
 
-      // When becoming visible, check if we need to update bounds
-      // (in case they were 0 on initial mount or layout changed)
+      // Update bounds when becoming visible
       if (containerRef.value) {
         const rect = containerRef.value.getBoundingClientRect()
         if (rect.width > 0 && rect.height > 0) {
-          // Scale bounds by device pixel ratio
           const dpr = window.devicePixelRatio || 1
-          const scaledX = rect.x * dpr
-          const scaledY = rect.y * dpr
-          const scaledWidth = rect.width * dpr
-          const scaledHeight = rect.height * dpr
-
-          console.log(`MiniMap: Updating bounds on visibility change: x=${rect.x}, y=${rect.y}, width=${rect.width}, height=${rect.height}`)
-          console.log(`MiniMap: Scaled update bounds: x=${scaledX}, y=${scaledY}, width=${scaledWidth}, height=${scaledHeight}`)
-          try {
-            await GoogleMapsNative.updateBounds({
-              mapId,
-              x: scaledX,
-              y: scaledY,
-              width: scaledWidth,
-              height: scaledHeight
-            })
-            console.log('MiniMap: Bounds updated successfully')
-          } catch (boundsErr) {
-            console.error('MiniMap: Error updating bounds:', boundsErr)
-          }
+          await GoogleMapsNative.updateBounds({
+            mapId,
+            x: rect.x * dpr,
+            y: rect.y * dpr,
+            width: rect.width * dpr,
+            height: rect.height * dpr
+          })
         }
       }
     } else {
@@ -346,72 +306,56 @@ watch(() => props.isVisible, async (visible) => {
   }
 })
 
-// Handle orientation changes to update map bounds
+// Handle orientation changes
 const handleOrientationChange = async () => {
   if (!isInitialized.value || !containerRef.value) return
 
-  console.log('MiniMap: Orientation changed, updating bounds')
-
-  // Wait a bit for the layout to settle after orientation change
   await new Promise(resolve => setTimeout(resolve, 300))
 
   const rect = containerRef.value.getBoundingClientRect()
   if (rect.width > 0 && rect.height > 0) {
-    const dpr = window.devicePixelRatio || 1
-    const scaledX = rect.x * dpr
-    const scaledY = rect.y * dpr
-    const scaledWidth = rect.width * dpr
-    const scaledHeight = rect.height * dpr
-
-    console.log(`MiniMap: Updating bounds after orientation: x=${rect.x}, y=${rect.y}, width=${rect.width}, height=${rect.height}`)
-
     try {
+      const dpr = window.devicePixelRatio || 1
       await GoogleMapsNative.updateBounds({
         mapId,
-        x: scaledX,
-        y: scaledY,
-        width: scaledWidth,
-        height: scaledHeight
+        x: rect.x * dpr,
+        y: rect.y * dpr,
+        width: rect.width * dpr,
+        height: rect.height * dpr
       })
-      console.log('MiniMap: Bounds updated successfully after orientation change')
     } catch (err) {
-      console.error('MiniMap: Error updating bounds after orientation:', err)
+      console.error('MiniMap: Error updating bounds:', err)
     }
   }
 }
 
-// Initialize on mount and listen for orientation changes
-onMounted(async () => {
+onMounted(() => {
   window.addEventListener('orientationchange', handleOrientationChange)
   window.addEventListener('resize', handleOrientationChange)
-
-  // Wait for next tick to ensure DOM is fully rendered
-  await nextTick()
-
-  // Use requestAnimationFrame to wait for layout to complete
-  requestAnimationFrame(() => {
-    // Add a small delay to ensure layout is fully computed
-    setTimeout(() => {
-      initMinimap()
-    }, 100)
-  })
 })
 
-// Cleanup on unmount
-onUnmounted(async () => {
-  // Remove orientation change listeners
+onUnmounted(() => {
   window.removeEventListener('orientationchange', handleOrientationChange)
   window.removeEventListener('resize', handleOrientationChange)
 
   if (isInitialized.value) {
-    try {
-      // Hide the map first before destroying
-      await GoogleMapsNative.hide({ mapId })
-      await GoogleMapsNative.destroy({ mapId })
-      console.log('MiniMap: Native minimap destroyed')
-    } catch (err) {
-      console.error('MiniMap: Error destroying minimap:', err)
-    }
+    isInitialized.value = false
+    isDestroying.value = true
+
+    // Hide and destroy sequentially
+    GoogleMapsNative.hide({ mapId })
+      .then(() => GoogleMapsNative.destroy({ mapId }))
+      .then(() => {
+        setTimeout(() => {
+          isDestroying.value = false
+        }, 200)
+      })
+      .catch(err => {
+        console.error('MiniMap: Error destroying:', err)
+        setTimeout(() => {
+          isDestroying.value = false
+        }, 200)
+      })
   }
 })
 </script>
@@ -420,22 +364,19 @@ onUnmounted(async () => {
 .mini-map {
   position: relative;
   width: 100%;
-  height: 100%; /* Match parent container height */
+  height: 100%;
   border-radius: 0.5rem;
   border: 1px solid rgba(55, 65, 81, 0.5);
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  /* Native map renders inside this container via plugin positioning */
-  box-sizing: border-box; /* Include borders in size calculations */
+  box-sizing: border-box;
 }
 
-/* Dark map style */
 .mini-map[data-style="dark"] {
   background: linear-gradient(to bottom right, rgb(17, 24, 39), rgb(31, 41, 55));
 }
 
-/* Light map style */
 .mini-map[data-style="light"] {
   background: linear-gradient(to bottom right, rgb(241, 245, 249), rgb(226, 232, 240));
   border-color: rgba(148, 163, 184, 0.5);

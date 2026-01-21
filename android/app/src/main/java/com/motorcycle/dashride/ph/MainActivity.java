@@ -20,6 +20,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(MediaStorePlugin.class);
         registerPlugin(BackgroundAudioPlugin.class);
+        registerPlugin(BackgroundMusicPlayerPlugin.class);
         registerPlugin(GoogleMapsPlugin.class);
         registerPlugin(GooglePlacesPlugin.class);
         registerPlugin(MediaSessionPlugin.class);
@@ -104,27 +105,10 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onPause() {
         super.onPause();
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-
-        // Send pause event to JavaScript when app comes to foreground
-        try {
-            MediaSessionPlugin plugin = (MediaSessionPlugin) getBridge()
-                .getPlugin("MediaSession").getInstance();
-            if (plugin != null) {
-                plugin.sendPauseEvent();
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error sending pause event", e);
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().onResume();
+            getBridge().getWebView().resumeTimers();
         }
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
     }
 
     @Override

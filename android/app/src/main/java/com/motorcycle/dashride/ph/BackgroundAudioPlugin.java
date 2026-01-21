@@ -23,20 +23,17 @@ public class BackgroundAudioPlugin extends Plugin {
     public void load() {
         super.load();
         audioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
-        
-        // Create audio focus change listener
+
         audioFocusChangeListener = new AudioManager.OnAudioFocusChangeListener() {
             @Override
             public void onAudioFocusChange(int focusChange) {
-                Log.d(TAG, "Audio focus changed: " + focusChange);
-                // We don't need to do anything here since NativeAudio handles playback
+                // Handle audio focus changes
             }
         };
     }
 
     @PluginMethod
     public void requestAudioFocus(PluginCall call) {
-        Log.d(TAG, "Requesting audio focus");
         
         int result;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

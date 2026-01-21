@@ -42,6 +42,11 @@ public class MediaSessionPlugin extends Plugin {
     private boolean isPlaying = false;
     private BroadcastReceiver mediaButtonReceiver;
 
+    // Store current track metadata for notification updates
+    private String currentTitle = "Unknown Title";
+    private String currentArtist = "Unknown Artist";
+    private String currentAlbumArt = null;
+
     @Override
     public void load() {
         super.load();
@@ -54,13 +59,9 @@ public class MediaSessionPlugin extends Plugin {
                 if (action != null) {
                     switch (action) {
                         case ACTION_PLAY:
-                            isPlaying = true;
-                            updatePlaybackState(PlaybackStateCompat.STATE_PLAYING);
                             notifyListener("play", null);
                             break;
                         case ACTION_PAUSE:
-                            isPlaying = false;
-                            updatePlaybackState(PlaybackStateCompat.STATE_PAUSED);
                             notifyListener("pause", null);
                             break;
                         case ACTION_NEXT:
@@ -114,15 +115,11 @@ public class MediaSessionPlugin extends Plugin {
         mediaSession.setCallback(new MediaSessionCompat.Callback() {
             @Override
             public void onPlay() {
-                isPlaying = true;
-                updatePlaybackState(PlaybackStateCompat.STATE_PLAYING);
                 notifyListener("play", null);
             }
 
             @Override
             public void onPause() {
-                isPlaying = false;
-                updatePlaybackState(PlaybackStateCompat.STATE_PAUSED);
                 notifyListener("pause", null);
             }
 
@@ -138,15 +135,13 @@ public class MediaSessionPlugin extends Plugin {
 
             @Override
             public void onStop() {
-                isPlaying = false;
-                updatePlaybackState(PlaybackStateCompat.STATE_STOPPED);
                 notifyListener("stop", null);
             }
 
             @Override
             public void onSeekTo(long pos) {
                 JSObject data = new JSObject();
-                data.put("position", pos / 1000.0); // Convert to seconds
+                data.put("position", pos / 1000.0);
                 notifyListener("seek", data);
             }
         });
@@ -161,6 +156,11 @@ public class MediaSessionPlugin extends Plugin {
         String album = call.getString("album", "Unknown Album");
         String albumArtBase64 = call.getString("albumArt");
         Long duration = call.getLong("duration", 0L);
+
+        // Store current metadata
+        currentTitle = title;
+        currentArtist = artist;
+        currentAlbumArt = albumArtBase64;
 
         MediaMetadataCompat.Builder metadataBuilder = new MediaMetadataCompat.Builder()
             .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
@@ -189,8 +189,8 @@ public class MediaSessionPlugin extends Plugin {
 
         mediaSession.setMetadata(metadataBuilder.build());
 
-        // Update notification
-        updateNotification(title, artist, albumArtBase64);
+        // Update notification with new metadata
+        updateNotification();
 
         call.resolve();
     }
@@ -205,7 +205,8 @@ public class MediaSessionPlugin extends Plugin {
             : PlaybackStateCompat.STATE_PAUSED;
 
         isPlaying = state.equals("playing");
-        updatePlaybackState(playbackState, position * 1000); // Convert to milliseconds
+        updatePlaybackState(playbackState, position * 1000);
+        updateNotification();
 
         call.resolve();
     }
@@ -228,7 +229,7 @@ public class MediaSessionPlugin extends Plugin {
         mediaSession.setPlaybackState(stateBuilder.build());
     }
 
-    private void updateNotification(String title, String artist, String albumArtBase64) {
+    private void updateNotification() {
         Intent intent = new Intent(getContext(), MainActivity.class);
         PendingIntent contentIntent = PendingIntent.getActivity(
             getContext(),
@@ -239,11 +240,11 @@ public class MediaSessionPlugin extends Plugin {
 
         // Decode album art for notification
         Bitmap albumArt = null;
-        if (albumArtBase64 != null && !albumArtBase64.isEmpty()) {
+        if (currentAlbumArt != null && !currentAlbumArt.isEmpty()) {
             try {
-                String base64Data = albumArtBase64;
-                if (albumArtBase64.startsWith("data:image")) {
-                    base64Data = albumArtBase64.substring(albumArtBase64.indexOf(",") + 1);
+                String base64Data = currentAlbumArt;
+                if (currentAlbumArt.startsWith("data:image")) {
+                    base64Data = currentAlbumArt.substring(currentAlbumArt.indexOf(",") + 1);
                 }
                 byte[] decodedBytes = Base64.decode(base64Data, Base64.DEFAULT);
                 albumArt = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
@@ -253,8 +254,8 @@ public class MediaSessionPlugin extends Plugin {
         }
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(getContext(), CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(artist)
+            .setContentTitle(currentTitle)
+            .setContentText(currentArtist)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(contentIntent)
             .setOngoing(isPlaying)
@@ -323,12 +324,8 @@ public class MediaSessionPlugin extends Plugin {
 
         Notification notification = builder.build();
 
-        // Start foreground service to keep playing in background
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            getActivity().startForegroundService(
-                new Intent(getContext(), getActivity().getClass())
-            );
-        }
+        // Show the notification to enable background playback
+        notificationManager.notify(NOTIFICATION_ID, notification);
     }
 
     @PluginMethod

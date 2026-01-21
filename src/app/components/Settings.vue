@@ -126,7 +126,7 @@
         <div>
           <div class="toggle-title">Voice Instructions</div>
           <div class="toggle-description">
-            Enable turn-by-turn voice guidance during navigation
+            Enable turn-by-turn voice navigation
           </div>
         </div>
         <button

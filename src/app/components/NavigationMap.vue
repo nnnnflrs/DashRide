@@ -504,29 +504,15 @@ const initMap = async () => {
       const bearing = location.bearing || 0
       console.log(`GPS Bearing: ${bearing}, Speed: ${currentSpeedMps.toFixed(2)} m/s`)
 
-      // Update marker based on navigation state
-      if (isNavigating.value) {
-        // During navigation: use arrow marker with rotation
-        GoogleMapsNative.updateMarker({
-          mapId: 'navigation',
-          id: 'current-location',
-          lat: location.latitude,
-          lng: location.longitude,
-          rotation: bearing,
-          flat: true
-        }).catch(err => console.error('Error updating arrow marker:', err))
-      } else {
-        // When not navigating: use blue dot marker
-        GoogleMapsNative.addMarker({
-          mapId: 'navigation',
-          id: 'current-location',
-          lat: location.latitude,
-          lng: location.longitude,
-          title: 'Your Location',
-          color: '#4285F4',
-          iconType: 'dot'
-        }).catch(err => console.error('Error updating native marker:', err))
-      }
+      // Update marker position (use updateMarker for all updates to avoid recreation overhead)
+      GoogleMapsNative.updateMarker({
+        mapId: 'navigation',
+        id: 'current-location',
+        lat: location.latitude,
+        lng: location.longitude,
+        rotation: isNavigating.value ? bearing : 0,
+        flat: isNavigating.value
+      }).catch(err => console.error('Error updating marker:', err))
 
       // Center map on location only when following is enabled
       if (isFollowingLocation.value) {

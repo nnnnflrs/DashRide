@@ -1,8 +1,7 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { NativeAudio } from '@capacitor-community/native-audio'
 import { useLocalStorage } from '@vueuse/core'
-import BackgroundAudio from '../plugins/backgroundaudio'
+import BackgroundMusicPlayer from '../plugins/backgroundmusicplayer'
 import MediaStore from '../plugins/mediastore'
 import { toast } from 'vue-sonner'
 import { useMediaSession } from './useMediaSession'
@@ -33,7 +32,6 @@ const queue = useLocalStorage<number[]>('music_queue', []) // Queue of track ind
 const queuePosition = useLocalStorage('music_queuePosition', 0) // Current position in queue
 
 const useNativeAudio = Capacitor.isNativePlatform()
-const AUDIO_ID = 'music_player'
 
 // Progress tracking interval (needs to be managed globally)
 let progressInterval: number | null = null
@@ -135,7 +133,7 @@ export function useMusicPlayer() {
     let updateCounter = 0
     progressInterval = window.setInterval(async () => {
       try {
-        const result = await NativeAudio.getCurrentTime({ assetId: AUDIO_ID })
+        const result = await BackgroundMusicPlayer.getCurrentTime()
         currentTime.value = result.currentTime
 
         // Update media session position every 10 intervals (1 second)
@@ -200,46 +198,23 @@ export function useMusicPlayer() {
       }
 
       if (useNativeAudio) {
-        // Request audio focus
-        try {
-          if (BackgroundAudio && typeof BackgroundAudio.requestAudioFocus === 'function') {
-            await BackgroundAudio.requestAudioFocus()
-          }
-        } catch {
-          // Audio focus not available
-        }
-
-        // Stop and unload previous track
         try {
           stopProgressTracking()
-          await NativeAudio.stop({ assetId: AUDIO_ID })
-          await NativeAudio.unload({ assetId: AUDIO_ID })
+          await BackgroundMusicPlayer.stop()
         } catch {
           // No previous audio to stop
         }
 
         try {
-          // Preload the new track
-          await NativeAudio.preload({
-            assetId: AUDIO_ID,
-            assetPath: track.uri,
-            audioChannelNum: 1, // STREAM_MUSIC
-            isUrl: false,
-            volume: 1.0
+          const result = await BackgroundMusicPlayer.preload({
+            audioPath: track.uri
           })
+          duration.value = result.duration
 
-          // Get duration
-          const durationResult = await NativeAudio.getDuration({ assetId: AUDIO_ID })
-          duration.value = durationResult.duration
-
-          // Play the track
-          await NativeAudio.play({ assetId: AUDIO_ID, time: 0 })
+          await BackgroundMusicPlayer.play()
           isPlaying.value = true
-          currentTrack.value?.title
 
           updateMediaSession()
-
-          // Start tracking progress
           startProgressTracking()
         } catch (audioError) {
           toast.error('Failed to play audio')
@@ -263,29 +238,25 @@ export function useMusicPlayer() {
     try {
       if (useNativeAudio) {
         if (isPlaying.value) {
-          // Pause playback
-          await NativeAudio.pause({ assetId: AUDIO_ID })
+          await BackgroundMusicPlayer.pause()
           isPlaying.value = false
           stopProgressTracking()
           updateMediaSession()
         } else {
-          // Check if audio is already loaded by trying to get duration
           let audioLoaded = false
           try {
-            await NativeAudio.getDuration({ assetId: AUDIO_ID })
+            await BackgroundMusicPlayer.getDuration()
             audioLoaded = true
           } catch {
             // Audio not loaded yet
           }
 
           if (audioLoaded) {
-            // Audio is loaded, resume from current position
-            await NativeAudio.play({ assetId: AUDIO_ID, time: currentTime.value })
+            await BackgroundMusicPlayer.play({ time: currentTime.value })
             isPlaying.value = true
             startProgressTracking()
             updateMediaSession()
           } else {
-            // Audio not loaded, load and play from beginning
             await playTrack(currentTrackIndex.value)
           }
         }
@@ -336,8 +307,8 @@ export function useMusicPlayer() {
       // Restart current track if more than 3 seconds in
       if (useNativeAudio) {
         try {
-          await NativeAudio.stop({ assetId: AUDIO_ID })
-          await NativeAudio.play({ assetId: AUDIO_ID })
+          await BackgroundMusicPlayer.stop()
+          await BackgroundMusicPlayer.play()
           currentTime.value = 0
         } catch {
           // Failed to restart track
@@ -374,15 +345,20 @@ export function useMusicPlayer() {
     if (useNativeAudio) {
       try {
         stopProgressTracking()
-        await NativeAudio.stop({ assetId: AUDIO_ID })
-        await NativeAudio.play({ assetId: AUDIO_ID, time })
+        if (wasPlaying) {
+          await BackgroundMusicPlayer.pause()
+        }
+
+        await BackgroundMusicPlayer.play({ time })
 
         if (wasPlaying) {
           isPlaying.value = true
           startProgressTracking()
+          updateMediaSession()
         } else {
-          await NativeAudio.pause({ assetId: AUDIO_ID })
+          await BackgroundMusicPlayer.pause()
           isPlaying.value = false
+          updateMediaSession()
         }
       } catch (error) {
         toast.error('Failed to seek')
@@ -438,17 +414,10 @@ export function useMusicPlayer() {
 
             if (useNativeAudio) {
               // Preload without playing
-              await NativeAudio.preload({
-                assetId: AUDIO_ID,
-                assetPath: track.uri,
-                audioChannelNum: 1,
-                isUrl: false,
-                volume: 1.0
+              const result = await BackgroundMusicPlayer.preload({
+                audioPath: track.uri
               })
-
-              // Get duration
-              const durationResult = await NativeAudio.getDuration({ assetId: AUDIO_ID })
-              duration.value = durationResult.duration
+              duration.value = result.duration
 
               // Update media session with track info
               updateMetadata(currentTrack.value || null)
@@ -471,15 +440,8 @@ export function useMusicPlayer() {
       }
     },
     onPause: async () => {
-      if (useNativeAudio) {
-        try {
-          await NativeAudio.pause({ assetId: AUDIO_ID })
-          isPlaying.value = false
-          stopProgressTracking()
-          updateMediaSession()
-        } catch (error) {
-          console.error('Failed to pause music:', error)
-        }
+      if (isPlaying.value) {
+        await togglePlay()
       }
     },
     onNext: async () => {
@@ -489,8 +451,6 @@ export function useMusicPlayer() {
       await previousTrack()
     },
     onSeek: async (timeOrOffset: number) => {
-      // If time is negative, it's an offset (seek backward/forward)
-      // Otherwise it's an absolute position (seekto)
       const newTime = timeOrOffset < 0 || timeOrOffset > duration.value
         ? Math.max(0, Math.min(duration.value, currentTime.value + timeOrOffset))
         : timeOrOffset
