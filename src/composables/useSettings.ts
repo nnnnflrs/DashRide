@@ -10,6 +10,7 @@ export function useSettings() {
   const mapStyle = useLocalStorage<'dark' | 'light'>('mapStyle', 'light')
   const showDetailsOnNavigation = useLocalStorage('showDetailsOnNavigation', true)
   const voiceInstructions = useLocalStorage('voiceInstructions', true)
+  const showStatusBar = useLocalStorage('showStatusBar', false)
 
   return {
     theme,
@@ -19,6 +20,7 @@ export function useSettings() {
     showMinimap,
     mapStyle,
     showDetailsOnNavigation,
-    voiceInstructions
+    voiceInstructions,
+    showStatusBar
   }
 }

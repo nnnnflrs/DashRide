@@ -1,5 +1,5 @@
 <template>
-  <div class="status-bar" :data-theme="theme">
+  <div v-if="showStatusBar" class="status-bar" :data-theme="theme">
     <div class="left">
       <span class="time-label">{{ currentTime }}</span>
       <template v-if="isGpsActive">
@@ -27,6 +27,9 @@ import { Wifi, Bluetooth, Navigation2, BatteryFull, BatteryMedium, BatteryLow, S
 import { Device } from '@capacitor/device'
 import { Network } from '@capacitor/network'
 import { BleClient } from '@capacitor-community/bluetooth-le'
+import { useSettings } from '@/composables/useSettings'
+
+const { showStatusBar } = useSettings()
 
 interface Props {
   isGpsActive: boolean

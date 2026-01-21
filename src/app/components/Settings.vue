@@ -139,6 +139,24 @@
       
     </div>
 
+     <!-- Avoid Tolls Toggle -->
+      <div class="setting-card">
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-title">Show Status bar</div>
+            <div class="toggle-description">
+              Show status bar in riding view
+            </div>
+          </div>
+          <button
+            @click="showStatusBar = !showStatusBar"
+            :class="['toggle-button', { active: showStatusBar }]"
+          >
+            <div :class="['toggle-knob', { active: showStatusBar }]" />
+          </button>
+        </div>
+      </div>
+
     <!-- Keep Screen On Toggle -->
     <div class="setting-card">
       <div class="toggle-row">
@@ -299,7 +317,7 @@ interface Props {
 defineProps<Props>()
 
 // Use shared settings state
-const { theme: settingsTheme, unit, keepScreenOn, avoidTolls, showMinimap, mapStyle, showDetailsOnNavigation, voiceInstructions } = useSettings()
+const { theme: settingsTheme, unit, keepScreenOn, avoidTolls, showMinimap, mapStyle, showDetailsOnNavigation, voiceInstructions, showStatusBar } = useSettings()
 
 // Wallet address for donations
 const walletAddress = '37qjhJQno7bybHembmiCYcaTXGAauQompfjwS8ki2uz8'
