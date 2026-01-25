@@ -6,8 +6,16 @@ def getVersionCode = { ->
     if (versionPropsFile.canRead()) {
         def Properties versionProps = new Properties()
         versionProps.load(new FileInputStream(versionPropsFile))
-        def code = versionProps['VERSION_CODE'].toInteger()
-        return code
+        def codeString = versionProps['VERSION_CODE']
+        if (codeString != null) {
+            return codeString.toInteger()
+        } else {
+            // VERSION_CODE property doesn't exist, initialize it
+            versionProps['VERSION_CODE'] = '1'
+            versionProps['VERSION_NAME'] = versionProps['VERSION_NAME'] ?: '1.0.0'
+            versionProps.store(versionPropsFile.newWriter(), null)
+            return 1
+        }
     } else {
         // Create initial version.properties file if it doesn't exist
         def Properties versionProps = new Properties()
@@ -38,6 +46,29 @@ def incrementVersionCode = { ->
         versionProps['VERSION_CODE'] = code.toString()
         versionProps.store(versionPropsFile.newWriter(), null)
         logger.lifecycle("Auto-incremented VERSION_CODE to $code")
+    }
+}
+
+def incrementVersionName = { ->
+    def versionPropsFile = file('version.properties')
+    if (versionPropsFile.canRead()) {
+        def Properties versionProps = new Properties()
+        versionProps.load(new FileInputStream(versionPropsFile))
+        def versionName = versionProps['VERSION_NAME']
+
+        // Parse version (format: MAJOR.MINOR.PATCH)
+        def versionParts = versionName.tokenize('.')
+        def major = versionParts[0].toInteger()
+        def minor = versionParts[1].toInteger()
+        def patch = versionParts[2].toInteger()
+
+        // Increment patch version
+        patch++
+
+        def newVersionName = "${major}.${minor}.${patch}".toString()
+        versionProps['VERSION_NAME'] = newVersionName
+        versionProps.store(versionPropsFile.newWriter(), null)
+        logger.lifecycle("Auto-incremented VERSION_NAME to ${newVersionName}")
     }
 }
 
@@ -97,11 +128,20 @@ android {
     }
 }
 
-// Auto-increment version code when building release bundle
+// Auto-increment version code and version name when building
 tasks.whenTaskAdded { task ->
+    // Increment for release bundle builds
     if (task.name == 'bundleRelease') {
         task.doFirst {
             incrementVersionCode()
+            incrementVersionName()
+        }
+    }
+    // Also increment for APK builds (assembleRelease or assembleDebug when using Android Studio Run)
+    if (task.name == 'assembleRelease' || task.name == 'assembleDebug') {
+        task.doFirst {
+            incrementVersionCode()
+            incrementVersionName()
         }
     }
 }

@@ -1255,8 +1255,8 @@ onUnmounted(() => {
 }
 
 .map-widget-small {
-  height: 13rem;
-  width: 15rem;
+  height: 45vh;
+  width: 22vw;
 }
 
 .map-widget-small.map-hidden {
@@ -1519,7 +1519,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.75rem 1.25rem;
+  padding: 0.75rem 1rem;
   background: rgba(17, 24, 39, 0.95);
   backdrop-filter: blur(12px);
   border-radius: 12px;
@@ -1635,11 +1635,8 @@ onUnmounted(() => {
 }
 
 .mini-close-btn {
-  position: absolute;
-  top: 0.35rem;
-  right: 0.35rem;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: none;
   background: rgba(55, 65, 81, 0.6);
@@ -1648,6 +1645,7 @@ onUnmounted(() => {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .mini-close-btn:hover {
@@ -1660,8 +1658,8 @@ onUnmounted(() => {
 }
 
 .mini-close-icon {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   color: white;
 }
 
@@ -1961,6 +1959,7 @@ onUnmounted(() => {
   .info-overlay.info-left .map-widget-small {
     width: 100%;
     margin-bottom: 0;
+    height: 20vh;
   }
 
   /* Info items row container - use grid for precise 2-column layout */
@@ -2046,13 +2045,13 @@ onUnmounted(() => {
   }
 
   .mini-music-player {
-    position: fixed;
-    bottom: 5.5rem;
+    bottom: auto;
     left: 50%;
     transform: translateX(-50%);
     min-width: calc(100% - 2rem);
     max-width: calc(100% - 2rem);
     padding: 0.75rem 1rem;
+    margin-top: 2.75rem;
   }
 
   .center-bottom-info {

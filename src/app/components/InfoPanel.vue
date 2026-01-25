@@ -50,14 +50,14 @@ const distanceUnit = computed(() => props.unit === 'mph' ? 'mi' : 'km')
   right: 1rem;
   background: rgba(17, 24, 39, 0.95);
   backdrop-filter: blur(12px);
-  border-radius: 0.5rem;
+  border-radius: clamp(0.375rem, 1.5vw, 0.5rem);
   border: 1px solid rgba(75, 85, 99, 0.5);
-  padding: 0.65rem;
+  padding: clamp(0.5rem, 2vw, 0.75rem);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  min-width: 200px;
-  max-width: 240px;
+  gap: clamp(0.375rem, 1.5vw, 0.5rem);
+  min-width: clamp(180px, 25vw, 220px);
+  max-width: clamp(220px, 30vw, 260px);
   z-index: 20;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
@@ -65,12 +65,12 @@ const distanceUnit = computed(() => props.unit === 'mph' ? 'mi' : 'km')
 .info-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: clamp(0.375rem, 1.5vw, 0.5rem);
 }
 
 .info-icon {
-  width: 1.1rem;
-  height: 1.1rem;
+  width: clamp(1rem, 2.8vw, 1.25rem);
+  height: clamp(1rem, 2.8vw, 1.25rem);
   color: rgb(59, 130, 246);
   flex-shrink: 0;
 }
@@ -93,20 +93,24 @@ const distanceUnit = computed(() => props.unit === 'mph' ? 'mi' : 'km')
 
 .info-content {
   flex: 1;
+  min-width: 0;
 }
 
 .info-label {
-  font-size: 0.6rem;
+  font-size: clamp(0.55rem, 1.5vw, 0.65rem);
   font-weight: 600;
   color: rgba(156, 163, 175, 0.9);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 0.15rem;
+  margin-bottom: clamp(0.1rem, 0.5vw, 0.2rem);
 }
 
 .info-value {
-  font-size: 0.8rem;
+  font-size: clamp(0.7rem, 2vw, 0.875rem);
   font-weight: 600;
   color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

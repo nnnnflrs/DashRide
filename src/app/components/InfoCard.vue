@@ -29,8 +29,8 @@ defineProps<Props>()
 .info-card {
   background: linear-gradient(to bottom right, rgba(17, 24, 39, 0.8), rgba(31, 41, 55, 0.8));
   backdrop-filter: blur(8px);
-  border-radius: 0.5rem;
-  padding: 0.625rem;
+  border-radius: clamp(0.375rem, 1.5vw, 0.5rem);
+  padding: clamp(0.5rem, 1.8vw, 0.75rem);
   border: 1px solid rgba(55, 65, 81, 0.5);
   transition: transform 0.2s;
 }
@@ -42,13 +42,14 @@ defineProps<Props>()
 .card-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.25rem;
+  gap: clamp(0.375rem, 1.2vw, 0.5rem);
+  margin-bottom: clamp(0.2rem, 0.8vw, 0.3rem);
 }
 
 .card-icon {
-  width: 1rem;
-  height: 1rem;
+  width: clamp(0.875rem, 2.5vw, 1.125rem);
+  height: clamp(0.875rem, 2.5vw, 1.125rem);
+  flex-shrink: 0;
 }
 
 .card-icon.text-amber-400 {
@@ -76,7 +77,7 @@ defineProps<Props>()
 }
 
 .card-label {
-  font-size: 0.75rem;
+  font-size: clamp(0.625rem, 1.8vw, 0.75rem);
   color: rgba(156, 163, 175, 1);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -85,11 +86,11 @@ defineProps<Props>()
 .card-value-row {
   display: flex;
   align-items: baseline;
-  gap: 0.25rem;
+  gap: clamp(0.2rem, 0.8vw, 0.3rem);
 }
 
 .card-value {
-  font-size: 1.125rem;
+  font-size: clamp(0.9rem, 2.8vw, 1.25rem);
   font-weight: bold;
   color: white;
   font-variant-numeric: tabular-nums;
@@ -97,7 +98,7 @@ defineProps<Props>()
 }
 
 .card-unit {
-  font-size: 0.75rem;
+  font-size: clamp(0.625rem, 1.8vw, 0.8rem);
   color: rgba(156, 163, 175, 1);
   font-weight: 600;
 }

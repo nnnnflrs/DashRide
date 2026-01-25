@@ -93,7 +93,7 @@
         <div>
           <div class="toggle-title">Show Mini-map</div>
           <div class="toggle-description">
-            Display minimap in riding view during navigation
+            Display minimap when navigating
           </div>
         </div>
         <button
@@ -104,12 +104,12 @@
         </button>
       </div>
 
-      <!-- Show Minimap Toggle -->
+      <!-- Show Navigation Details Toggle -->
       <div class="toggle-row">
         <div>
           <div class="toggle-title">Show Navigation Details</div>
           <div class="toggle-description">
-            Always show navigation details
+            Always show navigation details when available
           </div>
         </div>
         <button
@@ -527,18 +527,30 @@ const openFeedbackForm = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
   margin-top: 1rem;
+}
+
+.toggle-row > div:first-child {
+  flex: 1;
+  min-width: 0;
+  max-width: calc(100% - 4.5rem);
 }
 
 .toggle-title {
   color: white;
   font-weight: 600;
   margin-bottom: 0.25rem;
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
 }
 
 .toggle-description {
-  font-size: 0.875rem;
+  font-size: clamp(0.75rem, 2vw, 0.875rem);
   color: rgba(156, 163, 175, 1);
+  line-height: 1.4;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .toggle-button {
@@ -550,6 +562,7 @@ const openFeedbackForm = () => {
   background: rgb(55, 65, 81);
   border: none;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .toggle-button.active {
