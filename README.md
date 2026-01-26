@@ -120,6 +120,19 @@ The app requires the following permissions:
 - **Location**: For GPS tracking and navigation
 - **Network State**: For connectivity status
 
+### Screenshots
+![1](https://github.com/user-attachments/assets/1444d2ef-4b40-4c46-a104-bf99fb63ab03)
+![2](https://github.com/user-attachments/assets/8ec8fb86-0335-43cb-8232-ab82920accd4)
+![3](https://github.com/user-attachments/assets/dfd1bc19-c5ad-4f91-9636-6cc8d0bc1324)
+![4](https://github.com/user-attachments/assets/7a0690cd-3771-4a88-b4d9-4b23effe96a5)
+![5](https://github.com/user-attachments/assets/d500a98d-cb62-4e79-b680-82b96e7e5f55)
+![6](https://github.com/user-attachments/assets/9a8158a1-343c-4d7b-a327-2285272f7a2b)
+![7](https://github.com/user-attachments/assets/2e8e9a10-30dd-4369-8fac-1750bbb80174)
+
+
+### Live Demo
+https://play.google.com/store/apps/details?id=com.motorcycle.dashride.ph
+
 ## License
 
 MIT
