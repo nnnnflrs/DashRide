@@ -1,5 +1,13 @@
 <template>
-  <div class="bottom-nav" :data-theme="theme">
+  <div
+    class="bottom-nav"
+    :data-theme="theme"
+    :style="{
+      paddingBottom: isNavigationBarVisible && navBarPosition === 'bottom' ? `${bottomInset}px` : '0px',
+      paddingLeft: isNavigationBarVisible && navBarPosition === 'left' ? `${leftInset}px` : '0px',
+      paddingRight: isNavigationBarVisible && navBarPosition === 'right' ? `${rightInset}px` : '0px'
+    }"
+  >
     <div class="nav-grid">
       <button
         v-for="tab in tabs"
@@ -17,6 +25,7 @@
 
 <script setup lang="ts">
 import { Navigation, Music, Gauge, Settings } from 'lucide-vue-next'
+import { useSafeArea } from '../../composables/useSafeArea'
 
 interface Props {
   activeTab: 'nav' | 'music' | 'riding' | 'settings'
@@ -28,6 +37,8 @@ defineProps<Props>()
 defineEmits<{
   'update:activeTab': [tab: 'nav' | 'music' | 'riding' | 'settings']
 }>()
+
+const { bottomInset, leftInset, rightInset, navBarPosition, isNavigationBarVisible } = useSafeArea()
 
 const tabs = [
   { id: 'nav' as const, icon: Navigation, label: 'NAV' },

@@ -1,5 +1,5 @@
 <template>
-  <div v-if="showStatusBar" class="status-bar" :data-theme="theme">
+  <div v-if="showStatusBar" class="status-bar" :data-theme="theme" :style="{ paddingTop: isNavigationBarVisible && navBarPosition === 'top' ? `${topInset}px` : '0px' }">
     <div class="left">
       <span class="time-label">{{ currentTime }}</span>
       <template v-if="isGpsActive">
@@ -28,8 +28,10 @@ import { Device } from '@capacitor/device'
 import { Network } from '@capacitor/network'
 import { BleClient } from '@capacitor-community/bluetooth-le'
 import { useSettings } from '@/composables/useSettings'
+import { useSafeArea } from '@/composables/useSafeArea'
 
 const { showStatusBar } = useSettings()
+const { topInset, navBarPosition, isNavigationBarVisible } = useSafeArea()
 
 interface Props {
   isGpsActive: boolean

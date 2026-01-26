@@ -1473,7 +1473,7 @@ onUnmounted(async () => {
 
 .search-container {
   position: absolute;
-  top: 0.75rem;
+  top: 3.25rem;
   left: 0.75rem;
   right: 0.75rem;
   z-index: 100;
@@ -1516,10 +1516,10 @@ onUnmounted(async () => {
 
 .clear-button {
   padding: 0.4rem;
-  background: rgba(255, 255, 255, 0.1);
+  background: white;
   border: none;
   border-radius: 0.4rem;
-  color: white;
+  color: black;
   cursor: pointer;
   display: flex;
   align-items: center;

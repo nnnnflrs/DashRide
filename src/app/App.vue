@@ -1,6 +1,14 @@
 <template>
   <ion-app>
-  <div class="app-container" :data-theme="currentTheme" :class="{ 'native-map-active': activeTab === 'nav' }">
+  <div
+    class="app-container"
+    :data-theme="currentTheme"
+    :class="{ 'native-map-active': activeTab === 'nav' }"
+    :style="{
+      paddingLeft: isNavigationBarVisible && navBarPosition === 'left' ? `${leftInset}px` : '0px',
+      paddingRight: isNavigationBarVisible && navBarPosition === 'right' ? `${rightInset}px` : '0px'
+    }"
+  >
     <div class="background-gradient" />
 
     <div class="glow-top" />
@@ -158,7 +166,7 @@
               </div>
 
               <!-- Mini Music Player - Show when user wants to see it -->
-              <div v-if="showMiniPlayer && musicCurrentTrack && activeTab === 'riding'" class="mini-music-player">
+              <div v-if="showMiniPlayer && musicCurrentTrack && activeTab === 'riding'" class="mini-music-player" :style="{ marginBottom: isNavigationBarVisible && navBarPosition === 'bottom' ? `${bottomInset}px` : '0px' }">
                 <div class="mini-music-info">
                   <div class="mini-album-art">
                     <img v-if="musicCurrentTrack.albumArt" :src="musicCurrentTrack?.albumArt" alt="Album art" />
@@ -238,11 +246,11 @@ import { useWeather } from '../composables/useWeather'
 import { useSettings } from '../composables/useSettings'
 import { useNavigation } from '../composables/useNavigation'
 import { useSlope } from '../composables/useSlope'
+import { useSafeArea } from '../composables/useSafeArea'
 import { Geolocation } from '@capacitor/geolocation'
 import { GoogleMapsNative } from '../plugins/googlemaps'
 import { Dialog } from '@capacitor/dialog'
 
-// Get music player state and controls
 const {
   isPlaying: musicIsPlaying,
   currentTrack: musicCurrentTrack,
@@ -251,10 +259,10 @@ const {
   previousTrack: musicPreviousTrack
 } = useMusicPlayer()
 
-// Mini music player visibility control
+const { bottomInset, topInset, leftInset, rightInset, navBarPosition, isNavigationBarVisible } = useSafeArea()
+
 const showMiniPlayer = ref(false)
 
-// Watch for music starting to show mini player
 watch([musicIsPlaying, musicCurrentTrack], ([playing, track]) => {
   if (playing && track) {
     showMiniPlayer.value = true
@@ -265,23 +273,14 @@ const closeMiniPlayer = () => {
   showMiniPlayer.value = false
 }
 
-// Get weather data
 const { temperature, weatherData, isLoading: weatherLoading, error: weatherError } = useWeather()
-
-// Get navigation state
 const { isNavigating, remainingDistance, totalDistance: navTotalDistance, destination, formattedETA, routePath, nextTurnInstruction, stopNavigation } = useNavigation()
-
-// Get slope calculation state
 const { formattedSlope, slopeDirection, updateSlope } = useSlope()
 
-// Navigation-specific duration tracking
 const navigationDuration = ref(0)
 let navigationInterval: number | null = null
 
-// Reference to NavigationMap component
 const navigationMapRef = ref<InstanceType<typeof NavigationMap> | null>(null)
-
-// Use ETA from navigation composable (gets updated from Google Directions API)
 const estimatedTimeOfArrival = computed(() => {
   return formattedETA.value || '--:--'
 })
@@ -299,10 +298,8 @@ const handleArrival = async () => {
     await navigationMapRef.value.cleanupNavigation()
   }
 
-  // Stop navigation in shared state
   stopNavigation()
 
-  // Clear the navigation interval
   if (navigationInterval !== null) {
     clearInterval(navigationInterval)
     navigationInterval = null
@@ -322,47 +319,35 @@ interface TripData {
 
 const speed = ref(0)
 const altitude = ref(0)
-const bearing = ref(0) // GPS heading/direction
+const bearing = ref(0)
 const isTracking = ref(false)
 const activeTab = ref<'nav' | 'music' | 'riding' | 'settings'>('riding')
 const isSearchingLocation = ref(false)
 const currentLocation = ref<{ lat: number; lng: number } | null>(null)
 
-// Speed smoothing - moving average of last 3 readings to filter GPS noise
 const speedReadings = ref<number[]>([])
 const maxSpeedReadings = 3
 
-// Smooth speed using moving average
 const smoothSpeed = (rawSpeed: number): number => {
-  // Add the new reading
   speedReadings.value.push(rawSpeed)
 
-  // Keep only the last N readings
   if (speedReadings.value.length > maxSpeedReadings) {
     speedReadings.value.shift()
   }
 
-  // Calculate average
   const average = speedReadings.value.reduce((sum, val) => sum + val, 0) / speedReadings.value.length
-
-  // Apply threshold - speeds below 3 km/h (1.86 mph) are considered stationary
   const speedThreshold = unit.value === 'mph' ? 1.86 : 3
 
   return average > speedThreshold ? average : 0
 }
 
-// Tooltip state
 const activeTooltip = ref<string | null>(null)
 let tooltipTimeout: number | null = null
 
-
-// Use shared settings state
 const { theme, unit, keepScreenOn, showMinimap, showDetailsOnNavigation, mapStyle } = useSettings()
 
-// Compute current theme based on selection
 const currentTheme = computed(() => {
   if (theme.value === 'auto') {
-    // Check system preference
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
       return 'light'
     }
@@ -454,44 +439,38 @@ let resetTimerTrip: number | null = null
 let resetProgressIntervalTrip: number | null = null
 
 const startReset = (type: 'avg' | 'max' | 'trip') => {
-  const duration = 2000 // 2 seconds
-  const delayBeforeShow = 300 // 300ms delay before showing reset UI
+  const duration = 2000
+  const delayBeforeShow = 300
 
   if (type === 'avg') {
     resetProgressAvg.value = 0
 
-    // Delay before showing reset UI to allow click events to fire
     setTimeout(() => {
-      if (resetTimerAvg !== null) { // Only show if still holding
+      if (resetTimerAvg !== null) {
         isResettingAvg.value = true
       }
     }, delayBeforeShow)
 
     const startTime = Date.now()
 
-    // Update progress bar
     resetProgressIntervalAvg = window.setInterval(() => {
       const elapsed = Date.now() - startTime
       resetProgressAvg.value = Math.min((elapsed / duration) * 100, 100)
     }, 50)
 
-    // Trigger haptic feedback
     try {
       Haptics.impact({ style: ImpactStyle.Light })
     } catch (error) {
       console.log('Haptics not available')
     }
 
-    // Set timer to reset after 2 seconds
     resetTimerAvg = window.setTimeout(() => {
-      // Reset average speed statistics only
       tripData.value = {
         ...tripData.value,
         totalSpeed: 0,
         speedSamples: 0
       }
 
-      // Strong haptic feedback on reset
       try {
         Haptics.impact({ style: ImpactStyle.Heavy })
       } catch (error) {
@@ -504,37 +483,31 @@ const startReset = (type: 'avg' | 'max' | 'trip') => {
   } else if (type === 'max') {
     resetProgressMax.value = 0
 
-    // Delay before showing reset UI to allow click events to fire
     setTimeout(() => {
-      if (resetTimerMax !== null) { // Only show if still holding
+      if (resetTimerMax !== null) {
         isResettingMax.value = true
       }
     }, delayBeforeShow)
 
     const startTime = Date.now()
 
-    // Update progress bar
     resetProgressIntervalMax = window.setInterval(() => {
       const elapsed = Date.now() - startTime
       resetProgressMax.value = Math.min((elapsed / duration) * 100, 100)
     }, 50)
 
-    // Trigger haptic feedback
     try {
       Haptics.impact({ style: ImpactStyle.Light })
     } catch (error) {
       console.log('Haptics not available')
     }
 
-    // Set timer to reset after 2 seconds
     resetTimerMax = window.setTimeout(() => {
-      // Reset max speed only
       tripData.value = {
         ...tripData.value,
         maxSpeed: 0
       }
 
-      // Strong haptic feedback on reset
       try {
         Haptics.impact({ style: ImpactStyle.Heavy })
       } catch (error) {
@@ -547,9 +520,8 @@ const startReset = (type: 'avg' | 'max' | 'trip') => {
   } else if (type === 'trip') {
     resetProgressTrip.value = 0
 
-    // Delay before showing reset UI to allow click events to fire
     setTimeout(() => {
-      if (resetTimerTrip !== null) { // Only show if still holding
+      if (resetTimerTrip !== null) {
         isResettingTrip.value = true
       }
     }, delayBeforeShow)
@@ -670,22 +642,18 @@ const releaseWakeLock = () => {
 
 // Tooltip function
 const showTooltip = (label: string) => {
-  // Clear any existing timeout
   if (tooltipTimeout) {
     clearTimeout(tooltipTimeout)
     tooltipTimeout = null
   }
 
-  // If clicking the same tooltip, dismiss it
   if (activeTooltip.value === label) {
     activeTooltip.value = null
     return
   }
 
-  // Set active tooltip
   activeTooltip.value = label
 
-  // Auto-hide after 3 seconds
   tooltipTimeout = window.setTimeout(() => {
     activeTooltip.value = null
   }, 3000)
@@ -699,16 +667,13 @@ watch([keepScreenOn, isTracking], () => {
   }
 })
 
-// Watch navigation state to control duration tracking
 watch(isNavigating, (navigating) => {
   if (navigating) {
-    // Start navigation duration tracking
     navigationDuration.value = 0
     navigationInterval = window.setInterval(() => {
       navigationDuration.value++
     }, 1000)
   } else {
-    // Stop and reset navigation duration tracking
     if (navigationInterval) {
       clearInterval(navigationInterval)
       navigationInterval = null
@@ -719,12 +684,9 @@ watch(isNavigating, (navigating) => {
 
 const startTracking = async () => {
   try {
-    // On Android, use native Google Maps location tracking for better speed accuracy
     if (Capacitor.getPlatform() === 'android') {
-      // Start native location tracking
       await GoogleMapsNative.startLocationTracking()
 
-      // Listen for location updates
       await GoogleMapsNative.addListener('locationUpdate', (location) => {
         const speedMps = location.speed || 0
         const speedKmh = speedMps * 3.6
@@ -742,13 +704,11 @@ const startTracking = async () => {
         altitude.value = location.altitude || 0
         bearing.value = location.bearing || 0
 
-        // Update current location for MiniMap
         currentLocation.value = {
           lat: location.latitude,
           lng: location.longitude
         }
 
-        // Update slope calculation with GPS data
         updateSlope(
           location.latitude,
           location.longitude,
@@ -781,9 +741,8 @@ const startTracking = async () => {
         lastPosition = location
       })
 
-      watchId = 'native' // Mark as using native tracking
+      watchId = 'native'
     } else {
-      // iOS and web: use Capacitor Geolocation
       const permission = await Geolocation.checkPermissions()
       if (permission.location !== 'granted') {
         const requested = await Geolocation.requestPermissions()
@@ -1485,6 +1444,7 @@ onUnmounted(() => {
   backdrop-filter: blur(8px);
   border-radius: 8px;
   border: 1px solid rgba(75, 85, 99, 0.3);
+  /* Note: This element is not currently in use in the template */
 }
 
 .bottom-icon {
@@ -1527,6 +1487,7 @@ onUnmounted(() => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   min-width: 320px;
   max-width: 400px;
+  /* Dynamic margin-bottom applied via inline style from composable */
 }
 
 .mini-music-info {
@@ -1838,6 +1799,7 @@ onUnmounted(() => {
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   border: 1px solid rgba(31, 41, 55, 0.5);
+  /* Note: This element is not currently in use in the template */
 }
 
 .time-display {
@@ -2052,10 +2014,12 @@ onUnmounted(() => {
     max-width: calc(100% - 2rem);
     padding: 0.75rem 1rem;
     margin-top: 2.75rem;
+    /* Dynamic margin-bottom applied via inline style */
   }
 
   .center-bottom-info {
     bottom: 0.75rem;
+    /* Note: This element is not currently in use in the template */
   }
 
   /* Light theme portrait adjustments */

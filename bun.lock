@@ -24,6 +24,7 @@
         "@ionic/vue": "^8.7.16",
         "@ionic/vue-router": "^8.7.16",
         "@vueuse/core": "^10.9.0",
+        "capacitor-plugin-safe-area": "^5.0.0",
         "date-fns": "3.6.0",
         "lucide-vue-next": "^0.344.0",
         "vue": "^3.4.21",
@@ -291,6 +292,8 @@
     "brace-expansion": ["brace-expansion@2.0.2", "", { "dependencies": { "balanced-match": "^1.0.0" } }, "sha512-Jt0vHyM+jmUBqojB7E1NIYadt0vI0Qxjxd2TErW94wDz+E2LAm5vKMXXwg6ZZBTHPuUlDgQHKXvjGBdfcF1ZDQ=="],
 
     "buffer-crc32": ["buffer-crc32@0.2.13", "", {}, "sha512-VO9Ht/+p3SN7SKWqcrgEzjGbRSJYTx+Q1pTQC0wrWqHx0vpJraQ6GtHx8tvcg1rlK1byhU5gccxgOgj7B0TDkQ=="],
+
+    "capacitor-plugin-safe-area": ["capacitor-plugin-safe-area@5.0.0", "", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-Q7+mV7oxGGDB4qPPGXFwS/dexR2/bo/uwkoBRTeR3d/rCzboi3Rnylw18MxSFx/mbQHD9BB7gSDWl+YnncJohQ=="],
 
     "chownr": ["chownr@2.0.0", "", {}, "sha512-bIomtDF5KGpdogkLd9VspvFzk9KfpyyGlS8YFVZl7TGPBHL5snIOnxeshwVgPteQ9b4Eydl+pVbIyE1DcvCWgQ=="],
 
