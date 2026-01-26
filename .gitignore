@@ -10,6 +10,9 @@
 #Claude
 CLAUDE.md
 
+#Roo
+.roo
+
 # Dependencies
 node_modules/
 .pnp
