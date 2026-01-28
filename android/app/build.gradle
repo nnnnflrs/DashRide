@@ -128,17 +128,9 @@ android {
     }
 }
 
-// Auto-increment version code and version name when building
+
 tasks.whenTaskAdded { task ->
-    // Increment for release bundle builds
     if (task.name == 'bundleRelease') {
-        task.doFirst {
-            incrementVersionCode()
-            incrementVersionName()
-        }
-    }
-    // Also increment for APK builds (assembleRelease or assembleDebug when using Android Studio Run)
-    if (task.name == 'assembleRelease' || task.name == 'assembleDebug') {
         task.doFirst {
             incrementVersionCode()
             incrementVersionName()

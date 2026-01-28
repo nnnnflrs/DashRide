@@ -102,7 +102,7 @@
     </div>
 
     <button
-      v-if="!loading && !error"
+      v-if="!loading && !error && !isSearching && searchSuggestions.length === 0"
       @click="centerOnCurrentLocation"
       class="location-button"
       :class="{ active: isFollowingLocation }"
@@ -1538,9 +1538,9 @@ onUnmounted(async () => {
 
 .suggestions-container {
   position: absolute;
-  top: 3.5rem;
+  top: 6rem;
   left: 0.75rem;
-  right: 2.5rem;
+  right: 3rem;
   max-height: 12rem;
   overflow-y: auto;
   background: rgba(0, 0, 0, 0.98);
