@@ -385,6 +385,24 @@
         @update:activeTab="activeTab = $event"
       />
     </div>
+
+    <!-- Landscape Mode Hint Modal -->
+    <Transition name="modal-fade">
+      <div v-if="showLandscapeHint" class="landscape-hint-overlay" @click.self="dismissLandscapeHint">
+        <div class="landscape-hint-modal" :data-theme="currentTheme">
+          <div class="hint-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="6" width="20" height="12" rx="2" />
+              <line x1="6" y1="12" x2="6" y2="12.01" />
+              <line x1="12" y1="12" x2="18" y2="12" />
+            </svg>
+          </div>
+          <h2 class="hint-title">Best Experience</h2>
+          <p class="hint-message">DashRide is optimized for landscape mode. Rotate your device for the best riding experience.</p>
+          <button class="hint-ok-btn" @click="dismissLandscapeHint">Got it</button>
+        </div>
+      </div>
+    </Transition>
   </div>
   </ion-app>
 </template>
@@ -523,13 +541,22 @@ const currentTheme = computed(() => {
 
 let wakeLock: WakeLock | null = null
 
-const currentTime = ref(new Date().toLocaleTimeString('en-US', { 
-  hour: '2-digit', 
+const currentTime = ref(new Date().toLocaleTimeString('en-US', {
+  hour: '2-digit',
   minute: '2-digit',
-  hour12: true 
+  hour12: true
 }))
 
 let timeInterval: number | null = null
+
+// Track if user has seen the landscape mode hint
+const hasSeenLandscapeHint = useLocalStorage('dashride_hasSeenLandscapeHint', false)
+const showLandscapeHint = ref(false)
+
+const dismissLandscapeHint = () => {
+  showLandscapeHint.value = false
+  hasSeenLandscapeHint.value = true
+}
 
 onMounted(async () => {
   console.log('App.vue: Component mounted')
@@ -541,6 +568,11 @@ onMounted(async () => {
     await CapStatusBar.hide()
   } catch (error) {
     console.log("Status bar hide failed")
+  }
+
+  // Show landscape mode hint on first launch
+  if (!hasSeenLandscapeHint.value) {
+    showLandscapeHint.value = true
   }
 
   // Listen to app state changes to debug background audio
@@ -1741,6 +1773,41 @@ watch(isNavigating, (navigating) => {
   filter: drop-shadow(0 0 3px rgba(156, 163, 175, 0.3));
 }
 
+/* TFT Digital colors for horizontal gauge mode */
+.dashboard-container.horizontal-gauge-mode .info-icon {
+  color: #00ffd5;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 213, 0.5));
+}
+
+.dashboard-container.horizontal-gauge-mode .info-icon.weather {
+  color: #00ffd5;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 213, 0.5));
+}
+
+.dashboard-container.horizontal-gauge-mode .info-icon.slope-uphill {
+  color: #ff0a4a;
+  filter: drop-shadow(0 0 4px rgba(255, 10, 74, 0.5));
+}
+
+.dashboard-container.horizontal-gauge-mode .info-icon.slope-downhill {
+  color: #00ffd5;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 213, 0.5));
+}
+
+.dashboard-container.horizontal-gauge-mode .info-icon.slope-flat {
+  color: rgba(100, 130, 160, 0.8);
+  filter: drop-shadow(0 0 3px rgba(100, 130, 160, 0.4));
+}
+
+.dashboard-container.horizontal-gauge-mode .info-value {
+  color: rgba(200, 220, 240, 0.95);
+  text-shadow: 0 0 8px rgba(0, 255, 213, 0.2);
+}
+
+.dashboard-container.horizontal-gauge-mode .speed-unit {
+  color: rgba(120, 150, 180, 0.9);
+}
+
 /* Info Text */
 .info-text {
   display: flex;
@@ -2519,5 +2586,135 @@ watch(isNavigating, (navigating) => {
     max-width: 100%;
     min-width: unset;
   }
+}
+
+/* Landscape Hint Modal */
+.landscape-hint-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1.5rem;
+}
+
+.landscape-hint-modal {
+  background: linear-gradient(145deg, rgb(31, 41, 55), rgb(17, 24, 39));
+  border-radius: 1.25rem;
+  padding: 2rem;
+  max-width: 320px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  animation: modal-pop 0.3s ease-out;
+}
+
+.landscape-hint-modal[data-theme="light"] {
+  background: linear-gradient(145deg, rgb(248, 250, 252), rgb(241, 245, 249));
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+@keyframes modal-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.hint-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1.25rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(147, 51, 234, 0.2));
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgb(96, 165, 250);
+}
+
+.landscape-hint-modal[data-theme="light"] .hint-icon {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(147, 51, 234, 0.15));
+  color: rgb(37, 99, 235);
+}
+
+.hint-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.hint-title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.02em;
+}
+
+.landscape-hint-modal[data-theme="light"] .hint-title {
+  color: rgb(15, 23, 42);
+}
+
+.hint-message {
+  font-size: 0.9375rem;
+  color: rgba(156, 163, 175, 1);
+  line-height: 1.6;
+  margin: 0 0 1.5rem;
+}
+
+.landscape-hint-modal[data-theme="light"] .hint-message {
+  color: rgb(71, 85, 105);
+}
+
+.hint-ok-btn {
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  background: linear-gradient(135deg, rgb(59, 130, 246), rgb(37, 99, 235));
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.hint-ok-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.hint-ok-btn:active {
+  transform: translateY(0);
+}
+
+/* Modal fade transition */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.modal-fade-enter-active .landscape-hint-modal,
+.modal-fade-leave-active .landscape-hint-modal {
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+
+.modal-fade-enter-from .landscape-hint-modal,
+.modal-fade-leave-to .landscape-hint-modal {
+  transform: scale(0.9) translateY(10px);
+  opacity: 0;
 }
 </style>

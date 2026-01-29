@@ -6,28 +6,26 @@
       <div class="tachometer-bar">
         <svg class="tachometer-svg" viewBox="0 0 800 95" preserveAspectRatio="xMidYMid meet">
           <defs>
-            <!-- Gradient for the active bar -->
-            <linearGradient id="tachGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#22c55e" />
-              <stop offset="26.7%" stop-color="#22c55e" />
-              <stop offset="26.7%" stop-color="#eab308" />
-              <stop offset="46.7%" stop-color="#eab308" />
-              <stop offset="46.7%" stop-color="#f97316" />
-              <stop offset="60%" stop-color="#f97316" />
-              <stop offset="60%" stop-color="#ef4444" />
-              <stop offset="100%" stop-color="#ef4444" />
-            </linearGradient>
-            <!-- Glow filter -->
-            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <!-- Enhanced glow filter for digital look -->
+            <filter id="tftGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
               <feMerge>
                 <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+            <!-- Subtle inner glow for segments -->
+            <filter id="segmentGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="2" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
                 <feMergeNode in="SourceGraphic"/>
               </feMerge>
             </filter>
           </defs>
 
-          <!-- Background segments -->
+          <!-- Background segments - LCD off state -->
           <g class="background-segments">
             <rect
               v-for="(seg, i) in segments"
@@ -37,13 +35,13 @@
               :width="seg.width"
               :height="seg.height"
               :transform="seg.transform"
-              fill="rgba(255, 255, 255, 0.08)"
-              rx="2"
+              class="segment-bg"
+              rx="1"
             />
           </g>
 
-          <!-- Active segments with color -->
-          <g class="active-segments" :filter="speedPercentage > 0 ? 'url(#glow)' : ''">
+          <!-- Active segments with digital colors -->
+          <g class="active-segments" :filter="speedPercentage > 0 ? 'url(#segmentGlow)' : ''">
             <rect
               v-for="(seg, i) in activeSegments"
               :key="'active-' + i"
@@ -53,7 +51,7 @@
               :height="seg.height"
               :transform="seg.transform"
               :fill="seg.color"
-              rx="2"
+              rx="1"
               class="segment-active"
             />
           </g>
@@ -66,18 +64,20 @@
                 :y1="tick.y1"
                 :x2="tick.x2"
                 :y2="tick.y2"
-                :stroke="tick.isActive ? tick.color : 'rgba(255, 255, 255, 0.4)'"
+                :stroke="tick.isActive ? tick.color : 'rgba(100, 120, 140, 0.5)'"
                 :stroke-width="tick.isMajor ? 2 : 1"
+                :filter="tick.isActive ? 'url(#tftGlow)' : ''"
               />
               <text
                 v-if="tick.isMajor"
                 :x="tick.textX"
                 :y="tick.textY"
-                :fill="tick.isActive ? tick.color : 'rgba(255, 255, 255, 0.5)'"
-                font-size="12"
-                font-weight="600"
+                :fill="tick.isActive ? tick.color : 'rgba(100, 120, 140, 0.6)'"
+                font-size="11"
+                font-weight="700"
                 text-anchor="middle"
                 class="tick-text"
+                :filter="tick.isActive ? 'url(#tftGlow)' : ''"
               >
                 {{ tick.value }}
               </text>
@@ -85,7 +85,7 @@
           </g>
 
           <!-- Speed multiplier indicator text -->
-          <text x="780" y="12" fill="rgba(255, 255, 255, 0.6)" font-size="10" text-anchor="end">
+          <text x="780" y="12" class="unit-indicator" text-anchor="end">
             x10 {{ unit === 'mph' ? 'mph' : 'km/h' }}
           </text>
         </svg>
@@ -94,7 +94,7 @@
       <!-- Main Display Area - Speed Only -->
       <div class="main-display">
         <div class="speed-display">
-          <span class="speed-value" :style="{ color: gaugeColor, textShadow: `0 0 30px ${gaugeColor}` }">
+          <span class="speed-value" :style="{ color: gaugeColor, textShadow: `0 0 40px ${gaugeColor}, 0 0 80px ${gaugeColor}40` }">
             {{ Math.round(displaySpeed) }}
           </span>
           <span class="speed-unit">{{ unit === 'mph' ? 'mph' : 'km/h' }}</span>
@@ -129,13 +129,21 @@ const displaySpeed = computed(() => testMode.value ? testSpeed.value : props.spe
 const maxSpeed = computed(() => props.unit === 'mph' ? 93 : 150)
 const speedPercentage = computed(() => Math.min((displaySpeed.value / maxSpeed.value), 1))
 
-// Dynamic color based on speed (0-4 green, 4-7 yellow, 7-9 orange, 9-15 red)
+// TFT Digital color palette
+const colors = {
+  cyan: '#00ffd5',      // Digital cyan/teal (0-4)
+  amber: '#ffb800',     // Digital amber (4-7)
+  orange: '#ff6b35',    // Electric orange (7-9)
+  red: '#ff0a4a'        // Neon red (9-15)
+}
+
+// Dynamic color based on speed (0-4 cyan, 4-7 amber, 7-9 orange, 9-15 red)
 const gaugeColor = computed(() => {
   const percentage = speedPercentage.value
-  if (percentage < 4/15) return '#22c55e'  // Green (0-4)
-  if (percentage < 7/15) return '#eab308'  // Yellow (4-7)
-  if (percentage < 9/15) return '#f97316'  // Orange (7-9)
-  return '#ef4444' // Red (9-15)
+  if (percentage < 4/15) return colors.cyan
+  if (percentage < 7/15) return colors.amber
+  if (percentage < 9/15) return colors.orange
+  return colors.red
 })
 
 // Generate segments for the tachometer bar with curved slant (0-5) then horizontal (5-15)
@@ -183,16 +191,16 @@ const segments = computed(() => {
   return segs
 })
 
-// Active segments based on speed (0-4 green, 4-7 yellow, 7-9 orange, 9-15 red)
+// Active segments based on speed with TFT colors
 const activeSegments = computed(() => {
   const activeCount = Math.floor(speedPercentage.value * totalSegments)
   return segments.value.slice(0, activeCount).map((seg, i) => {
     const percentage = i / totalSegments
     let color
-    if (percentage < 4/15) color = '#22c55e'      // Green (0-4)
-    else if (percentage < 7/15) color = '#eab308' // Yellow (4-7)
-    else if (percentage < 9/15) color = '#f97316' // Orange (7-9)
-    else color = '#ef4444'                         // Red (9-15)
+    if (percentage < 4/15) color = colors.cyan
+    else if (percentage < 7/15) color = colors.amber
+    else if (percentage < 9/15) color = colors.orange
+    else color = colors.red
 
     return { ...seg, color }
   })
@@ -228,13 +236,13 @@ const ticks = computed(() => {
       baseY = topY
     }
 
-    // Color based on position (0-4 green, 4-7 yellow, 7-9 orange, 9-15 red)
+    // Color based on position with TFT colors
     let color
-    const tickMark = i // tick mark number (0-15)
-    if (tickMark < 4) color = '#22c55e'       // Green (0-3)
-    else if (tickMark < 7) color = '#eab308'  // Yellow (4-6)
-    else if (tickMark < 9) color = '#f97316'  // Orange (7-8)
-    else color = '#ef4444'                     // Red (9-15)
+    const tickMark = i
+    if (tickMark < 4) color = colors.cyan
+    else if (tickMark < 7) color = colors.amber
+    else if (tickMark < 9) color = colors.orange
+    else color = colors.red
 
     tickList.push({
       x1: x,
@@ -289,6 +297,7 @@ const animateTestSpeed = () => {
 
 .tft-display {
   padding: 0px 24px;
+  position: relative;
 }
 
 /* Tachometer Bar */
@@ -303,12 +312,28 @@ const animateTestSpeed = () => {
   height: 100%;
 }
 
+/* Background segments - LCD off state with subtle visibility */
+.segment-bg {
+  fill: rgba(60, 80, 100, 0.15);
+  stroke: rgba(80, 100, 120, 0.1);
+  stroke-width: 0.5;
+}
+
 .segment-active {
-  transition: fill 0.1s ease;
+  transition: fill 0.08s ease;
 }
 
 .tick-text {
-  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  letter-spacing: 0.5px;
+}
+
+.unit-indicator {
+  fill: rgba(100, 130, 160, 0.7);
+  font-size: 10px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 /* Main Display Area */
@@ -334,17 +359,19 @@ const animateTestSpeed = () => {
   font-size: 72px;
   font-weight: 700;
   line-height: 1;
-  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
   letter-spacing: -2px;
-  transition: color 0.3s ease, text-shadow 0.3s ease;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
 }
 
 .speed-unit {
   font-size: 16px;
-  color: rgba(156, 163, 175, 0.8);
-  font-weight: 600;
-  letter-spacing: 1px;
+  color: rgba(120, 150, 180, 0.9);
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
   margin-top: 4px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
 }
 
 /* Test Mode Indicator */
@@ -353,19 +380,23 @@ const animateTestSpeed = () => {
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(239, 68, 68, 0.9);
+  background: linear-gradient(135deg, #ff0a4a, #ff4060);
   color: white;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-  animation: pulse 2s infinite;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  animation: pulse 1.5s infinite;
+  box-shadow: 0 0 20px rgba(255, 10, 74, 0.5);
   z-index: 2;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%, 100% { opacity: 1; box-shadow: 0 0 20px rgba(255, 10, 74, 0.5); }
+  50% { opacity: 0.8; box-shadow: 0 0 30px rgba(255, 10, 74, 0.8); }
 }
 
 /* Responsive adjustments */

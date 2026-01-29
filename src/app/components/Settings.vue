@@ -147,7 +147,7 @@
           <div>
             <div class="toggle-title">Show Status bar</div>
             <div class="toggle-description">
-              Show status bar in riding view
+              Show status bar in the app
             </div>
           </div>
           <button
