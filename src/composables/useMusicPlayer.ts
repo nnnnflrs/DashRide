@@ -20,16 +20,16 @@ export interface Track {
 
 // Global state that persists across component mounts/unmounts
 const tracks = ref<Track[]>([])
-const currentTrackIndex = useLocalStorage('music_currentTrackIndex', 0)
+const currentTrackIndex = useLocalStorage('dashride_music_currentTrackIndex', 0)
 const isPlaying = ref(false)
-const currentTime = useLocalStorage('music_currentTime', 0)
+const currentTime = useLocalStorage('dashride_music_currentTime', 0)
 const duration = ref(0)
-const shuffle = useLocalStorage('music_shuffle', false)
-const repeat = useLocalStorage('music_repeat', false)
+const shuffle = useLocalStorage('dashride_music_shuffle', false)
+const repeat = useLocalStorage('dashride_music_repeat', false)
 const isFavorite = ref(false)
 const isScanning = ref(false)
-const queue = useLocalStorage<number[]>('music_queue', []) // Queue of track indices
-const queuePosition = useLocalStorage('music_queuePosition', 0) // Current position in queue
+const queue = useLocalStorage<number[]>('dashride_music_queue', []) // Queue of track indices
+const queuePosition = useLocalStorage('dashride_music_queuePosition', 0) // Current position in queue
 
 const useNativeAudio = Capacitor.isNativePlatform()
 
@@ -136,9 +136,9 @@ export function useMusicPlayer() {
         const result = await BackgroundMusicPlayer.getCurrentTime()
         currentTime.value = result.currentTime
 
-        // Update media session position every 10 intervals (1 second)
+        // Update media session position every 4 intervals (1 second)
         updateCounter++
-        if (updateCounter >= 10) {
+        if (updateCounter >= 4) {
           updatePosition(currentTime.value, duration.value)
           updateCounter = 0
         }
@@ -160,7 +160,7 @@ export function useMusicPlayer() {
       } catch {
         // Progress tracking error - likely audio stopped
       }
-    }, 100)
+    }, 250)
   }
 
   const stopProgressTracking = () => {
@@ -205,26 +205,21 @@ export function useMusicPlayer() {
           // No previous audio to stop
         }
 
-        try {
-          const result = await BackgroundMusicPlayer.preload({
-            audioPath: track.uri
-          })
-          duration.value = result.duration
+        const result = await BackgroundMusicPlayer.preload({
+          audioPath: track.uri
+        })
+        duration.value = result.duration
 
-          await BackgroundMusicPlayer.play()
-          isPlaying.value = true
+        await BackgroundMusicPlayer.play()
+        isPlaying.value = true
 
-          updateMediaSession()
-          startProgressTracking()
-        } catch (audioError) {
-          toast.error('Failed to play audio')
-          isPlaying.value = false
-          return
-        }
+        updateMediaSession()
+        startProgressTracking()
       }
     } catch (error) {
       toast.error('Failed to play track')
       isPlaying.value = false
+      stopProgressTracking()
     }
   }
 

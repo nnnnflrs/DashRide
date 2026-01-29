@@ -109,7 +109,7 @@
         <div>
           <div class="toggle-title">Show Navigation Details</div>
           <div class="toggle-description">
-            Always show navigation details when available
+            Only show navigation details when navigating
           </div>
         </div>
         <button
@@ -139,9 +139,11 @@
       
     </div>
 
-     <!-- Avoid Tolls Toggle -->
-      <div class="setting-card">
-        <div class="toggle-row">
+ 
+    <div class="setting-card">
+      <label class="setting-label">Miscellaneous</label>
+      <!-- Status bar -->
+      <div class="toggle-row">
           <div>
             <div class="toggle-title">Show Status bar</div>
             <div class="toggle-description">
@@ -155,10 +157,8 @@
             <div :class="['toggle-knob', { active: showStatusBar }]" />
           </button>
         </div>
-      </div>
 
-    <!-- Keep Screen On Toggle -->
-    <div class="setting-card">
+      <!-- Keep screen on -->
       <div class="toggle-row">
         <div>
           <div class="toggle-title">Keep Screen On</div>
@@ -175,32 +175,43 @@
       </div>
     </div>
 
-    <!-- Voice Instructions Toggle -->
-    <!-- <div class="setting-card">
-      <div class="toggle-row">
-        <div>
-          <div class="toggle-title">Voice Instructions</div>
-          <div class="toggle-description">
-            Enable turn-by-turn voice guidance during navigation
-          </div>
-        </div>
+    <!-- Gauge Skin Selection -->
+    <div class="setting-card">
+      <label class="setting-label">Gauge Style</label>
+      <p class="skin-description">Choose your preferred speedometer style. More styles coming soon!</p>
+      <div class="skin-options">
         <button
-          @click="voiceInstructions = !voiceInstructions"
-          :class="['toggle-button', { active: voiceInstructions }]"
+          @click="gaugeSkin = 'circular'"
+          :class="['skin-option', { active: gaugeSkin === 'circular' }]"
         >
-          <div :class="['toggle-knob', { active: voiceInstructions }]" />
+          <div class="skin-preview circular-preview">
+            <svg viewBox="0 0 60 40" class="skin-preview-svg">
+              <path d="M 8 20 A 25 25 0 0 1 52 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+              <text x="30" y="30" text-anchor="middle" fill="currentColor" font-size="10" font-weight="bold">66</text>
+            </svg>
+          </div>
+          <span class="skin-name">Circular</span>
+          <span class="skin-badge default">Default</span>
         </button>
-      </div>
-    </div> -->
-
-    <!-- Skins Section (Coming Soon) -->
-    <div class="setting-card coming-soon-card">
-      <label class="setting-label">Skins</label>
-      <div class="coming-soon-content">
-        <div class="coming-soon-text">
-          <span class="coming-soon-badge">Coming Soon</span>
-          <p class="coming-soon-description">Customize your dashboard with different visual themes and styles</p>
-        </div>
+        <button
+          @click="gaugeSkin = 'horizontal'"
+          :class="['skin-option', { active: gaugeSkin === 'horizontal' }]"
+        >
+          <div class="skin-preview horizontal-preview">
+            <svg viewBox="0 0 60 40" class="skin-preview-svg">
+              <g transform="skewX(-5)">
+                <rect x="8" y="8" width="6" height="12" fill="currentColor" rx="1"/>
+                <rect x="16" y="8" width="6" height="12" fill="currentColor" rx="1"/>
+                <rect x="24" y="8" width="6" height="12" fill="currentColor" rx="1"/>
+                <rect x="32" y="8" width="6" height="12" fill="currentColor" opacity="0.3" rx="1"/>
+                <rect x="40" y="8" width="6" height="12" fill="currentColor" opacity="0.3" rx="1"/>
+              </g>
+              <text x="30" y="32" text-anchor="middle" fill="currentColor" font-size="10" font-weight="bold">66</text>
+            </svg>
+          </div>
+          <span class="skin-name">Horizontal</span>
+          <span class="skin-badge new">New</span>
+        </button>
       </div>
     </div>
 
@@ -317,7 +328,7 @@ interface Props {
 defineProps<Props>()
 
 // Use shared settings state
-const { theme: settingsTheme, unit, keepScreenOn, avoidTolls, showMinimap, mapStyle, showDetailsOnNavigation, voiceInstructions, showStatusBar } = useSettings()
+const { theme: settingsTheme, unit, keepScreenOn, avoidTolls, showMinimap, mapStyle, showDetailsOnNavigation, voiceInstructions, showStatusBar, gaugeSkin } = useSettings()
 
 // Wallet address for donations
 const walletAddress = '37qjhJQno7bybHembmiCYcaTXGAauQompfjwS8ki2uz8'
@@ -877,5 +888,144 @@ const openFeedbackForm = () => {
 
 .settings-container[data-theme="light"] .feedback-description {
   color: rgb(71, 85, 105);
+}
+
+/* Gauge Skin Selection */
+.skin-description {
+  font-size: 0.875rem;
+  color: rgba(156, 163, 175, 1);
+  margin-bottom: 1rem;
+}
+
+.settings-container[data-theme="light"] .skin-description {
+  color: rgb(71, 85, 105);
+}
+
+.skin-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.skin-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgb(31, 41, 55);
+  border: 2px solid transparent;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.skin-option:hover {
+  background: rgb(55, 65, 81);
+  transform: translateY(-2px);
+}
+
+.skin-option.active {
+  border-color: rgb(59, 130, 246);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.settings-container[data-theme="light"] .skin-option {
+  background: rgba(226, 232, 240, 0.8);
+  border-color: transparent;
+}
+
+.settings-container[data-theme="light"] .skin-option:hover {
+  background: rgba(203, 213, 225, 0.9);
+}
+
+.settings-container[data-theme="light"] .skin-option.active {
+  border-color: rgb(37, 99, 235);
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.skin-preview {
+  width: 80px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.settings-container[data-theme="light"] .skin-preview {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.skin-preview-svg {
+  width: 100%;
+  height: 100%;
+  color: rgba(156, 163, 175, 0.8);
+}
+
+.skin-option.active .skin-preview-svg {
+  color: rgb(59, 130, 246);
+}
+
+.settings-container[data-theme="light"] .skin-option.active .skin-preview-svg {
+  color: rgb(37, 99, 235);
+}
+
+.circular-preview .skin-preview-svg {
+  padding: 4px;
+}
+
+.horizontal-preview .skin-preview-svg {
+  padding: 2px;
+}
+
+.skin-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(156, 163, 175, 1);
+  transition: color 0.2s;
+}
+
+.skin-option.active .skin-name {
+  color: rgb(59, 130, 246);
+}
+
+.settings-container[data-theme="light"] .skin-name {
+  color: rgb(71, 85, 105);
+}
+
+.settings-container[data-theme="light"] .skin-option.active .skin-name {
+  color: rgb(37, 99, 235);
+}
+
+.skin-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 9999px;
+}
+
+.skin-badge.default {
+  background: rgba(107, 114, 128, 0.3);
+  color: rgba(156, 163, 175, 1);
+}
+
+.skin-badge.new {
+  background: linear-gradient(135deg, rgb(59, 130, 246), rgb(147, 51, 234));
+  color: white;
+}
+
+@media (max-width: 400px) {
+  .skin-options {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
