@@ -11,14 +11,9 @@ export interface MediaSessionHandlers {
   onSeek: (time: number) => void
 }
 
-/**
- * Composable for integrating with the Media Session API
- * This enables hardware controls (earphones, intercom, car Bluetooth) to control playback
- */
 export function useMediaSession(handlers: MediaSessionHandlers) {
   const isNative = Capacitor.isNativePlatform()
 
-  // Set up native media session listeners on Android/iOS
   if (isNative) {
     MediaSession.addListener('mediaSessionAction', (event) => {
       switch (event.action) {
@@ -46,17 +41,11 @@ export function useMediaSession(handlers: MediaSessionHandlers) {
     })
   }
 
-  // Check if Web Media Session API is available (for web)
   const hasWebMediaSession = !isNative && 'mediaSession' in navigator
   const mediaSession = hasWebMediaSession ? navigator.mediaSession : null
 
-  /**
-   * Update the currently playing track metadata
-   * This shows up in lock screen, notification shade, car displays, etc.
-   */
   const updateMetadata = (track: Track | null) => {
     if (isNative) {
-      // Use native Android MediaSession
       if (track) {
         MediaSession.updateMetadata({
           title: track.title || 'Unknown Title',
@@ -67,7 +56,6 @@ export function useMediaSession(handlers: MediaSessionHandlers) {
         }).catch(() => {})
       }
     } else if (mediaSession) {
-      // Use web Media Session API
       if (!track) {
         mediaSession.metadata = null
         return
@@ -91,18 +79,13 @@ export function useMediaSession(handlers: MediaSessionHandlers) {
     }
   }
 
-  /**
-   * Update the playback state (playing, paused, none)
-   */
   const updatePlaybackState = (state: 'playing' | 'paused' | 'none', position = 0) => {
     if (isNative) {
-      // Use native Android MediaSession
       MediaSession.updatePlaybackState({
         state: state === 'none' ? 'paused' : state,
         position
       }).catch(() => {})
     } else if (mediaSession) {
-      // Use web Media Session API
       try {
         mediaSession.playbackState = state
       } catch (error) {
@@ -111,19 +94,9 @@ export function useMediaSession(handlers: MediaSessionHandlers) {
     }
   }
 
-  /**
-   * Update the current playback position
-   * Required for accurate seek bar display on lock screen
-   */
   const updatePosition = (currentTime: number, duration: number, playbackRate = 1.0) => {
     if (isNative) {
-      // On native, position updates don't need to call updatePlaybackState
-      // The position is already tracked by the progress interval
-      // and state is managed separately by updatePlaybackState()
-      // Calling updatePlaybackState here was causing the state to be
-      // incorrectly set to 'playing' even when paused
     } else if (mediaSession) {
-      // Use web Media Session API
       try {
         if ('setPositionState' in mediaSession) {
           mediaSession.setPositionState({
@@ -138,53 +111,42 @@ export function useMediaSession(handlers: MediaSessionHandlers) {
     }
   }
 
-  /**
-   * Set up action handlers for hardware controls (Web only)
-   */
   const setActionHandlers = () => {
     if (!mediaSession) return
 
     try {
-      // Play action
       mediaSession.setActionHandler('play', () => {
         handlers.onPlay()
       })
 
-      // Pause action
       mediaSession.setActionHandler('pause', () => {
         handlers.onPause()
       })
 
-      // Next track
       mediaSession.setActionHandler('nexttrack', () => {
         handlers.onNext()
       })
 
-      // Previous track
       mediaSession.setActionHandler('previoustrack', () => {
         handlers.onPrevious()
       })
 
-      // Seek forward
       mediaSession.setActionHandler('seekforward', (details) => {
         const skipTime = details.seekOffset || 10
         handlers.onSeek(skipTime)
       })
 
-      // Seek backward
       mediaSession.setActionHandler('seekbackward', (details) => {
         const skipTime = -(details.seekOffset || 10)
         handlers.onSeek(skipTime)
       })
 
-      // Seek to specific position
       mediaSession.setActionHandler('seekto', (details) => {
         if (details.seekTime !== null && details.seekTime !== undefined) {
           handlers.onSeek(details.seekTime)
         }
       })
 
-      // Stop playback
       mediaSession.setActionHandler('stop', () => {
         handlers.onPause()
       })
@@ -193,7 +155,6 @@ export function useMediaSession(handlers: MediaSessionHandlers) {
     }
   }
 
-  // Set up web handlers on initialization
   if (!isNative) {
     setActionHandlers()
   }
@@ -206,9 +167,6 @@ export function useMediaSession(handlers: MediaSessionHandlers) {
   }
 }
 
-/**
- * Helper function to set up automatic media session synchronization
- */
 export function setupMediaSessionSync(
   currentTrack: () => Track | undefined,
   isPlaying: () => boolean,
@@ -218,32 +176,26 @@ export function setupMediaSessionSync(
 ) {
   const { updateMetadata, updatePlaybackState, updatePosition } = useMediaSession(handlers)
 
-  // Watch for track changes
   watch(() => currentTrack(), (track) => {
     updateMetadata(track || null)
   }, { immediate: true })
 
-  // Watch for playback state changes
   watch(() => isPlaying(), (playing) => {
     updatePlaybackState(playing ? 'playing' : 'paused')
   }, { immediate: true })
 
-  // Update position periodically (every 1 second)
   let positionInterval: number | null = null
 
   watch(() => isPlaying(), (playing) => {
     if (playing) {
-      // Update position every second while playing
       positionInterval = window.setInterval(() => {
         updatePosition(currentTime(), duration())
       }, 1000)
     } else {
-      // Clear interval when paused
       if (positionInterval) {
         clearInterval(positionInterval)
         positionInterval = null
       }
-      // Update position one last time when paused
       updatePosition(currentTime(), duration())
     }
   }, { immediate: true })

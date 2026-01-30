@@ -9,6 +9,7 @@
       :totalDistance="navTotalDistance"
       :remainingDistance="navRemainingDistance"
       :unit="unit"
+      :slopeDirection="slopeDirection"
     />
 
     <!-- Search Input -->
@@ -120,6 +121,7 @@ import { Capacitor } from '@capacitor/core'
 import { Geolocation } from '@capacitor/geolocation'
 import { useSettings } from '../../composables/useSettings'
 import { useNavigation } from '../../composables/useNavigation'
+import { useSlope } from '../../composables/useSlope'
 import { GoogleMapsNative } from '../../plugins/googlemaps'
 import { GooglePlaces, type PlacePrediction, type PlaceDetails } from '../../plugins/googleplaces'
 import TextToSpeech from '../../plugins/texttospeech'
@@ -222,6 +224,8 @@ const {
   updateRemainingDistance: navUpdateRemainingDistance
 } = useNavigation()
 
+// Get slope data
+const { slopeDirection } = useSlope()
 
 // Compute current theme (resolve 'auto' to 'light' or 'dark') - for UI only
 const currentTheme = computed(() => {

@@ -1,17 +1,17 @@
 import { useLocalStorage } from '@vueuse/core'
 
-// Shared settings state
 export function useSettings() {
-  const theme = useLocalStorage<'auto' | 'light' | 'dark'>('dashride_theme', 'dark')
-  const unit = useLocalStorage<'mph' | 'kmh'>('dashride_speedUnit', 'kmh')
-  const keepScreenOn = useLocalStorage('dashride_keepScreenOn', true)
-  const avoidTolls = useLocalStorage('dashride_avoidTolls', true)
-  const showMinimap = useLocalStorage('dashride_showMinimap', true)
-  const mapStyle = useLocalStorage<'dark' | 'light'>('dashride_mapStyle', 'light')
-  const showDetailsOnNavigation = useLocalStorage('dashride_showDetailsOnNavigation', true)
-  const voiceInstructions = useLocalStorage('dashride_voiceInstructions', true)
-  const showStatusBar = useLocalStorage('dashride_showStatusBar', false)
-  const gaugeSkin = useLocalStorage<'circular' | 'horizontal'>('dashride_gaugeSkin', 'circular')
+  const theme = useLocalStorage<'auto' | 'light' | 'dark'>('theme', 'dark')
+  const unit = useLocalStorage<'mph' | 'kmh'>('speedUnit', 'kmh')
+  const keepScreenOn = useLocalStorage('keepScreenOn', true)
+  const avoidTolls = useLocalStorage('avoidTolls', true)
+  const showMinimap = useLocalStorage('showMinimap', true)
+  const mapStyle = useLocalStorage<'dark' | 'light'>('mapStyle', 'light')
+  const showDetailsOnNavigation = useLocalStorage('showDetailsOnNavigation', true)
+  const voiceInstructions = useLocalStorage('voiceInstructions', true)
+  const showStatusBar = useLocalStorage('showStatusBar', false)
+  const gaugeSkin = useLocalStorage<'circular' | 'horizontal'>('gaugeSkin', 'horizontal')
+  const gpsAccuracyFilter = useLocalStorage('gpsAccuracyFilter', false)
 
   return {
     theme,
@@ -23,6 +23,7 @@ export function useSettings() {
     showDetailsOnNavigation,
     voiceInstructions,
     showStatusBar,
-    gaugeSkin
+    gaugeSkin,
+    gpsAccuracyFilter
   }
 }

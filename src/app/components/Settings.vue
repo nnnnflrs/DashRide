@@ -121,7 +121,6 @@
       </div>
 
       <!-- Voice Instruction -->
-
       <div class="toggle-row">
         <div>
           <div class="toggle-title">Voice Instructions</div>
@@ -173,6 +172,22 @@
           <div :class="['toggle-knob', { active: keepScreenOn }]" />
         </button>
       </div>
+
+      <!-- GPS Accuracy Filter -->
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-title">GPS Accuracy Filter</div>
+          <div class="toggle-description">
+            Ignore speed readings when GPS accuracy is poor (>20m)
+          </div>
+        </div>
+        <button
+          @click="gpsAccuracyFilter = !gpsAccuracyFilter"
+          :class="['toggle-button', { active: gpsAccuracyFilter }]"
+        >
+          <div :class="['toggle-knob', { active: gpsAccuracyFilter }]" />
+        </button>
+      </div>
     </div>
 
     <!-- Gauge Skin Selection -->
@@ -191,7 +206,7 @@
             </svg>
           </div>
           <span class="skin-name">Circular</span>
-          <span class="skin-badge default">Default</span>
+          <span class="skin-badge default">Classic</span>
         </button>
         <button
           @click="gaugeSkin = 'horizontal'"
@@ -327,10 +342,7 @@ interface Props {
 
 defineProps<Props>()
 
-// Use shared settings state
-const { theme: settingsTheme, unit, keepScreenOn, avoidTolls, showMinimap, mapStyle, showDetailsOnNavigation, voiceInstructions, showStatusBar, gaugeSkin } = useSettings()
-
-// Wallet address for donations
+const { theme: settingsTheme, unit, keepScreenOn, avoidTolls, showMinimap, mapStyle, showDetailsOnNavigation, voiceInstructions, showStatusBar, gaugeSkin, gpsAccuracyFilter } = useSettings()
 const walletAddress = '37qjhJQno7bybHembmiCYcaTXGAauQompfjwS8ki2uz8'
 const copied = ref(false)
 
@@ -342,11 +354,9 @@ const copyWalletAddress = async () => {
       copied.value = false
     }, 2000)
   } catch {
-    // Clipboard not available
+
   }
 }
-
-// Share functions
 const appUrl = 'https://play.google.com/store/apps/details?id=com.motorcycle.dashride.ph'
 const shareText = 'Check out DashRide - A modern motorcycle dashboard app with GPS navigation, speedometer, and music player! 🏍️'
 
@@ -361,9 +371,6 @@ const shareToTwitter = () => {
 }
 
 const shareToInstagram = () => {
-  // Instagram doesn't have a direct web share API like Facebook/Twitter
-  // Open Instagram app or web profile
-  // For web, we'll copy the text and open Instagram
   navigator.clipboard.writeText(`${shareText}\n${appUrl}`).then(() => {
     alert('Share text copied! Paste it in your Instagram post.')
     window.open('https://www.instagram.com/', '_blank')
@@ -372,7 +379,6 @@ const shareToInstagram = () => {
   })
 }
 
-// Feedback form
 const openFeedbackForm = () => {
   window.open('https://docs.google.com/forms/d/e/1FAIpQLSfNBAYi-nCqQOsg2e574fyrr8EH7Tdkp8n60ckY4XfanKjB6Q/viewform', '_blank')
 }

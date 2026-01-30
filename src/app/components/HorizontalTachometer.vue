@@ -1,10 +1,9 @@
 <template>
   <div class="horizontal-tachometer" @dblclick="toggleTestMode">
-    <!-- TFT Display Container -->
     <div class="tft-display">
       <!-- Top Tachometer Bar -->
       <div class="tachometer-bar">
-        <svg class="tachometer-svg" viewBox="0 0 800 95" preserveAspectRatio="xMidYMid meet">
+        <svg class="tachometer-svg" viewBox="0 0 800 120" preserveAspectRatio="xMidYMid meet">
           <defs>
             <!-- Enhanced glow filter for digital look -->
             <filter id="tftGlow" x="-50%" y="-50%" width="200%" height="200%">
@@ -64,16 +63,16 @@
                 :y1="tick.y1"
                 :x2="tick.x2"
                 :y2="tick.y2"
-                :stroke="tick.isActive ? tick.color : 'rgba(100, 120, 140, 0.5)'"
-                :stroke-width="tick.isMajor ? 2 : 1"
+                :stroke="tick.isActive ? tick.color : 'rgba(160, 180, 200, 0.7)'"
+                :stroke-width="tick.isMajor ? 2.5 : 1.5"
                 :filter="tick.isActive ? 'url(#tftGlow)' : ''"
               />
               <text
                 v-if="tick.isMajor"
                 :x="tick.textX"
                 :y="tick.textY"
-                :fill="tick.isActive ? tick.color : 'rgba(100, 120, 140, 0.6)'"
-                font-size="11"
+                :fill="tick.isActive ? tick.color : 'rgba(180, 200, 220, 0.85)'"
+                font-size="13"
                 font-weight="700"
                 text-anchor="middle"
                 class="tick-text"
@@ -103,7 +102,6 @@
 
     </div>
 
-    <!-- Test mode indicator -->
     <div v-if="testMode" class="test-indicator">
       TEST MODE - Double-click to exit
     </div>
@@ -122,31 +120,25 @@ const props = defineProps<Props>()
 
 const testMode = ref(false)
 const testSpeed = ref(0)
-
 const displaySpeed = computed(() => testMode.value ? testSpeed.value : props.speed)
-
-// Max speed based on unit (150 km/h or ~93 mph for the 0-15 scale)
 const maxSpeed = computed(() => props.unit === 'mph' ? 93 : 150)
 const speedPercentage = computed(() => Math.min((displaySpeed.value / maxSpeed.value), 1))
 
-// TFT Digital color palette
 const colors = {
-  cyan: '#00ffd5',      // Digital cyan/teal (0-4)
-  amber: '#ffb800',     // Digital amber (4-7)
-  orange: '#ff6b35',    // Electric orange (7-9)
-  red: '#ff0a4a'        // Neon red (9-15)
+  cyan: '#00ffd5',
+  amber: '#ffb800',
+  orange: '#ff6b35',
+  red: '#ff0a4a'
 }
 
-// Dynamic color based on speed (0-4 cyan, 4-7 amber, 7-9 orange, 9-15 red)
 const gaugeColor = computed(() => {
   const percentage = speedPercentage.value
   if (percentage < 4/15) return colors.cyan
   if (percentage < 7/15) return colors.amber
-  if (percentage < 9/15) return colors.orange
+  if (percentage < 10/15) return colors.orange
   return colors.red
 })
 
-// Generate segments for the tachometer bar with curved slant (0-5) then horizontal (5-15)
 const totalSegments = 60
 const segments = computed(() => {
   const segs = []
@@ -155,10 +147,9 @@ const segments = computed(() => {
   const segmentWidth = (endX - startX) / totalSegments
   const height = 30
 
-  // Y positions for the curved ramp
-  const bottomY = 60    // Starting Y at mark 0 (bottom of ramp)
-  const topY = 18       // Y at mark 5 and onwards (top, horizontal section)
-  const rampEndSegment = 20  // Segment where ramp ends (~mark 5 out of 15, so 60 * 5/15 = 20)
+  const bottomY = 60
+  const topY = 18
+  const rampEndSegment = 20
 
   for (let i = 0; i < totalSegments; i++) {
     const x = startX + i * segmentWidth
@@ -167,15 +158,11 @@ const segments = computed(() => {
     let skewAngle: number
 
     if (i <= rampEndSegment) {
-      // Curved ramp section (0 to 5) - use easeOutQuad for smooth curve
       const rampProgress = i / rampEndSegment
-      // easeOutQuad: smoother curve that starts steep and flattens out
       const easedProgress = 1 - Math.pow(1 - rampProgress, 2)
       y = bottomY - (bottomY - topY) * easedProgress
-      // Skew angle decreases as we approach horizontal
       skewAngle = -12 * (1 - easedProgress)
     } else {
-      // Horizontal section (5 to 15)
       y = topY
       skewAngle = 0
     }
@@ -191,7 +178,6 @@ const segments = computed(() => {
   return segs
 })
 
-// Active segments based on speed with TFT colors
 const activeSegments = computed(() => {
   const activeCount = Math.floor(speedPercentage.value * totalSegments)
   return segments.value.slice(0, activeCount).map((seg, i) => {
@@ -199,58 +185,54 @@ const activeSegments = computed(() => {
     let color
     if (percentage < 4/15) color = colors.cyan
     else if (percentage < 7/15) color = colors.amber
-    else if (percentage < 9/15) color = colors.orange
+    else if (percentage < 10/15) color = colors.orange
     else color = colors.red
 
     return { ...seg, color }
   })
 })
 
-// Generate tick marks (0-15 scale) with matching curved slant
 const ticks = computed(() => {
   const tickList = []
   const startX = 40
   const endX = 760
-  const totalTicks = 16 // 0 to 15
+  const totalTicks = 16
 
-  // Match the segment Y positions
-  const bottomY = 60 + 30 + 2  // Bottom of segment + height + gap
-  const topY = 18 + 30 + 2     // Top section Y + height + gap
-  const rampEndTick = 5        // Tick where ramp ends (mark 5)
+
+  const bottomY = 60 + 30 + 2
+  const topY = 18 + 30 + 2
+  const rampEndTick = 5
 
   for (let i = 0; i < totalTicks; i++) {
     const x = startX + (i / (totalTicks - 1)) * (endX - startX)
-    const isMajor = true // All are major in 0-15
+    const isMajor = true
     const tickValue = i
     const isActive = (i / (totalTicks - 1)) <= speedPercentage.value
 
     let baseY: number
 
     if (i <= rampEndTick) {
-      // Curved ramp section (0 to 5) - use easeOutQuad
       const rampProgress = i / rampEndTick
       const easedProgress = 1 - Math.pow(1 - rampProgress, 2)
       baseY = bottomY - (bottomY - topY) * easedProgress
     } else {
-      // Horizontal section (5 to 15)
       baseY = topY
     }
 
-    // Color based on position with TFT colors
     let color
     const tickMark = i
     if (tickMark < 4) color = colors.cyan
     else if (tickMark < 7) color = colors.amber
-    else if (tickMark < 9) color = colors.orange
+    else if (tickMark < 10) color = colors.orange
     else color = colors.red
 
     tickList.push({
       x1: x,
       y1: baseY,
       x2: x,
-      y2: baseY + 6,
+      y2: baseY + 8,
       textX: x,
-      textY: baseY + 14,
+      textY: baseY + 22,
       value: tickValue,
       isMajor,
       isActive,
@@ -260,7 +242,6 @@ const ticks = computed(() => {
   return tickList
 })
 
-// Test mode functionality
 const toggleTestMode = () => {
   testMode.value = !testMode.value
   if (testMode.value) {
@@ -293,6 +274,7 @@ const animateTestSpeed = () => {
   max-width: 700px;
   margin: 0 auto;
   cursor: pointer;
+  z-index: 10;
 }
 
 .tft-display {
@@ -300,10 +282,9 @@ const animateTestSpeed = () => {
   position: relative;
 }
 
-/* Tachometer Bar */
 .tachometer-bar {
   width: 100%;
-  height: 115px;
+  height: 130px;
   margin-bottom: 0;
 }
 
@@ -312,11 +293,10 @@ const animateTestSpeed = () => {
   height: 100%;
 }
 
-/* Background segments - LCD off state with subtle visibility */
 .segment-bg {
-  fill: rgba(60, 80, 100, 0.15);
-  stroke: rgba(80, 100, 120, 0.1);
-  stroke-width: 0.5;
+  fill: rgba(80, 110, 140, 0.35);
+  stroke: rgba(100, 140, 180, 0.25);
+  stroke-width: 1;
 }
 
 .segment-active {
@@ -329,14 +309,13 @@ const animateTestSpeed = () => {
 }
 
 .unit-indicator {
-  fill: rgba(100, 130, 160, 0.7);
-  font-size: 10px;
+  fill: rgba(160, 190, 220, 0.9);
+  font-size: 12px;
   font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
   font-weight: 600;
   letter-spacing: 0.5px;
 }
 
-/* Main Display Area */
 .main-display {
   display: flex;
   align-items: center;
@@ -374,7 +353,6 @@ const animateTestSpeed = () => {
   font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
 }
 
-/* Test Mode Indicator */
 .test-indicator {
   position: absolute;
   bottom: 0;
@@ -399,7 +377,6 @@ const animateTestSpeed = () => {
   50% { opacity: 0.8; box-shadow: 0 0 30px rgba(255, 10, 74, 0.8); }
 }
 
-/* Responsive adjustments */
 @media (max-width: 600px) {
   .speed-value {
     font-size: 56px;
@@ -428,7 +405,6 @@ const animateTestSpeed = () => {
   }
 }
 
-/* Portrait mode - center speed display below tachometer */
 @media (orientation: portrait) {
   .horizontal-tachometer {
     max-width: 100%;

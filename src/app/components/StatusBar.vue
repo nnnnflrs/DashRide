@@ -47,7 +47,6 @@ const bluetoothEnabled = ref(false)
 
 let networkListener: any = null
 
-// Select battery icon based on level
 const batteryIcon = computed(() => {
   if (batteryLevel.value > 60) return BatteryFull
   if (batteryLevel.value > 20) return BatteryMedium
@@ -94,12 +93,10 @@ let batteryInterval: number | null = null
 let bluetoothInterval: number | null = null
 
 onMounted(async () => {
-  // Initial updates
   await updateBatteryInfo()
   await updateNetworkStatus()
   await checkBluetoothStatus()
 
-  // Update time every second
   timeInterval = window.setInterval(() => {
     currentTime.value = new Date().toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -108,13 +105,9 @@ onMounted(async () => {
     })
   }, 1000)
 
-  // Update battery every 30 seconds
   batteryInterval = window.setInterval(updateBatteryInfo, 30000)
-
-  // Update Bluetooth status every 10 seconds
   bluetoothInterval = window.setInterval(checkBluetoothStatus, 10000)
 
-  // Listen for network changes
   try {
     networkListener = await Network.addListener('networkStatusChange', (status) => {
       networkConnected.value = status.connected

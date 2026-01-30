@@ -1,14 +1,22 @@
 <template>
-   <!-- @dblclick="toggleTestMode" -->
   <div class="gauge-container" @dblclick="toggleTestMode" >
     <svg class="gauge-svg" viewBox="0 0 300 180" :style="{ filter: gaugeGlow }">
       <defs>
+        <!-- TFT Digital color gradient -->
         <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#22c55e" />
-          <stop offset="40%" stop-color="#eab308" />
-          <stop offset="70%" stop-color="#f97316" />
-          <stop offset="100%" stop-color="#ef4444" />
+          <stop offset="0%" stop-color="#00ffd5" />
+          <stop offset="47%" stop-color="#ffb800" />
+          <stop offset="67%" stop-color="#ff6b35" />
+          <stop offset="100%" stop-color="#ff0a4a" />
         </linearGradient>
+        <!-- Glow filters for TFT effect -->
+        <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
       
       <!-- Background Arc (subtle) -->
@@ -38,7 +46,7 @@
           :y1="mark.y1"
           :x2="mark.x2"
           :y2="mark.y2"
-          :stroke="mark.value === 220 ? '#ef4444' : (mark.isActive ? gaugeColor : 'rgba(255, 255, 255, 0.4)')"
+          :stroke="mark.value === 220 ? '#ff0a4a' : (mark.isActive ? gaugeColor : 'rgba(255, 255, 255, 0.4)')"
           :stroke-width="mark.isMajor ? 2.5 : 1"
           stroke-linecap="round"
           class="tick-mark"
@@ -47,7 +55,7 @@
           v-if="mark.isMajor"
           :x="mark.textX"
           :y="mark.textY"
-          :fill="mark.value === 220 ? '#ef4444' : (mark.isActive ? gaugeColor : 'rgba(255, 255, 255, 0.6)')"
+          :fill="mark.value === 220 ? '#ff0a4a' : (mark.isActive ? gaugeColor : 'rgba(255, 255, 255, 0.6)')"
           font-size="13"
           text-anchor="middle"
           dominant-baseline="middle"
@@ -109,12 +117,20 @@ const displaySpeed = computed(() => testMode.value ? testSpeed.value : props.spe
 const maxSpeed = computed(() => props.unit === 'mph' ? 140 : 220)
 const speedPercentage = computed(() => Math.min((displaySpeed.value / maxSpeed.value), 1))
 
+const colors = {
+  cyan: '#00ffd5',      // Digital cyan/teal (0-4)
+  amber: '#ffb800',     // Digital amber (4-7)
+  orange: '#ff6b35',    // Electric orange (7-10)
+  red: '#ff0a4a'        // Neon red (10-15)
+}
+
 // Color based on actual speed value (km/h)
 const gaugeColor = computed(() => {
-  const speed = displaySpeed.value
-  if (speed < 60) return '#22c55e' // Green (0-60 km/h)
-  if (speed < 90) return '#f97316' // Orange (60-80 km/h)
-  return '#ef4444' // Red (80+ km/h)
+  const percentage = speedPercentage.value
+  if (percentage < 4/15) return colors.cyan
+  if (percentage < 7/15) return colors.amber
+  if (percentage < 10/15) return colors.orange
+  return colors.red
 })
 
 const gaugeGlow = computed(() => {
@@ -126,15 +142,12 @@ const valueArcPath = computed(() => {
   const cx = 150
   const cy = 150
   
-  // Start at left (180 degrees = PI radians)
   const startRad = Math.PI
-  // End at left + (percentage * 180 degrees)
   const endRad = Math.PI + (speedPercentage.value * Math.PI)
   
   const endX = cx + r * Math.cos(endRad)
   const endY = cy + r * Math.sin(endRad)
   
-  // Large arc flag (not needed for semi-circle)
   const largeArcFlag = 0
   
   return `M 30 150 A ${r} ${r} 0 ${largeArcFlag} 1 ${endX} ${endY}`
@@ -182,7 +195,6 @@ const marks = computed(() => {
   return result
 })
 
-// Test mode functionality
 const toggleTestMode = () => {
   testMode.value = !testMode.value
   if (testMode.value) {

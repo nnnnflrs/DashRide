@@ -6,7 +6,6 @@ import { GoogleMapsNative } from '../plugins/googlemaps'
 import { useSettings } from './useSettings'
 import type { Location, NativeGPSPosition } from '../types'
 
-// Module-level state for GPS tracking
 const speed = ref(0)
 const altitude = ref(0)
 const bearing = ref(0)
@@ -19,16 +18,10 @@ let lastPosition: { latitude: number; longitude: number } | null = null
 
 const maxSpeedReadings = 3
 
-/**
- * GPS tracking composable
- * Handles GPS location tracking, speed smoothing, and position updates
- */
-export function useGPSTracker() {
-  const { unit } = useSettings()
 
-  /**
-   * Smooth speed readings using moving average to reduce GPS noise
-   */
+export function useGPSTracker() {
+  const { unit, gpsAccuracyFilter } = useSettings()
+
   const smoothSpeed = (rawSpeed: number): number => {
     speedReadings.value.push(rawSpeed)
 
@@ -42,18 +35,12 @@ export function useGPSTracker() {
     return average > speedThreshold ? average : 0
   }
 
-  /**
-   * Handle location update from native platform
-   */
   const handleNativeLocationUpdate = (location: NativeGPSPosition, onUpdate?: (location: NativeGPSPosition) => void) => {
     const speedMps = location.speed || 0
     const speedKmh = speedMps * 3.6
     const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
 
-    // Apply smoothing and threshold filtering to prevent GPS noise spikes
-    // Also filter out readings with poor accuracy (>20m)
-    if (location.accuracy && location.accuracy > 20) {
-      // Poor GPS signal - use last known speed or 0
+    if (gpsAccuracyFilter.value && location.accuracy && location.accuracy > 20) {
       speed.value = smoothSpeed(0)
     } else {
       speed.value = smoothSpeed(currentSpeed)
@@ -69,21 +56,18 @@ export function useGPSTracker() {
 
     lastPosition = { latitude: location.latitude, longitude: location.longitude }
 
-    // Call external update handler if provided
     if (onUpdate) {
       onUpdate(location)
     }
   }
 
-  /**
-   * Handle location update from web geolocation API
-   */
+
   const handleWebLocationUpdate = (position: GeolocationPosition, onUpdate?: (position: GeolocationPosition) => void) => {
     const speedMps = position.coords.speed || 0
     const speedKmh = speedMps * 3.6
     const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
 
-    if (position.coords.accuracy && position.coords.accuracy > 20) {
+    if (gpsAccuracyFilter.value && position.coords.accuracy && position.coords.accuracy > 20) {
       speed.value = smoothSpeed(0)
     } else {
       speed.value = smoothSpeed(currentSpeed)
@@ -92,7 +76,6 @@ export function useGPSTracker() {
     altitude.value = position.coords.altitude || 0
     bearing.value = position.coords.heading || 0
 
-    // Update current location for MiniMap
     currentLocation.value = {
       lat: position.coords.latitude,
       lng: position.coords.longitude
@@ -100,16 +83,11 @@ export function useGPSTracker() {
 
     lastPosition = { latitude: position.coords.latitude, longitude: position.coords.longitude }
 
-    // Call external update handler if provided
     if (onUpdate) {
       onUpdate(position)
     }
   }
 
-  /**
-   * Start GPS tracking
-   * @param onUpdate - Optional callback for custom position update handling
-   */
   const startTracking = async (
     onNativeUpdate?: (location: NativeGPSPosition) => void,
     onWebUpdate?: (position: GeolocationPosition) => void
@@ -148,7 +126,7 @@ export function useGPSTracker() {
 
             if (!position) return
 
-            handleWebLocationUpdate(position, onWebUpdate)
+            handleWebLocationUpdate(position as unknown as GeolocationPosition, onWebUpdate)
           }
         )
       }
@@ -161,9 +139,6 @@ export function useGPSTracker() {
     }
   }
 
-  /**
-   * Stop GPS tracking and clean up resources
-   */
   const stopTracking = async () => {
     if (watchId !== null) {
       if (Capacitor.getPlatform() === 'android' && watchId === 'native') {
@@ -188,34 +163,25 @@ export function useGPSTracker() {
     toast.info('GPS tracking stopped')
   }
 
-  /**
-   * Get last known position
-   */
   const getLastPosition = () => {
     return lastPosition
   }
 
-  /**
-   * Reset speed readings (useful when speed unit changes)
-   */
   const resetSpeedReadings = () => {
     speedReadings.value = []
   }
 
-  // Watch for unit changes and reset speed readings
   watch(unit, () => {
     resetSpeedReadings()
   })
 
   return {
-    // State
     speed,
     altitude,
     bearing,
     isTracking,
     currentLocation,
 
-    // Methods
     startTracking,
     stopTracking,
     getLastPosition,

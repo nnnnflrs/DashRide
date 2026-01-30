@@ -20,30 +20,25 @@ export function useGoogleMaps() {
   let webMarkers: Map<string, any> = new Map()
   let webPolyline: any = null
 
-  /**
-   * Initialize the map (native or web)
-   */
+
   async function initializeMap(config: MapConfig): Promise<void> {
     loading.value = true
     error.value = ''
 
     try {
       if (isNative) {
-        // Use native Android SDK
         await GoogleMapsNative.create({
           lat: config.lat,
           lng: config.lng,
           zoom: config.zoom || 17
         })
 
-        // Show the map
         await GoogleMapsNative.show()
 
         isInitialized.value = true
         loading.value = false
       } else {
-        // Fallback to web API (existing implementation)
-        // This will be handled by the component
+
         throw new Error('Web implementation should be handled by component')
       }
     } catch (err: any) {
@@ -53,9 +48,7 @@ export function useGoogleMaps() {
     }
   }
 
-  /**
-   * Set map center/camera position
-   */
+
   async function setCenter(position: CameraPosition): Promise<void> {
     if (!isInitialized.value) return
 
@@ -68,9 +61,6 @@ export function useGoogleMaps() {
     }
   }
 
-  /**
-   * Add a marker to the map
-   */
   async function addMarker(options: MarkerOptions): Promise<string> {
     if (!isInitialized.value) throw new Error('Map not initialized')
 
@@ -86,9 +76,7 @@ export function useGoogleMaps() {
     }
   }
 
-  /**
-   * Remove a marker from the map
-   */
+
   async function removeMarker(id: string): Promise<void> {
     if (!isInitialized.value) return
 
@@ -101,9 +89,7 @@ export function useGoogleMaps() {
     }
   }
 
-  /**
-   * Draw a route on the map
-   */
+
   async function drawRoute(points: LatLng[], color = '#4285F4', width = 5): Promise<void> {
     if (!isInitialized.value) return
 
@@ -116,9 +102,7 @@ export function useGoogleMaps() {
     }
   }
 
-  /**
-   * Clear the current route
-   */
+
   async function clearRoute(): Promise<void> {
     if (!isInitialized.value) return
 
@@ -131,9 +115,7 @@ export function useGoogleMaps() {
     }
   }
 
-  /**
-   * Set map type
-   */
+
   async function setMapType(type: 'normal' | 'satellite' | 'hybrid' | 'terrain'): Promise<void> {
     if (!isInitialized.value) return
 
@@ -146,9 +128,7 @@ export function useGoogleMaps() {
     }
   }
 
-  /**
-   * Show the map
-   */
+
   async function showMap(): Promise<void> {
     if (!isInitialized.value) return
 
@@ -161,9 +141,6 @@ export function useGoogleMaps() {
     }
   }
 
-  /**
-   * Hide the map
-   */
   async function hideMap(): Promise<void> {
     if (!isInitialized.value) return
 
@@ -176,9 +153,7 @@ export function useGoogleMaps() {
     }
   }
 
-  /**
-   * Listen for camera move events
-   */
+
   function onCameraMove(callback: (data: { lat: number; lng: number; zoom: number; tilt: number; bearing: number }) => void) {
     if (isNative) {
       GoogleMapsNative.addListener('cameraMove', callback)
@@ -194,9 +169,6 @@ export function useGoogleMaps() {
     }
   }
 
-  /**
-   * Cleanup on unmount
-   */
   async function destroyMap(): Promise<void> {
     try {
       if (isNative && isInitialized.value) {
@@ -208,7 +180,6 @@ export function useGoogleMaps() {
     }
   }
 
-  // Auto cleanup on unmount
   onUnmounted(() => {
     destroyMap()
   })

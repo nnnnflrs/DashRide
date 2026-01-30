@@ -8,7 +8,7 @@ interface WeatherData {
   windSpeed: number
 }
 
-const temperature = ref(27) // Default value
+const temperature = ref(27)
 const weatherData = ref<WeatherData | null>(null)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -21,7 +21,6 @@ export function useWeather() {
       isLoading.value = true
       error.value = null
 
-      // Get current position
       const position = await Geolocation.getCurrentPosition({
         enableHighAccuracy: false,
         timeout: 10000,
@@ -30,7 +29,6 @@ export function useWeather() {
 
       const { latitude, longitude } = position.coords
 
-      // Use Open-Meteo API (free, no API key required)
       const response = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&timezone=auto`
       )
@@ -51,14 +49,12 @@ export function useWeather() {
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch weather'
-      // Keep the default temperature value on error
     } finally {
       isLoading.value = false
     }
   }
 
   const getWeatherCondition = (code: number): string => {
-    // WMO Weather interpretation codes
     if (code === 0) return 'Clear'
     if (code <= 3) return 'Partly Cloudy'
     if (code <= 48) return 'Foggy'
@@ -71,7 +67,6 @@ export function useWeather() {
   }
 
   const startWeatherUpdates = () => {
-    // Fetch weather immediately
     fetchWeather()
 
     // Update weather every 30 minutes

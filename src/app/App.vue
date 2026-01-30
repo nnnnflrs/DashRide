@@ -82,7 +82,7 @@
 
             <!-- CENTER - MASSIVE SPEEDOMETER with overlaid info -->
             <div class="gauge-wrapper">
-              <SpeedometerGauge v-if="gaugeSkin === 'circular'" :speed="speed" :unit="unit" :class="{ 'with-music-container': showMiniPlayer }" />
+              <CircularTachometer v-if="gaugeSkin === 'circular'" :speed="speed" :unit="unit" :class="{ 'with-music-container': showMiniPlayer }" />
               <HorizontalTachometer v-else :speed="speed" :unit="unit" />
 
               <!-- RIGHT INFO - Only show for circular gauge (inside gauge-wrapper) -->
@@ -417,7 +417,7 @@ import { StatusBar as CapStatusBar } from '@capacitor/status-bar'
 import { Haptics, ImpactStyle } from '@capacitor/haptics'
 import { Capacitor } from '@capacitor/core'
 import { App as CapApp } from '@capacitor/app'
-import SpeedometerGauge from './components/SpeedometerGauge.vue'
+import CircularTachometer from './components/CircularTachometer.vue'
 import HorizontalTachometer from './components/HorizontalTachometer.vue'
 import StatusBar from './components/StatusBar.vue'
 import MiniMap from './components/MiniMap.vue'
@@ -1051,7 +1051,7 @@ watch(isNavigating, (navigating) => {
 }
 
 .app-container[data-theme="light"] .info-icon.weather {
-  color: rgb(34, 211, 238);
+  color: rgb(56, 189, 248);
   filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.6));
 }
 
@@ -1744,66 +1744,36 @@ watch(isNavigating, (navigating) => {
   }
 }
 
-/* Info Icons */
+/* Info Icons - TFT Digital Colors */
 .info-icon {
   width: 1.75rem;
   height: 1.75rem;
-  color: rgb(74, 222, 128);
+  color: #00ffd5;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 3px rgba(74, 222, 128, 0.4));
+  filter: drop-shadow(0 0 4px rgba(0, 255, 213, 0.5));
 }
 
 .info-icon.weather {
-  color: rgb(250, 204, 21);
-  filter: drop-shadow(0 0 3px rgba(250, 204, 21, 0.4));
+  color: #00ffd5;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 213, 0.5));
 }
 
 .info-icon.slope-uphill {
-  color: rgb(239, 68, 68);
-  filter: drop-shadow(0 0 3px rgba(239, 68, 68, 0.4));
-}
-
-.info-icon.slope-downhill {
-  color: rgb(34, 197, 94);
-  filter: drop-shadow(0 0 3px rgba(34, 197, 94, 0.4));
-}
-
-.info-icon.slope-flat {
-  color: rgb(156, 163, 175);
-  filter: drop-shadow(0 0 3px rgba(156, 163, 175, 0.3));
-}
-
-/* TFT Digital colors for horizontal gauge mode */
-.dashboard-container.horizontal-gauge-mode .info-icon {
-  color: #00ffd5;
-  filter: drop-shadow(0 0 4px rgba(0, 255, 213, 0.5));
-}
-
-.dashboard-container.horizontal-gauge-mode .info-icon.weather {
-  color: #00ffd5;
-  filter: drop-shadow(0 0 4px rgba(0, 255, 213, 0.5));
-}
-
-.dashboard-container.horizontal-gauge-mode .info-icon.slope-uphill {
   color: #ff0a4a;
   filter: drop-shadow(0 0 4px rgba(255, 10, 74, 0.5));
 }
 
-.dashboard-container.horizontal-gauge-mode .info-icon.slope-downhill {
+.info-icon.slope-downhill {
   color: #00ffd5;
   filter: drop-shadow(0 0 4px rgba(0, 255, 213, 0.5));
 }
 
-.dashboard-container.horizontal-gauge-mode .info-icon.slope-flat {
-  color: rgba(100, 130, 160, 0.8);
+.info-icon.slope-flat {
+  color: #00ffd5;
   filter: drop-shadow(0 0 3px rgba(100, 130, 160, 0.4));
 }
 
-.dashboard-container.horizontal-gauge-mode .info-value {
-  color: rgba(200, 220, 240, 0.95);
-  text-shadow: 0 0 8px rgba(0, 255, 213, 0.2);
-}
-
+/* TFT Digital text styles for horizontal gauge mode */
 .dashboard-container.horizontal-gauge-mode .speed-unit {
   color: rgba(120, 150, 180, 0.9);
 }
@@ -1832,7 +1802,8 @@ watch(isNavigating, (navigating) => {
 .info-value {
   font-size: 1.2rem;
   font-weight: 600;
-  color: white;
+  color: rgba(200, 220, 240, 0.95);
+  text-shadow: 0 0 8px rgba(0, 255, 213, 0.2);
 }
 
 .info-value-large {

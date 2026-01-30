@@ -1,10 +1,8 @@
 <template>
   <div class="music-player" :data-theme="theme">
-    <!-- Blurred Background -->
     <div class="blur-background" :style="{ backgroundImage: currentTrack?.albumArt ? `url(${currentTrack.albumArt})` : 'none' }"></div>
     
     <div class="player-content">
-      <!-- Album Art Thumbnail -->
       <div class="album-art-container">
         <img
           v-if="currentTrack?.albumArt"
@@ -211,7 +209,6 @@ interface Props {
 
 defineProps<Props>()
 
-// Use the global music player state
 const {
   tracks,
   currentTrackIndex,
@@ -249,7 +246,6 @@ const trackListContainer = ref<HTMLElement | null>(null)
 const currentTrackElement = ref<HTMLElement | null>(null)
 const removingTrackIndex = ref<number | null>(null)
 
-// Watch for track list opening and scroll to current track
 watch(showTrackList, async (isOpen) => {
   if (isOpen) {
     await nextTick()
@@ -276,7 +272,6 @@ const scanAudioFiles = async () => {
     if (result.files && result.files.length > 0) {
       const newTracks: Track[] = result.files.map((file, index) => {
         const audioId = `track_${Date.now()}_${index}`
-        
         
         return {
           id: file.id,
@@ -320,14 +315,11 @@ const handlePlayTrack = (index: number) => {
 }
 
 const handleRemoveFromQueue = (queueIndex: number) => {
-  // Set the removing index to trigger animation
   removingTrackIndex.value = queueIndex
-
-  // Wait for animation to complete before actually removing
   setTimeout(() => {
     removeFromQueue(queueIndex)
     removingTrackIndex.value = null
-  }, 300) // Match animation duration
+  }, 300)
 }
 
 const handlePlayFromQueue = async (queueIndex: number) => {
@@ -338,7 +330,6 @@ const handlePlayFromQueue = async (queueIndex: number) => {
 const showArtistTracks = () => {
   if (!currentTrack.value) return
 
-  // Filter tracks by current artist
   filteredTracks.value = tracks.value.filter(track =>
     track.artist === currentTrack.value!.artist
   )
@@ -349,7 +340,6 @@ const showArtistTracks = () => {
 const showAlbumTracks = () => {
   if (!currentTrack.value) return
 
-  // Filter tracks by current album
   filteredTracks.value = tracks.value.filter(track =>
     track.album === currentTrack.value!.album &&
     track.artist === currentTrack.value!.artist
@@ -359,14 +349,12 @@ const showAlbumTracks = () => {
 }
 
 const handlePlayFilteredTrack = async (track: Track) => {
-  // Find the index of the clicked track in the full tracks array
   const trackIndex = tracks.value.findIndex(t =>
     t.title === track.title && t.artist === track.artist && t.album === track.album
   )
 
   if (trackIndex === -1) return
 
-  // Create a new queue based on filtered tracks
   const filteredIndices = filteredTracks.value.map(filteredTrack =>
     tracks.value.findIndex(t =>
       t.title === filteredTrack.title &&
@@ -375,22 +363,18 @@ const handlePlayFilteredTrack = async (track: Track) => {
     )
   ).filter(index => index !== -1)
 
-  // Find position of clicked track in filtered list
   const positionInFiltered = filteredIndices.indexOf(trackIndex)
 
-  // Reorder so clicked track is first, followed by rest of filtered tracks
   const newQueue = [
     trackIndex,
     ...filteredIndices.slice(0, positionInFiltered),
     ...filteredIndices.slice(positionInFiltered + 1)
   ]
 
-  // Set the new queue and play the selected track
   await setCustomQueue(newQueue, 0)
   showFilteredTracks.value = false
 }
 
-// Permission check interval
 let permissionCheckInterval: number | null = null
 
 const checkPermissionsAndScan = async () => {
@@ -408,13 +392,11 @@ const checkPermissionsAndScan = async () => {
     if (result.granted) {
       console.log('MusicPlayer: Permissions granted, scanning for music...')
 
-      // Clear interval if running
       if (permissionCheckInterval) {
         clearInterval(permissionCheckInterval)
         permissionCheckInterval = null
       }
 
-      // Only scan if we don't have tracks already
       if (tracks.value.length === 0) {
         await scanForMusic()
       }
@@ -429,14 +411,11 @@ const checkPermissionsAndScan = async () => {
 onMounted(async () => {
   console.log('MusicPlayer: Component mounted')
 
-  // Restore playback state first
   await restorePlaybackState()
   updateMediaSession()
 
-  // Check permissions and scan for music
   await checkPermissionsAndScan()
 
-  // If no tracks found (no permission), set up interval to check every 500ms
   if (tracks.value.length === 0 && Capacitor.isNativePlatform()) {
     console.log('MusicPlayer: Setting up permission check interval...')
     permissionCheckInterval = window.setInterval(async () => {
@@ -446,15 +425,10 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // Clear permission check interval
   if (permissionCheckInterval) {
     clearInterval(permissionCheckInterval)
     permissionCheckInterval = null
   }
-
-  // Don't stop progress tracking - it's needed for auto-advancing tracks
-  // The progress tracking is managed globally by the music player composable
-  // and should continue running even when this component is unmounted
 })
 </script>
 

@@ -5,10 +5,6 @@ import { useSettings } from './useSettings'
 
 let tripInterval: number | null = null
 
-/**
- * Trip data management composable
- * Handles trip distance, duration, speeds, and statistics
- */
 export function useTripManager() {
   const { unit } = useSettings()
 
@@ -21,16 +17,12 @@ export function useTripManager() {
     totalDistance: 230,
   })
 
-  /**
-   * Calculate average speed
-   */
+
   const avgSpeed = computed(() =>
     tripData.value.speedSamples > 0 ? tripData.value.totalSpeed / tripData.value.speedSamples : 0
   )
 
-  /**
-   * Formatted trip time in HH:MM:SS format
-   */
+
   const formattedTripDuration = computed(() => {
     const hours = Math.floor(tripData.value.duration / 3600)
     const minutes = Math.floor((tripData.value.duration % 3600) / 60)
@@ -38,9 +30,6 @@ export function useTripManager() {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
   })
 
-  /**
-   * Calculate Haversine distance between two GPS coordinates
-   */
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = unit.value === 'mph' ? 3958.8 : 6371 // Earth radius in miles or km
     const dLat = toRad(lat2 - lat1)
@@ -52,25 +41,16 @@ export function useTripManager() {
     return R * c
   }
 
-  /**
-   * Convert degrees to radians
-   */
+
   const toRad = (degrees: number): number => {
     return degrees * (Math.PI / 180)
   }
 
-  /**
-   * Update trip data with new GPS reading
-   * @param currentSpeed - Current speed in km/h or mph
-   * @param currentPosition - Current GPS position
-   * @param lastPosition - Previous GPS position
-   */
   const updateTripData = (
     currentSpeed: number,
     currentPosition: { latitude: number; longitude: number } | null,
     lastPosition: { latitude: number; longitude: number } | null
   ) => {
-    // Update speed statistics
     tripData.value = {
       ...tripData.value,
       maxSpeed: Math.max(tripData.value.maxSpeed, currentSpeed),
@@ -78,7 +58,6 @@ export function useTripManager() {
       speedSamples: tripData.value.speedSamples + 1,
     }
 
-    // Update distance if we have both positions and are moving
     if (lastPosition && currentPosition && currentSpeed > 0.5) {
       const distance = calculateDistance(
         lastPosition.latitude,
@@ -94,11 +73,8 @@ export function useTripManager() {
     }
   }
 
-  /**
-   * Start trip duration counter
-   */
   const startTripTimer = () => {
-    if (tripInterval !== null) return // Already running
+    if (tripInterval !== null) return
 
     tripInterval = window.setInterval(() => {
       tripData.value = {
@@ -108,9 +84,6 @@ export function useTripManager() {
     }, 1000)
   }
 
-  /**
-   * Stop trip duration counter
-   */
   const stopTripTimer = () => {
     if (tripInterval !== null) {
       clearInterval(tripInterval)
@@ -118,9 +91,7 @@ export function useTripManager() {
     }
   }
 
-  /**
-   * Reset average speed statistics
-   */
+
   const resetAverageSpeed = () => {
     tripData.value = {
       ...tripData.value,
@@ -129,9 +100,6 @@ export function useTripManager() {
     }
   }
 
-  /**
-   * Reset maximum speed
-   */
   const resetMaxSpeed = () => {
     tripData.value = {
       ...tripData.value,
@@ -139,9 +107,7 @@ export function useTripManager() {
     }
   }
 
-  /**
-   * Reset trip distance
-   */
+
   const resetTripDistance = () => {
     tripData.value = {
       ...tripData.value,
@@ -149,9 +115,7 @@ export function useTripManager() {
     }
   }
 
-  /**
-   * Reset all trip data
-   */
+
   const resetAllTripData = () => {
     stopTripTimer()
     tripData.value = {
@@ -160,17 +124,15 @@ export function useTripManager() {
       maxSpeed: 0,
       totalSpeed: 0,
       speedSamples: 0,
-      totalDistance: tripData.value.totalDistance, // Preserve total distance
+      totalDistance: tripData.value.totalDistance,
     }
   }
 
   return {
-    // State
     tripData,
     avgSpeed,
     formattedTripDuration,
 
-    // Methods
     updateTripData,
     startTripTimer,
     stopTripTimer,

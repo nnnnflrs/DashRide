@@ -1,15 +1,14 @@
 import { ref, computed } from 'vue'
 
-// Shared navigation state
 const isNavigating = ref(false)
 const totalDistance = ref(0)
 const remainingDistance = ref(0)
 const destination = ref<string>('')
-const estimatedTimeSeconds = ref(0) // ETA in seconds
-const startTime = ref<number>(0) // Start timestamp
-const routePath = ref<Array<{ lat: number; lng: number }>>([]) // Current route path
-const routeSteps = ref<Array<any>>([]) // Turn-by-turn steps from Google Directions API
-const nextTurnInstruction = ref<string>('') // Next turn instruction
+const estimatedTimeSeconds = ref(0) 
+const startTime = ref<number>(0)
+const routePath = ref<Array<{ lat: number; lng: number }>>([])
+const routeSteps = ref<Array<any>>([])
+const nextTurnInstruction = ref<string>('')
 
 export function useNavigation() {
   const startNavigation = (dest: string, totalDist: number, etaSeconds: number, steps?: Array<any>) => {
@@ -20,10 +19,8 @@ export function useNavigation() {
     estimatedTimeSeconds.value = etaSeconds
     startTime.value = Date.now()
 
-    // Store route steps for turn-by-turn navigation
     if (steps) {
       routeSteps.value = steps
-      // Set first instruction
       updateNextTurnInstruction()
     }
   }
@@ -45,18 +42,12 @@ export function useNavigation() {
       nextTurnInstruction.value = ''
       return
     }
-
-    // Find the next step based on current location
-    // For now, use the first step with remaining distance
-    // In a full implementation, you'd calculate which step is closest ahead
+  
     const nextStep = routeSteps.value.find((step: any) => {
-      // Simple heuristic: find steps that haven't been passed yet
-      // This is simplified - production would need proper distance calculations
-      return true // Return first step for now
+      return true 
     })
 
     if (nextStep && nextStep.html_instructions) {
-      // Strip HTML tags from instruction
       const instruction = nextStep.html_instructions.replace(/<[^>]*>/g, ' ').trim()
       nextTurnInstruction.value = instruction
     }
@@ -74,7 +65,6 @@ export function useNavigation() {
     nextTurnInstruction.value = ''
   }
 
-  // Computed ETA as formatted time (12-hour format with AM/PM)
   const formattedETA = computed(() => {
     if (!estimatedTimeSeconds.value || estimatedTimeSeconds.value <= 0) return '--:-- --'
 
@@ -82,7 +72,6 @@ export function useNavigation() {
     const arrivalTime = now + (estimatedTimeSeconds.value * 1000)
     const date = new Date(arrivalTime)
 
-    // Format as 12-hour time with AM/PM
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -90,7 +79,6 @@ export function useNavigation() {
     })
   })
 
-  // Elapsed time since navigation started
   const elapsedTime = computed(() => {
     if (!startTime.value) return 0
     return Math.floor((Date.now() - startTime.value) / 1000)
