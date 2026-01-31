@@ -80,16 +80,6 @@
       <text x="150" y="145" text-anchor="middle" class="unit-text">
         {{ unit === 'mph' ? 'MPH' : 'km/h' }}
       </text>
-      
-      <!-- Inner decoration arc -->
-      <path
-        d="M 60 150 A 90 90 0 0 1 240 150"
-        fill="none"
-        :stroke="gaugeColor"
-        stroke-width="1"
-        stroke-dasharray="3 3"
-        opacity="0.15"
-      />
     </svg>
     
     <!-- Test mode indicator -->

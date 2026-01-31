@@ -166,33 +166,36 @@
                 </div>
               </div>
 
-              <!-- Mini Music Player - Show when user wants to see it (only for circular gauge) -->
-              <div v-if="showMiniPlayer && musicCurrentTrack && activeTab === 'riding' && gaugeSkin === 'circular'" class="mini-music-player" :style="{ marginBottom: isNavigationBarVisible && navBarPosition === 'bottom' ? `${bottomInset}px` : '0px' }">
-                <div class="mini-music-info">
-                  <div class="mini-album-art">
-                    <img v-if="musicCurrentTrack.albumArt" :src="musicCurrentTrack?.albumArt" alt="Album art" />
-                    <Music v-else class="mini-music-icon" />
+              <!-- Center section for time and music (circular gauge) -->
+              <div v-if="gaugeSkin === 'circular'" class="circular-center-section" :style="{ marginBottom: isNavigationBarVisible && navBarPosition === 'bottom' ? `${bottomInset}px` : '0px' }">
+                <div class="circular-time">{{ currentTime }}</div>
+                <div v-if="showMiniPlayer && musicCurrentTrack && activeTab === 'riding'" class="mini-music-player">
+                  <div class="mini-music-info">
+                    <div class="mini-album-art">
+                      <img v-if="musicCurrentTrack?.albumArt" :src="musicCurrentTrack?.albumArt" alt="Album art" />
+                      <Music v-else class="mini-music-icon" />
+                    </div>
+                    <div class="mini-track-details">
+                      <div class="mini-track-title">{{ musicCurrentTrack?.title || "No Title" }}</div>
+                      <div class="mini-track-artist">{{ musicCurrentTrack?.artist || "Unknown Artist" }}</div>
+                    </div>
                   </div>
-                  <div class="mini-track-details">
-                    <div class="mini-track-title">{{ musicCurrentTrack.title }}</div>
-                    <div class="mini-track-artist">{{ musicCurrentTrack?.artist }}</div>
+                  <div class="mini-music-controls">
+                    <button @click="musicPreviousTrack()" class="mini-control-btn">
+                      <SkipBack class="mini-control-icon" />
+                    </button>
+                    <button @click="musicTogglePlay()" class="mini-control-btn mini-play-btn">
+                      <Play v-if="!musicIsPlaying" class="mini-control-icon" />
+                      <Pause v-else class="mini-control-icon" />
+                    </button>
+                    <button @click="musicNextTrack()" class="mini-control-btn">
+                      <SkipForward class="mini-control-icon" />
+                    </button>
                   </div>
-                </div>
-                <div class="mini-music-controls">
-                  <button @click="musicPreviousTrack()" class="mini-control-btn">
-                    <SkipBack class="mini-control-icon" />
-                  </button>
-                  <button @click="musicTogglePlay()" class="mini-control-btn mini-play-btn">
-                    <Play v-if="!musicIsPlaying" class="mini-control-icon" />
-                    <Pause v-else class="mini-control-icon" />
-                  </button>
-                  <button @click="musicNextTrack()" class="mini-control-btn">
-                    <SkipForward class="mini-control-icon" />
+                  <button @click="closeMiniPlayer()" class="mini-close-btn">
+                    <X class="mini-close-icon" />
                   </button>
                 </div>
-                <button @click="closeMiniPlayer()" class="mini-close-btn">
-                  <X class="mini-close-icon" />
-                </button>
               </div>
             </div>
 
@@ -219,8 +222,8 @@
                 <div class="bottom-info-grid nav-grid" :class="{ 'single-column': !isNavigating || !showMinimap }">
                   <div class="info-item destination-item" @click="showTooltip('Destination')">
                     <MapPin class="info-icon" />
-                    <span class="info-value marquee-container">
-                      <span class="marquee-text">{{ destination || 'No destination' }}</span>
+                    <span class="info-value" :class="{ 'marquee-container': destination }">
+                      <span :class="{ 'marquee-text': destination }">{{ destination || 'No destination' }}</span>
                     </span>
                     <div v-if="activeTooltip === 'Destination'" class="info-tooltip">Destination</div>
                   </div>
@@ -247,33 +250,36 @@
                 </div>
               </div>
 
-              <!-- Center - Mini Music Player -->
-              <div v-if="showMiniPlayer && musicCurrentTrack" class="bottom-music-player">
-                <div class="bottom-music-info">
-                  <div class="bottom-album-art">
-                    <img v-if="musicCurrentTrack.albumArt" :src="musicCurrentTrack?.albumArt" alt="Album art" />
-                    <Music v-else class="bottom-music-icon" />
+              <!-- Center - Music Player and Time -->
+              <div class="bottom-center-section">
+                 <div class="bottom-time">{{ currentTime }}</div>
+                <div v-if="showMiniPlayer && musicCurrentTrack" class="bottom-music-player">
+                  <div class="bottom-music-info">
+                    <div class="bottom-album-art">
+                      <img v-if="musicCurrentTrack?.albumArt" :src="musicCurrentTrack?.albumArt" alt="Album art" />
+                      <Music v-else class="bottom-music-icon" />
+                    </div>
+                    <div class="bottom-track-details">
+                      <div class="bottom-track-title">{{ musicCurrentTrack?.title || "No Title" }}</div>
+                      <div class="bottom-track-artist">{{ musicCurrentTrack?.artist || "Unknown Artist" }}</div>
+                    </div>
                   </div>
-                  <div class="bottom-track-details">
-                    <div class="bottom-track-title">{{ musicCurrentTrack.title }}</div>
-                    <div class="bottom-track-artist">{{ musicCurrentTrack?.artist }}</div>
+                  <div class="bottom-music-controls">
+                    <button @click="musicPreviousTrack()" class="bottom-control-btn">
+                      <SkipBack class="bottom-control-icon" />
+                    </button>
+                    <button @click="musicTogglePlay()" class="bottom-control-btn bottom-play-btn">
+                      <Play v-if="!musicIsPlaying" class="bottom-control-icon" />
+                      <Pause v-else class="bottom-control-icon" />
+                    </button>
+                    <button @click="musicNextTrack()" class="bottom-control-btn">
+                      <SkipForward class="bottom-control-icon" />
+                    </button>
                   </div>
-                </div>
-                <div class="bottom-music-controls">
-                  <button @click="musicPreviousTrack()" class="bottom-control-btn">
-                    <SkipBack class="bottom-control-icon" />
-                  </button>
-                  <button @click="musicTogglePlay()" class="bottom-control-btn bottom-play-btn">
-                    <Play v-if="!musicIsPlaying" class="bottom-control-icon" />
-                    <Pause v-else class="bottom-control-icon" />
-                  </button>
-                  <button @click="musicNextTrack()" class="bottom-control-btn">
-                    <SkipForward class="bottom-control-icon" />
+                  <button @click="closeMiniPlayer()" class="bottom-close-btn">
+                    <X class="bottom-close-icon" />
                   </button>
                 </div>
-                <button @click="closeMiniPlayer()" class="bottom-close-btn">
-                  <X class="bottom-close-icon" />
-                </button>
               </div>
 
               <!-- Right side - Stats info (3x2 grid) -->
@@ -411,11 +417,9 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { IonApp } from '@ionic/vue'
 import { useLocalStorage } from '@vueuse/core'
-import { toast } from 'vue-sonner'
 import { Clock, MapPin,Target, Navigation , Timer, Sun, Cloud, CloudRain, Music, TrendingUp, TrendingDown, Minus, Zap, Mountain, Play, Pause, SkipBack, SkipForward, X, Route } from 'lucide-vue-next'
 import { StatusBar as CapStatusBar } from '@capacitor/status-bar'
 import { Haptics, ImpactStyle } from '@capacitor/haptics'
-import { Capacitor } from '@capacitor/core'
 import { App as CapApp } from '@capacitor/app'
 import CircularTachometer from './components/CircularTachometer.vue'
 import HorizontalTachometer from './components/HorizontalTachometer.vue'
@@ -433,10 +437,8 @@ import { useSlope } from '../composables/useSlope'
 import { useSafeArea } from '../composables/useSafeArea'
 import { useGPSTracker } from '../composables/useGPSTracker'
 import { useTripManager } from '../composables/useTripManager'
-import { Geolocation } from '@capacitor/geolocation'
-import { GoogleMapsNative } from '../plugins/googlemaps'
 import { Dialog } from '@capacitor/dialog'
-import type { Location, NativeGPSPosition, WakeLock, NavigatorWithWakeLock } from '../types'
+import type { NativeGPSPosition, WakeLock, NavigatorWithWakeLock } from '../types'
 
 const {
   isPlaying: musicIsPlaying,
@@ -446,9 +448,8 @@ const {
   previousTrack: musicPreviousTrack
 } = useMusicPlayer()
 
-const { bottomInset, topInset, leftInset, rightInset, navBarPosition, isNavigationBarVisible } = useSafeArea()
+const { bottomInset, leftInset, rightInset, navBarPosition, isNavigationBarVisible } = useSafeArea()
 
-// GPS Tracking
 const {
   speed,
   altitude,
@@ -460,7 +461,6 @@ const {
   getLastPosition,
 } = useGPSTracker()
 
-// Trip Management
 const {
   tripData,
   avgSpeed,
@@ -484,7 +484,7 @@ const closeMiniPlayer = () => {
   showMiniPlayer.value = false
 }
 
-const { temperature, weatherData, isLoading: weatherLoading, error: weatherError } = useWeather()
+const { temperature } = useWeather()
 const { isNavigating, remainingDistance, totalDistance: navTotalDistance, destination, formattedETA, routePath, nextTurnInstruction, stopNavigation } = useNavigation()
 const { formattedSlope, slopeDirection, updateSlope } = useSlope()
 
@@ -496,15 +496,12 @@ const estimatedTimeOfArrival = computed(() => {
   return formattedETA.value || '--:--'
 })
 
-// Handle user arrival at destination
 const handleArrival = async () => {
-
   await Dialog.alert({
     title: 'Success',
     message: `You have arrived at ${destination.value}!`,
   });
 
-  // Clean up NavigationMap component state (routes, markers, etc.)
   if (navigationMapRef.value) {
     await navigationMapRef.value.cleanupNavigation()
   }
@@ -518,8 +515,6 @@ const handleArrival = async () => {
 
   navigationDuration.value = 0
 }
-
-import type { TripData } from '../types'
 
 const activeTab = ref<'nav' | 'music' | 'riding' | 'settings'>('riding')
 const isSearchingLocation = ref(false)
@@ -549,7 +544,6 @@ const currentTime = ref(new Date().toLocaleTimeString('en-US', {
 
 let timeInterval: number | null = null
 
-// Track if user has seen the landscape mode hint
 const hasSeenLandscapeHint = useLocalStorage('dashride_hasSeenLandscapeHint', false)
 const showLandscapeHint = ref(false)
 
@@ -558,77 +552,46 @@ const dismissLandscapeHint = () => {
   hasSeenLandscapeHint.value = true
 }
 
-onMounted(async () => {
-  console.log('App.vue: Component mounted')
+const initializeApp = async () => {
+  try { await CapStatusBar.hide() } catch {}
+  if (!hasSeenLandscapeHint.value) showLandscapeHint.value = true
+}
 
-  // Permissions are now requested natively in MainActivity on app launch
-  // No need to request them here in JavaScript
-
-  try {
-    await CapStatusBar.hide()
-  } catch (error) {
-    console.log("Status bar hide failed")
-  }
-
-  // Show landscape mode hint on first launch
-  if (!hasSeenLandscapeHint.value) {
-    showLandscapeHint.value = true
-  }
-
-  // Listen to app state changes to debug background audio
-  CapApp.addListener('appStateChange', ({ isActive }) => {
-    console.log('[App] App state changed, isActive:', isActive)
-    if (isActive) {
-      console.log('[App] App came to foreground')
-    } else {
-      console.log('[App] App went to background')
+const setupAppStateListeners = () => {
+  CapApp.addListener('appStateChange', async ({ isActive }) => {
+    if (isActive && keepScreenOn.value) {
+      await requestWakeLock()
     }
   })
 
-  // Start GPS tracking - permissions should already be granted by MainActivity
-  console.log('App.vue: Starting GPS tracking...')
-  await gpsStartTracking(
-    // Native location update callback
-    (location) => {
-      const speedKmh = (location.speed || 0) * 3.6
-      const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
-
-      // Update slope
-      updateSlope(
-        location.latitude,
-        location.longitude,
-        location.altitude || 0,
-        speedKmh,
-        location.accuracy
-      )
-
-      // Update trip data
-      const lastPos = getLastPosition()
-      updateTripData(currentSpeed, { latitude: location.latitude, longitude: location.longitude }, lastPos)
-    },
-    // Web location update callback
-    (position) => {
-      const speedKmh = (position.coords.speed || 0) * 3.6
-      const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
-
-      // Update slope
-      updateSlope(
-        position.coords.latitude,
-        position.coords.longitude,
-        position.coords.altitude || 0,
-        speedKmh,
-        position.coords.accuracy
-      )
-
-      // Update trip data
-      const lastPos = getLastPosition()
-      updateTripData(currentSpeed, { latitude: position.coords.latitude, longitude: position.coords.longitude }, lastPos)
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && keepScreenOn.value) {
+      await requestWakeLock()
     }
-  )
+  })
+}
 
-  // Start trip timer
-  startTripTimer()
+const handleNativeLocationUpdate = (location: NativeGPSPosition) => {
+  const speedKmh = (location.speed || 0) * 3.6
+  const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
 
+  updateSlope(location.latitude, location.longitude, location.altitude || 0, speedKmh, location.accuracy)
+
+  const lastPos = getLastPosition()
+  updateTripData(currentSpeed, { latitude: location.latitude, longitude: location.longitude }, lastPos)
+}
+
+const handleWebLocationUpdate = (position: GeolocationPosition) => {
+  const speedKmh = (position.coords.speed || 0) * 3.6
+  const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
+
+  updateSlope(position.coords.latitude, position.coords.longitude, position.coords.altitude || 0, speedKmh, position.coords.accuracy)
+
+  const lastPos = getLastPosition()
+  updateTripData(currentSpeed, { latitude: position.coords.latitude, longitude: position.coords.longitude }, lastPos)
+}
+
+const startTimeUpdater = () => {
   timeInterval = window.setInterval(() => {
     currentTime.value = new Date().toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -636,60 +599,52 @@ onMounted(async () => {
       hour12: true
     })
   }, 1000)
+}
+
+const clearAllTimers = () => {
+  const timers = [
+    { interval: timeInterval, clear: clearInterval },
+    { interval: navigationInterval, clear: clearInterval },
+    { interval: resetProgressIntervalAvg, clear: clearInterval },
+    { interval: resetProgressIntervalMax, clear: clearInterval },
+    { interval: resetProgressIntervalTrip, clear: clearInterval },
+  ]
+  const timeouts = [tooltipTimeout, resetTimerAvg, resetTimerMax, resetTimerTrip]
+
+  timers.forEach(t => t.interval && t.clear(t.interval))
+  timeouts.forEach(t => t && clearTimeout(t))
+
+  timeInterval = null
+  navigationInterval = null
+  tooltipTimeout = null
+  resetTimerAvg = null
+  resetProgressIntervalAvg = null
+  resetTimerMax = null
+  resetProgressIntervalMax = null
+  resetTimerTrip = null
+  resetProgressIntervalTrip = null
+}
+
+onMounted(async () => {
+  await initializeApp()
+  setupAppStateListeners()
+
+  if (keepScreenOn.value) {
+    await requestWakeLock()
+  }
+
+  await gpsStartTracking(handleNativeLocationUpdate, handleWebLocationUpdate)
+  startTripTimer()
+  startTimeUpdater()
 })
 
 onUnmounted(async () => {
-  // Clear all intervals
-  if (timeInterval) {
-    clearInterval(timeInterval)
-    timeInterval = null
-  }
-  if (navigationInterval) {
-    clearInterval(navigationInterval)
-    navigationInterval = null
-  }
-  if (tooltipTimeout) {
-    clearTimeout(tooltipTimeout)
-    tooltipTimeout = null
-  }
-
-  // Clear reset timers and intervals
-  if (resetTimerAvg) {
-    clearTimeout(resetTimerAvg)
-    resetTimerAvg = null
-  }
-  if (resetProgressIntervalAvg) {
-    clearInterval(resetProgressIntervalAvg)
-    resetProgressIntervalAvg = null
-  }
-  if (resetTimerMax) {
-    clearTimeout(resetTimerMax)
-    resetTimerMax = null
-  }
-  if (resetProgressIntervalMax) {
-    clearInterval(resetProgressIntervalMax)
-    resetProgressIntervalMax = null
-  }
-  if (resetTimerTrip) {
-    clearTimeout(resetTimerTrip)
-    resetTimerTrip = null
-  }
-  if (resetProgressIntervalTrip) {
-    clearInterval(resetProgressIntervalTrip)
-    resetProgressIntervalTrip = null
-  }
-
-  // Stop GPS tracking
+  clearAllTimers()
   await gpsStopTracking()
-
-  // Stop trip timer
   stopTripTimer()
-
-  // Release wake lock
   await releaseWakeLock()
 })
 
-// Reset functionality for speed stats - separate for avg and max
 const isResettingAvg = ref(false)
 const resetProgressAvg = ref(0)
 let resetTimerAvg: number | null = null
@@ -725,20 +680,12 @@ const startReset = (type: 'avg' | 'max' | 'trip') => {
       resetProgressAvg.value = Math.min((elapsed / duration) * 100, 100)
     }, 50)
 
-    try {
-      Haptics.impact({ style: ImpactStyle.Light })
-    } catch (error) {
-      console.log('Haptics not available')
-    }
+    try { Haptics.impact({ style: ImpactStyle.Light }) } catch {}
 
     resetTimerAvg = window.setTimeout(() => {
       resetAverageSpeed()
 
-      try {
-        Haptics.impact({ style: ImpactStyle.Heavy })
-      } catch (error) {
-        console.log('Haptics not available')
-      }
+      try { Haptics.impact({ style: ImpactStyle.Heavy }) } catch {}
 
       isResettingAvg.value = false
       resetProgressAvg.value = 0
@@ -759,20 +706,12 @@ const startReset = (type: 'avg' | 'max' | 'trip') => {
       resetProgressMax.value = Math.min((elapsed / duration) * 100, 100)
     }, 50)
 
-    try {
-      Haptics.impact({ style: ImpactStyle.Light })
-    } catch (error) {
-      console.log('Haptics not available')
-    }
+    try { Haptics.impact({ style: ImpactStyle.Light }) } catch {}
 
     resetTimerMax = window.setTimeout(() => {
       resetMaxSpeed()
 
-      try {
-        Haptics.impact({ style: ImpactStyle.Heavy })
-      } catch (error) {
-        console.log('Haptics not available')
-      }
+      try { Haptics.impact({ style: ImpactStyle.Heavy }) } catch {}
 
       isResettingMax.value = false
       resetProgressMax.value = 0
@@ -793,20 +732,12 @@ const startReset = (type: 'avg' | 'max' | 'trip') => {
       resetProgressTrip.value = Math.min((elapsed / duration) * 100, 100)
     }, 50)
 
-    try {
-      Haptics.impact({ style: ImpactStyle.Light })
-    } catch (error) {
-      console.log('Haptics not available')
-    }
+    try { Haptics.impact({ style: ImpactStyle.Light }) } catch {}
 
     resetTimerTrip = window.setTimeout(() => {
       resetTripDistance()
 
-      try {
-        Haptics.impact({ style: ImpactStyle.Heavy })
-      } catch (error) {
-        console.log('Haptics not available')
-      }
+      try { Haptics.impact({ style: ImpactStyle.Heavy }) } catch {}
 
       isResettingTrip.value = false
       resetProgressTrip.value = 0
@@ -876,28 +807,32 @@ const slopeColorClass = computed(() => {
   return 'slope-flat'
 })
 
-const isAndroid = computed(() => {
-  return Capacitor.getPlatform() === 'android'
-})
-
 const requestWakeLock = async () => {
-  if ('wakeLock' in navigator && keepScreenOn.value) {
-    try {
-      wakeLock = await (navigator as NavigatorWithWakeLock).wakeLock?.request('screen') || null
-    } catch (err) {
-      console.error('Wake Lock error:', err)
+  if (!keepScreenOn.value) return
+  if (!('wakeLock' in navigator)) return
+
+  if (wakeLock) {
+    try { await wakeLock.release() } catch {}
+    wakeLock = null
+  }
+
+  try {
+    wakeLock = await (navigator as NavigatorWithWakeLock).wakeLock?.request('screen') || null
+    if (wakeLock) {
+      wakeLock.addEventListener('release', () => { wakeLock = null })
     }
+  } catch {
+    wakeLock = null
   }
 }
 
 const releaseWakeLock = async () => {
   if (wakeLock) {
-    await wakeLock.release()
+    try { await wakeLock.release() } catch {}
     wakeLock = null
   }
 }
 
-// Tooltip function
 const showTooltip = (label: string) => {
   if (tooltipTimeout) {
     clearTimeout(tooltipTimeout)
@@ -1273,11 +1208,24 @@ watch(isNavigating, (navigating) => {
   pointer-events: auto;
 }
 
-.horizontal-bottom-bar > .bottom-music-player {
+.bottom-center-section {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.bottom-time {
+  font-size: 1rem;
+  color: rgba(120, 150, 180, 0.9);
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
 }
 
 .bottom-info-section {
@@ -1540,6 +1488,10 @@ watch(isNavigating, (navigating) => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.dashboard-container:not(.horizontal-gauge-mode) .gauge-wrapper {
+  transform: translateY(-10px);
 }
 
 /* Info Overlays - Positioned on top of gauge */
@@ -1866,8 +1818,8 @@ watch(isNavigating, (navigating) => {
 }
 
 .bottom-time {
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
   color: white;
   font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
   letter-spacing: 0.05em;
@@ -1875,6 +1827,33 @@ watch(isNavigating, (navigating) => {
 
 .with-music-container{
   bottom: 1.5rem;
+}
+
+/* Circular gauge center section (time + music) */
+.circular-center-section {
+  position: absolute;
+  bottom: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.circular-time {
+  font-size: 1rem;
+  color: white;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+}
+
+.circular-center-section .mini-music-player {
+  position: relative;
+  left: auto;
+  transform: none;
 }
 
 /* Mini Music Player */
@@ -1894,7 +1873,6 @@ watch(isNavigating, (navigating) => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   min-width: 320px;
   max-width: 400px;
-  /* Dynamic margin-bottom applied via inline style from composable */
 }
 
 .mini-music-info {
@@ -2061,7 +2039,7 @@ watch(isNavigating, (navigating) => {
   }
   
   .bottom-time {
-    font-size: 0.85rem;
+    font-size: 1rem;
   }
 
   .mini-music-player {
@@ -2134,6 +2112,10 @@ watch(isNavigating, (navigating) => {
 
 /* Landscape mode - wider mini music player */
 @media (orientation: landscape) {
+  .circular-time {
+    font-size: 18px;
+  }
+
   .mini-music-player {
     min-width: 500px;
     max-width: 600px;
@@ -2306,6 +2288,7 @@ watch(isNavigating, (navigating) => {
     flex-direction: column;
     padding: 0.5rem 0;
     min-height: auto;
+    transform: none;
   }
 
   /* Portrait layout - center everything */
@@ -2413,6 +2396,19 @@ watch(isNavigating, (navigating) => {
     max-width: 100%;
   }
 
+  .circular-center-section {
+    position: relative;
+    left: auto;
+    transform: none;
+    width: 100%;
+    margin-top: 1rem;
+  }
+
+  .circular-center-section .mini-music-player {
+    min-width: calc(100% - 2rem);
+    max-width: calc(100% - 2rem);
+  }
+
   .mini-music-player {
     bottom: auto;
     left: 50%;
@@ -2420,8 +2416,7 @@ watch(isNavigating, (navigating) => {
     min-width: calc(100% - 2rem);
     max-width: calc(100% - 2rem);
     padding: 0.75rem 1rem;
-    margin-top: 2.75rem;
-    /* Dynamic margin-bottom applied via inline style */
+    margin-top: 0.5rem;
   }
 
   .center-bottom-info {
@@ -2546,6 +2541,15 @@ watch(isNavigating, (navigating) => {
 
   .dashboard-container.horizontal-gauge-mode .bottom-info-grid.stats-grid .info-item:last-child:nth-child(odd) {
     grid-column: 1 / -1;
+  }
+
+  /* Center section (time + music) in portrait for horizontal mode */
+  .dashboard-container.horizontal-gauge-mode .bottom-center-section {
+    position: relative;
+    left: auto;
+    transform: none;
+    width: 100%;
+    max-width: 100%;
   }
 
   /* Music player in portrait for horizontal mode */

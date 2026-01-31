@@ -102,16 +102,17 @@ export interface AvailableRoute {
 /**
  * WakeLock API interface
  */
-export interface WakeLock {
+export interface WakeLock extends EventTarget {
   release: () => Promise<void>
   released: boolean
   type: 'screen'
+  onrelease: ((this: WakeLock, ev: Event) => void) | null
 }
 
 /**
  * Navigator with WakeLock support
  */
-export interface NavigatorWithWakeLock extends Navigator {
+export interface NavigatorWithWakeLock {
   wakeLock?: {
     request: (type: 'screen') => Promise<WakeLock>
   }

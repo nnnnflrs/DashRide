@@ -11,28 +11,19 @@ const altitude = ref(0)
 const bearing = ref(0)
 const isTracking = ref(false)
 const currentLocation = ref<Location | null>(null)
-const speedReadings = ref<number[]>([])
 
 let watchId: string | null = null
 let lastPosition: { latitude: number; longitude: number } | null = null
 
-const maxSpeedReadings = 3
+const ZERO_THRESHOLD_KMH = 2
 
 
 export function useGPSTracker() {
   const { unit, gpsAccuracyFilter } = useSettings()
 
-  const smoothSpeed = (rawSpeed: number): number => {
-    speedReadings.value.push(rawSpeed)
-
-    if (speedReadings.value.length > maxSpeedReadings) {
-      speedReadings.value.shift()
-    }
-
-    const average = speedReadings.value.reduce((sum, val) => sum + val, 0) / speedReadings.value.length
-    const speedThreshold = unit.value === 'mph' ? 1.86 : 3
-
-    return average > speedThreshold ? average : 0
+  const processSpeed = (rawSpeed: number): number => {
+    const threshold = unit.value === 'mph' ? ZERO_THRESHOLD_KMH * 0.621371 : ZERO_THRESHOLD_KMH
+    return rawSpeed < threshold ? 0 : rawSpeed
   }
 
   const handleNativeLocationUpdate = (location: NativeGPSPosition, onUpdate?: (location: NativeGPSPosition) => void) => {
@@ -41,9 +32,9 @@ export function useGPSTracker() {
     const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
 
     if (gpsAccuracyFilter.value && location.accuracy && location.accuracy > 20) {
-      speed.value = smoothSpeed(0)
+      speed.value = processSpeed(0)
     } else {
-      speed.value = smoothSpeed(currentSpeed)
+      speed.value = processSpeed(currentSpeed)
     }
 
     altitude.value = location.altitude || 0
@@ -68,9 +59,9 @@ export function useGPSTracker() {
     const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
 
     if (gpsAccuracyFilter.value && position.coords.accuracy && position.coords.accuracy > 20) {
-      speed.value = smoothSpeed(0)
+      speed.value = processSpeed(0)
     } else {
-      speed.value = smoothSpeed(currentSpeed)
+      speed.value = processSpeed(currentSpeed)
     }
 
     altitude.value = position.coords.altitude || 0
@@ -159,7 +150,6 @@ export function useGPSTracker() {
 
     isTracking.value = false
     speed.value = 0
-    speedReadings.value = []
     toast.info('GPS tracking stopped')
   }
 
@@ -167,12 +157,12 @@ export function useGPSTracker() {
     return lastPosition
   }
 
-  const resetSpeedReadings = () => {
-    speedReadings.value = []
+  const resetSpeed = () => {
+    speed.value = 0
   }
 
   watch(unit, () => {
-    resetSpeedReadings()
+    resetSpeed()
   })
 
   return {
@@ -185,6 +175,6 @@ export function useGPSTracker() {
     startTracking,
     stopTracking,
     getLastPosition,
-    resetSpeedReadings,
+    resetSpeed,
   }
 }
