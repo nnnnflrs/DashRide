@@ -122,6 +122,8 @@ The app requires the following permissions:
 
 ### Screenshots
 ![1](https://github.com/user-attachments/assets/1444d2ef-4b40-4c46-a104-bf99fb63ab03)
+
+<img width="1176" height="446" alt="image" src="https://github.com/user-attachments/assets/d52b103b-2089-49a4-8848-3e7a7d607774" />
 ![2](https://github.com/user-attachments/assets/8ec8fb86-0335-43cb-8232-ab82920accd4)
 ![3](https://github.com/user-attachments/assets/dfd1bc19-c5ad-4f91-9636-6cc8d0bc1324)
 ![4](https://github.com/user-attachments/assets/7a0690cd-3771-4a88-b4d9-4b23effe96a5)
