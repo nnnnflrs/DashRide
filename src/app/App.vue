@@ -17,7 +17,7 @@
     <div class="content-wrapper">
       <StatusBar :isGpsActive="isTracking" :theme="currentTheme" />
 
-      <div class="main-content">
+      <div class="main-content" ref="mainContentRef">
         <!-- Riding Tab -->
         <div v-show="activeTab === 'riding'" class="tab-content dashboard-view">
           <div class="dashboard-container" :class="{ 'horizontal-gauge-mode': gaugeSkin === 'horizontal' }">
@@ -439,6 +439,7 @@ import { useGPSTracker } from '../composables/useGPSTracker'
 import { useTripManager } from '../composables/useTripManager'
 import { Dialog } from '@capacitor/dialog'
 import type { NativeGPSPosition, WakeLock, NavigatorWithWakeLock } from '../types'
+import { createGesture } from '@ionic/vue'
 
 const {
   isPlaying: musicIsPlaying,
@@ -490,6 +491,9 @@ const { formattedSlope, slopeDirection, updateSlope } = useSlope()
 
 const navigationDuration = ref(0)
 let navigationInterval: number | null = null
+const swipeLeftGesture = ref<any>(null)
+const swipeRightGesture = ref<any>(null)
+const mainContentRef = ref<HTMLElement | null>(null)
 
 const navigationMapRef = ref<InstanceType<typeof NavigationMap> | null>(null)
 const estimatedTimeOfArrival = computed(() => {
@@ -643,6 +647,9 @@ onUnmounted(async () => {
   await gpsStopTracking()
   stopTripTimer()
   await releaseWakeLock()
+
+  if (swipeLeftGesture.value) swipeLeftGesture.value.destroy()
+  if (swipeRightGesture.value) swipeRightGesture.value.destroy()
 })
 
 const isResettingAvg = ref(false)
@@ -744,6 +751,45 @@ const startReset = (type: 'avg' | 'max' | 'trip') => {
     }, duration)
   }
 }
+
+const setupExpandedGestures = () => {
+  // Cleanup
+  if (swipeLeftGesture.value) {
+    swipeLeftGesture.value.destroy()
+    swipeLeftGesture.value = null
+  }
+
+  if (mainContentRef.value) {
+    swipeLeftGesture.value = createGesture({
+      el: mainContentRef.value,
+      threshold: 5,
+      gestureName: 'swipe-horizontal-nav',
+      direction: 'x',
+      onEnd: (ev) => {
+        if(activeTab.value !== 'riding' || !showMiniPlayer.value) return
+
+        const threshold = window.innerWidth * 0.10
+        if (Math.abs(ev.deltaX) > threshold) {
+          if (ev.deltaX < 0) {
+            handleSwipeEnd('next')
+          } else {
+            handleSwipeEnd('prev')
+          }
+        }
+      }
+    })
+    swipeLeftGesture.value.enable(true)
+  }
+}
+
+const handleSwipeEnd = async (direction: 'next' | 'prev') => {
+  if (direction === 'next') {
+    await musicNextTrack()
+  } else {
+    await musicPreviousTrack()
+  }
+}
+
 
 const cancelReset = (type: 'avg' | 'max' | 'trip') => {
   if (type === 'avg') {
@@ -850,6 +896,12 @@ const showTooltip = (label: string) => {
     activeTooltip.value = null
   }, 3000)
 }
+
+watch(mainContentRef, (el) => {
+  if (el) {
+    setupExpandedGestures()
+  }
+})
 
 watch([keepScreenOn, isTracking], () => {
   if (keepScreenOn.value && isTracking.value) {
@@ -1125,7 +1177,7 @@ watch(isNavigating, (navigating) => {
 
 .tab-content {
   height: 100%;
-  padding: 1rem;
+  padding: 1rem 1rem 8px 1rem;
   overflow-y: auto;
 }
 

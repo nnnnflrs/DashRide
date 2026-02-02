@@ -1,10 +1,12 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { useLocalStorage } from '@vueuse/core'
 import BackgroundMusicPlayer from '../plugins/backgroundmusicplayer'
-import MediaStore from '../plugins/mediastore'
 import { toast } from 'vue-sonner'
 import { useMediaSession } from './useMediaSession'
+import { useAlbumArtCache, type TrackWithAlbumArt } from './useAlbumArtCache'
+
+const { getAlbumArt, loadAlbumArtsInBackground, isLoadingAlbumArt, loadingProgress, totalAlbumsToLoad } = useAlbumArtCache()
 
 export interface Track {
   title: string
@@ -18,7 +20,7 @@ export interface Track {
   audioId?: string
 }
 
-const tracks = ref<Track[]>([])
+const tracks = useLocalStorage<Track[]>('dashride_music_tracks', [])
 const currentTrackIndex = useLocalStorage('dashride_music_currentTrackIndex', 0)
 const isPlaying = ref(false)
 const currentTime = useLocalStorage('dashride_music_currentTime', 0)
@@ -27,7 +29,7 @@ const shuffle = useLocalStorage('dashride_music_shuffle', false)
 const repeat = useLocalStorage('dashride_music_repeat', false)
 const isFavorite = ref(false)
 const isScanning = ref(false)
-const queue = useLocalStorage<number[]>('dashride_music_queue', []) 
+const queue = useLocalStorage<number[]>('dashride_music_queue', [])
 const queuePosition = useLocalStorage('dashride_music_queuePosition', 0)
 
 const useNativeAudio = Capacitor.isNativePlatform()
@@ -36,6 +38,44 @@ let progressInterval: number | null = null
 let isChangingTrack = false
 
 export function useMusicPlayer() {
+
+  // Synchronize album art across all tracks of the same album
+  const applyAlbumArt = (albumId: number, artUri: string) => {
+    let changed = false
+    tracks.value.forEach(t => {
+      if (t.albumId === albumId && t.albumArt !== artUri) {
+        t.albumArt = artUri
+        changed = true
+      }
+    })
+    return changed
+  }
+
+  watch(tracks, (newTracks) => {
+    if (newTracks.length === 0) {
+      queue.value = []
+      currentTrackIndex.value = 0
+      return
+    }
+
+    const validQueue = queue.value.filter(index => index >= 0 && index < newTracks.length)
+
+    if (validQueue.length === 0 && newTracks.length > 0) {
+      queue.value = Array.from({ length: newTracks.length }, (_, i) => i)
+      queuePosition.value = 0
+    } else if (validQueue.length !== queue.value.length) {
+      queue.value = validQueue
+    }
+
+    if (queuePosition.value >= queue.value.length) {
+      queuePosition.value = 0
+    }
+
+    if (currentTrackIndex.value >= newTracks.length) {
+      currentTrackIndex.value = 0
+    }
+  }, { deep: true })
+
   const currentTrack = computed(() => {
     if (queue.value.length === 0) {
       return tracks.value[currentTrackIndex.value]
@@ -55,12 +95,21 @@ export function useMusicPlayer() {
   }
 
   const refreshQueue = () => {
+    const totalTracks = tracks.value.length
+    if (totalTracks === 0) {
+      queue.value = []
+      queuePosition.value = 0
+      return
+    }
 
-    if (shuffle.value) {
-      if (queue.value.length <= 1) {
-        const allIndices = Array.from({ length: tracks.value.length }, (_, i) => i)
+    // If queue is empty or invalid, build a fresh queue
+    if (queue.value.length === 0 || queue.value.length !== totalTracks) {
+      if (shuffle.value) {
+        // Create shuffled queue with current track first
+        const allIndices = Array.from({ length: totalTracks }, (_, i) => i)
           .filter(i => i !== currentTrackIndex.value)
 
+        // Fisher-Yates shuffle
         for (let i = allIndices.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [allIndices[i], allIndices[j]] = [allIndices[j], allIndices[i]]
@@ -69,19 +118,31 @@ export function useMusicPlayer() {
         queue.value = [currentTrackIndex.value, ...allIndices]
         queuePosition.value = 0
       } else {
-        const remainingQueue = queue.value.slice(queuePosition.value + 1)
-
-        for (let i = remainingQueue.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [remainingQueue[i], remainingQueue[j]] = [remainingQueue[j], remainingQueue[i]]
-        }
-
-        queue.value = queue.value.slice(0, queuePosition.value + 1).concat(remainingQueue)
+        // Linear queue
+        queue.value = Array.from({ length: totalTracks }, (_, i) => i)
+        queuePosition.value = currentTrackIndex.value
       }
-    } else {
-      queue.value = Array.from({ length: tracks.value.length }, (_, i) => i)
-      queuePosition.value = currentTrackIndex.value
+      return
     }
+
+    // Queue exists - just reshuffle/unshuffle the REMAINING tracks (after current position)
+    const currentTrack = queue.value[queuePosition.value]
+    const playedTracks = queue.value.slice(0, queuePosition.value) // Already played
+    const remainingTracks = queue.value.slice(queuePosition.value + 1) // Not yet played
+
+    if (shuffle.value) {
+      // Shuffle remaining tracks
+      for (let i = remainingTracks.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [remainingTracks[i], remainingTracks[j]] = [remainingTracks[j], remainingTracks[i]]
+      }
+      queue.value = [...playedTracks, currentTrack, ...remainingTracks]
+    } else {
+      // Unshuffle: sort remaining tracks by their original index
+      remainingTracks.sort((a, b) => a - b)
+      queue.value = [...playedTracks, currentTrack, ...remainingTracks]
+    }
+    // queuePosition stays the same since we kept the structure
   }
 
   const removeFromQueue = (queueIndex: number) => {
@@ -165,14 +226,10 @@ export function useMusicPlayer() {
         return
       }
 
-      if (track.id && !track.albumArt) {
-        try {
-          const result = await MediaStore.getAlbumArt({ audioId: track.id })
-          if (result.albumArt) {
-            track.albumArt = result.albumArt
-          }
-        } catch {
-          // Album art not available
+      if (!track.albumArt) {
+        const albumArt = await getAlbumArt(track)
+        if (albumArt) {
+          track.albumArt = albumArt
         }
       }
 
@@ -355,22 +412,25 @@ export function useMusicPlayer() {
         queuePosition.value = 0
       }
 
-      const savedTime = currentTime.value
-      if (savedTime > 3) {
-        try {
-          const track = tracks.value[currentTrackIndex.value]
-          if (track && track.uri) {
-            if (track.id && !track.albumArt) {
-              try {
-                const result = await MediaStore.getAlbumArt({ audioId: track.id })
-                if (result.albumArt) {
-                  track.albumArt = result.albumArt
-                }
-              } catch {
-                // Album art not available
-              }
+      // Always load current track's album art immediately
+      const track = tracks.value[currentTrackIndex.value]
+      if (track && track.uri) {
+        // Load album art first (prioritize current track)
+        if (!track.albumArt) {
+          try {
+            const albumArt = await getAlbumArt(track)
+            if (albumArt) {
+              applyAlbumArt(track.albumId || 0, albumArt)
             }
+          } catch (e) {
+            console.error('Failed to load current track album art:', e)
+          }
+        }
 
+        // Restore playback position if we had significant progress
+        const savedTime = currentTime.value
+        if (savedTime > 3) {
+          try {
             if (useNativeAudio) {
               const result = await BackgroundMusicPlayer.preload({
                 audioPath: track.uri
@@ -380,10 +440,10 @@ export function useMusicPlayer() {
               updateMetadata(currentTrack.value || null)
               updatePlaybackState('paused')
             }
+          } catch {
+            // Failed to restore, reset to beginning
+            currentTime.value = 0
           }
-        } catch {
-          // Failed to restore, reset to beginning
-          currentTime.value = 0
         }
       }
     }
@@ -402,7 +462,7 @@ export function useMusicPlayer() {
     },
     onNext: async () => {
       await nextTrack()
-     },
+    },
     onPrevious: async () => {
       await previousTrack()
     },
@@ -425,6 +485,11 @@ export function useMusicPlayer() {
 
     currentTrackIndex.value = trackIndex
 
+    // Force a complete queue rebuild by clearing it first
+    // This ensures the queue is regenerated with all tracks
+    queue.value = []
+    queuePosition.value = 0
+
     refreshQueue()
 
     await playTrack(currentTrackIndex.value)
@@ -432,7 +497,7 @@ export function useMusicPlayer() {
 
   const setCustomQueue = async (trackIndices: number[], startIndex: number = 0) => {
     if (trackIndices.length === 0) return
-  
+
     queue.value = trackIndices
     queuePosition.value = startIndex
 
@@ -456,6 +521,11 @@ export function useMusicPlayer() {
     queuePosition,
     queueTracks,
 
+    // Album art loading state
+    isLoadingAlbumArt,
+    loadingProgress,
+    totalAlbumsToLoad,
+
     formatTime,
     playTrack,
     selectAndPlayTrack,
@@ -474,5 +544,7 @@ export function useMusicPlayer() {
     removeFromQueue,
     playFromQueue,
     updateMediaSession,
+    loadAlbumArtsInBackground,
+    applyAlbumArt,
   }
 }

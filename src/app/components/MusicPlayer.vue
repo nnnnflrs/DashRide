@@ -2,94 +2,172 @@
   <div class="music-player" :data-theme="theme">
     <div class="blur-background" :style="{ backgroundImage: currentTrack?.albumArt ? `url(${currentTrack.albumArt})` : 'none' }"></div>
     
-    <div class="player-content">
-      <div class="album-art-container">
-        <img
-          v-if="currentTrack?.albumArt"
-          :src="currentTrack.albumArt"
-          alt="Album Art"
-          class="album-art"
-        />
-        <div v-else class="album-art-placeholder">
-          <Music class="placeholder-icon" />
+    <Transition name="slide-vertical">
+      <div 
+        v-if="isExpanded" 
+        ref="expandedContent" 
+        class="player-content expanded" 
+        key="expanded"
+      >
+        
+        <div class="header-row">
+          <button class="collapse-btn" @click="toggleExpanded">
+            <ChevronDown class="collapse-icon" />
+          </button>
+        </div>
+
+        <div class="expanded-body" ref="expandedBody">
+          <div class="album-art-container" :style="artSwipeStyle">
+            <img
+              v-if="currentTrack?.albumArt"
+              :src="currentTrack.albumArt"
+              alt="Album Art"
+              class="album-art"
+            />
+            <div v-else class="album-art-placeholder">
+              <Music class="placeholder-icon" />
+            </div>
+          </div>
+
+          <!-- Right Side Content -->
+          <div class="player-right">
+            <!-- Track Info -->
+            <div class="track-info" :style="textSwipeStyle">
+              <button @click="toggleFavorite" class="favorite-btn">
+                <Star :class="['star-icon', { filled: isFavorite }]" />
+              </button>
+              
+              <div class="track-details">
+                <h2 class="track-title">{{ currentTrack?.title || 'No Track' }}</h2>
+                <p class="track-artist clickable" @click="showArtistTracks">{{ currentTrack?.artist || 'Unknown Artist' }}</p>
+                <p class="track-album clickable" @click="showAlbumTracks">{{ currentTrack?.album || 'Unknown Album' }}</p>
+              </div>
+
+              <button class="add-btn">
+                <Plus class="add-icon" />
+              </button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-container">
+              <input
+                type="range"
+                :value="currentTime"
+                :max="duration"
+                @input="handleSeek"
+                class="progress-bar"
+                :style="{ background: `linear-gradient(to right, rgb(56, 189, 248) 0%, rgb(56, 189, 248) ${progressPercentage}%, rgba(255, 255, 255, 0.25) ${progressPercentage}%, rgba(255, 255, 255, 0.25) 100%)` }"
+              />
+              <div class="time-labels">
+                <span class="time-label">{{ formatTime(currentTime) }}</span>
+                <span class="time-label">{{ formatTime(duration) }}</span>
+              </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+              <button @click="toggleRepeat" class="control-btn">
+                <Repeat :class="['control-icon', { active: repeat }]" />
+              </button>
+
+              <button @click="previousTrack" class="control-btn">
+                <SkipBack class="control-icon large" />
+              </button>
+
+              <button @click="togglePlay" class="control-btn play-btn">
+                <Pause v-if="isPlaying" class="control-icon xlarge" />
+                <Play v-else class="control-icon xlarge" />
+              </button>
+
+              <button @click="nextTrack" class="control-btn">
+                <SkipForward class="control-icon large" />
+              </button>
+
+              <button @click="toggleShuffle" class="control-btn">
+                <Shuffle :class="['control-icon', { active: shuffle }]" />
+              </button>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+              <button @click="showTrackList = !showTrackList" class="action-btn">
+                <List class="action-icon" />
+                <span>{{ tracks.length }} Tracks</span>
+              </button>
+              <button @click="showQueue = !showQueue" class="action-btn">
+                <List class="action-icon" />
+                <span>Queue ({{ queueTracks.length }})</span>
+              </button>
+              <button v-if="tracks.length === 0" @click="scanForMusic" class="action-btn scan-music-btn" :disabled="isScanning">
+                <Music class="action-icon" />
+                <span>{{ isScanning ? 'Scanning...' : 'Scan Music' }}</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Right Side Content -->
-      <div class="player-right">
-        <!-- Track Info -->
-        <div class="track-info">
-          <button @click="toggleFavorite" class="favorite-btn">
-            <Star :class="['star-icon', { filled: isFavorite }]" />
-          </button>
+      <div v-else ref="collapsedContent" class="player-content collapsed" key="collapsed">
+        <!-- Queue Carousel -->
+        <div class="queue-carousel">
+          <div 
+            v-for="(track, index) in queueTracks" 
+            :key="index"
+            class="carousel-item"
+            :class="{ active: index === 0 }" 
+            @click="handlePlayFromQueue(index)"
+          >
+             <div class="carousel-art-container">
+                <img v-if="track.albumArt" :src="track.albumArt" class="carousel-art" loading="lazy" />
+                <div v-else class="carousel-art-placeholder">
+                  <Music class="carousel-placeholder-icon" />
+                </div>
+                <div v-if="index === 0" class="carousel-playing-overlay">
+                   <div class="wave"></div>
+                   <div class="wave"></div>
+                   <div class="wave"></div>
+                </div>
+             </div>
+             <div class="carousel-info">
+               <span class="carousel-title">{{ track.title }}</span>
+               <span class="carousel-artist">{{ track.artist }}</span>
+             </div>
+          </div>
+        </div>
+
+        <!-- Mini Player -->
+        <div class="mini-player" @click="toggleExpanded">
+          <div class="mini-progress-bar" :style="{ width: (currentTime / duration) * 100 + '%' }"></div>
           
-          <div class="track-details">
-            <h2 class="track-title">{{ currentTrack?.title || 'No Track' }}</h2>
-            <p class="track-artist clickable" @click="showArtistTracks">{{ currentTrack?.artist || 'Unknown Artist' }}</p>
-            <p class="track-album clickable" @click="showAlbumTracks">{{ currentTrack?.album || 'Unknown Album' }}</p>
+          <div class="mini-player-content">
+             <div class="mini-art-container">
+                <img v-if="currentTrack?.albumArt" :src="currentTrack.albumArt" class="mini-art" />
+                <div v-else class="mini-art-placeholder">
+                  <Music class="mini-placeholder-icon" />
+                </div>
+             </div>
+             
+             <div class="mini-track-info">
+                <h3 class="mini-title">{{ currentTrack?.title || 'No Track' }}</h3>
+                <p class="mini-artist">{{ currentTrack?.artist || 'Unknown Artist' }}</p>
+             </div>
+             
+             <div class="mini-controls" @click.stop>
+                <button @click.stop="previousTrack" class="mini-control-btn">
+                  <SkipBack class="mini-control-icon" />
+                </button>
+                <button @click.stop="togglePlay" class="mini-control-btn play">
+                   <Pause v-if="isPlaying" class="mini-control-icon" />
+                   <Play v-else class="mini-control-icon" />
+                </button>
+                <button @click.stop="nextTrack" class="mini-control-btn">
+                  <SkipForward class="mini-control-icon" />
+                </button>
+             </div>
           </div>
-
-          <button class="add-btn">
-            <Plus class="add-icon" />
-          </button>
-        </div>
-
-        <!-- Progress Bar -->
-        <div class="progress-container">
-          <input
-            type="range"
-            :value="currentTime"
-            :max="duration"
-            @input="handleSeek"
-            class="progress-bar"
-          />
-          <div class="time-labels">
-            <span class="time-label">{{ formatTime(currentTime) }}</span>
-            <span class="time-label">{{ formatTime(duration) }}</span>
-          </div>
-        </div>
-
-        <!-- Controls -->
-        <div class="controls">
-          <button @click="toggleRepeat" class="control-btn">
-            <Repeat :class="['control-icon', { active: repeat }]" />
-          </button>
-
-          <button @click="previousTrack" class="control-btn">
-            <SkipBack class="control-icon large" />
-          </button>
-
-          <button @click="togglePlay" class="control-btn play-btn">
-            <Pause v-if="isPlaying" class="control-icon xlarge" />
-            <Play v-else class="control-icon xlarge" />
-          </button>
-
-          <button @click="nextTrack" class="control-btn">
-            <SkipForward class="control-icon large" />
-          </button>
-
-          <button @click="toggleShuffle" class="control-btn">
-            <Shuffle :class="['control-icon', { active: shuffle }]" />
-          </button>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="action-buttons">
-          <button @click="showTrackList = !showTrackList" class="action-btn">
-            <List class="action-icon" />
-            <span>{{ tracks.length }} Tracks</span>
-          </button>
-          <button @click="showQueue = !showQueue" class="action-btn">
-            <List class="action-icon" />
-            <span>Queue ({{ queueTracks.length }})</span>
-          </button>
-          <button v-if="tracks.length === 0" @click="scanForMusic" class="action-btn scan-music-btn" :disabled="isScanning">
-            <Music class="action-icon" />
-            <span>{{ isScanning ? 'Scanning...' : 'Scan Music' }}</span>
-          </button>
         </div>
       </div>
-    </div>
+    </Transition>
 
     <!-- Track List Modal -->
     <div v-if="showTrackList" class="track-list-modal" @click="showTrackList = false">
@@ -104,7 +182,6 @@
           <div
             v-for="(track, index) in tracks"
             :key="index"
-            :ref="el => { if (index === currentTrackIndex) currentTrackElement = el as HTMLElement }"
             @click="handlePlayTrack(index)"
             :class="['track-item', { active: currentTrackIndex === index }]"
           >
@@ -196,12 +273,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { Music, Star, Plus, Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, List, X } from 'lucide-vue-next'
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
+import { Music, Star, Plus, Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, List, X, ChevronDown } from 'lucide-vue-next'
 import { Capacitor } from '@capacitor/core'
 import MediaStore from '../../plugins/mediastore'
 import { toast } from 'vue-sonner'
 import { useMusicPlayer, type Track } from '../../composables/useMusicPlayer'
+import { useAlbumArtCache } from '../../composables/useAlbumArtCache'
+import { createGesture } from '@ionic/vue'
 
 interface Props {
   theme?: 'light' | 'dark'
@@ -235,34 +314,235 @@ const {
   removeFromQueue,
   playFromQueue,
   updateMediaSession,
+  loadAlbumArtsInBackground,
+  applyAlbumArt,
 } = useMusicPlayer()
+
+const { getAlbumArt } = useAlbumArtCache()
 
 const showTrackList = ref(false)
 const showQueue = ref(false)
 const showFilteredTracks = ref(false)
 const filteredTracks = ref<Track[]>([])
 const filteredTracksTitle = ref('')
-const trackListContainer = ref<HTMLElement | null>(null)
-const currentTrackElement = ref<HTMLElement | null>(null)
 const removingTrackIndex = ref<number | null>(null)
 
-watch(showTrackList, async (isOpen) => {
-  if (isOpen) {
-    await nextTick()
-    if (currentTrackElement.value && trackListContainer.value) {
-      currentTrackElement.value.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      })
-    }
+const isExpanded = ref(true)
+const expandedContent = ref<HTMLElement | null>(null)
+const expandedBody = ref<HTMLElement | null>(null)
+const collapsedContent = ref<HTMLElement | null>(null)
+
+// Independent Gesture Refs
+const swipeDownGesture = ref<any>(null)
+const swipeUpGesture = ref<any>(null)
+const swipeLeftGesture = ref<any>(null)
+const swipeRightGesture = ref<any>(null)
+
+const artSwipeStyle = ref({ transform: '', transition: '' })
+const textSwipeStyle = ref({ transform: '', opacity: 1 as number | string, transition: '' })
+
+const toggleExpanded = () => {
+  isExpanded.value = !isExpanded.value
+}
+
+const handleSwipeEnd = async (direction: 'next' | 'prev') => {
+  const screenWidth = window.innerWidth
+  // Gapless slide: Move exactly by screenWidth
+  const targetX = direction === 'next' ? -screenWidth : screenWidth
+
+  // Animate Out
+  const transition = 'transform 0.25s cubic-bezier(0.2, 0.0, 0, 1)'
+  artSwipeStyle.value = {
+    transform: `translateX(${targetX}px)`,
+    transition
   }
+  
+  // Text Fails Out Only (No movement)
+  textSwipeStyle.value = {
+    transform: 'translateX(0)', // Keep static
+    opacity: 0,
+    transition: 'opacity 0.2s ease-out'
+  }
+
+  await new Promise(resolve => setTimeout(resolve, 250))
+
+  // Change Track
+  if (direction === 'next') {
+    await nextTrack()
+  } else {
+    await previousTrack()
+  }
+
+  // Reset Instantly to Center (New track is now "Current")
+  artSwipeStyle.value = {
+    transform: 'translateX(0)',
+    transition: 'none'
+  }
+  textSwipeStyle.value = {
+    transform: 'translateX(0)',
+    opacity: 0, // Still hidden
+    transition: 'none'
+  }
+
+  // Force Reflow
+  // eslint-disable-next-line no-unused-expressions
+  document.body.offsetHeight
+
+  // Fade Text In
+  requestAnimationFrame(() => {
+    textSwipeStyle.value = {
+      transform: 'translateX(0)',
+      opacity: 1,
+      transition: 'opacity 0.3s ease-in'
+    }
+  })
+}
+
+const setupExpandedGestures = () => {
+  // Cleanup
+  if (swipeDownGesture.value) {
+    swipeDownGesture.value.destroy()
+    swipeDownGesture.value = null
+  }
+  if (swipeLeftGesture.value) {
+    swipeLeftGesture.value.destroy()
+    swipeLeftGesture.value = null
+  }
+
+  // Swipe Down (Collapse)
+  if (expandedContent.value) {
+    swipeDownGesture.value = createGesture({
+      el: expandedContent.value,
+      threshold: 15,
+      gestureName: 'swipe-down',
+      direction: 'y',
+      onEnd: (ev) => {
+        if (ev.deltaY > 50) {
+          if (expandedContent.value && expandedContent.value.scrollTop <= 0) {
+            toggleExpanded()
+          }
+        }
+      }
+    })
+    swipeDownGesture.value.enable(true)
+  }
+
+  // Swipe Left/Right (Navigation) - Attached to Body
+  if (expandedBody.value) {
+    swipeLeftGesture.value = createGesture({
+      el: expandedBody.value,
+      threshold: 5,
+      gestureName: 'swipe-horizontal-nav',
+      direction: 'x',
+      onMove: (ev) => {
+        if(!isExpanded.value) return
+
+         const screenWidth = window.innerWidth
+         const progress = Math.min(Math.abs(ev.deltaX) / (screenWidth * 0.5), 1)
+         const opacity = 1 - progress
+
+         // Move Art 1:1
+         artSwipeStyle.value = {
+            transform: `translateX(${ev.deltaX}px)`,
+            transition: 'none'
+         }
+         
+         // Fade Text Only (Static)
+         textSwipeStyle.value = {
+            transform: 'translateX(0)',
+            opacity: opacity,
+            transition: 'none'
+         }
+      },
+      onEnd: (ev) => {
+        if(!isExpanded.value) return
+
+        const threshold = window.innerWidth * 0.2
+        if (Math.abs(ev.deltaX) > threshold) {
+          if (ev.deltaX < 0) {
+            handleSwipeEnd('next')
+          } else {
+            handleSwipeEnd('prev')
+          }
+        } else {
+          // Spring back logic
+          const spring = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
+          artSwipeStyle.value = {
+            transform: 'translateX(0)',
+            transition: spring
+          }
+          textSwipeStyle.value = {
+            transform: 'translateX(0)',
+            opacity: 1,
+            transition: 'opacity 0.3s ease'
+          }
+        }
+      }
+    })
+    swipeLeftGesture.value.enable(true)
+  }
+}
+
+const setupCollapsedGestures = () => {
+  if (swipeUpGesture.value) {
+    swipeUpGesture.value.destroy()
+    swipeUpGesture.value = null
+  }
+
+  if (!collapsedContent.value) return
+
+  // Swipe Up to Expand
+  swipeUpGesture.value = createGesture({
+    el: collapsedContent.value,
+    threshold: 15,
+    gestureName: 'swipe-up',
+    direction: 'y',
+    onEnd: (ev) => {
+      if (ev.deltaY < -50) { // Negative deltaY is Up
+        toggleExpanded()
+      }
+    }
+  })
+  swipeUpGesture.value.enable(true)
+}
+
+// Watchers
+watch(expandedContent, (el) => {
+  if (el) {
+    requestAnimationFrame(() => {
+      setupExpandedGestures()
+    })
+  }
+})
+
+watch(collapsedContent, (el) => {
+  if (el) {
+    requestAnimationFrame(() => {
+      setupCollapsedGestures()
+    })
+  }
+})
+
+
+const removeGesture = () => {
+  if (swipeDownGesture.value) swipeDownGesture.value.destroy()
+  if (swipeUpGesture.value) swipeUpGesture.value.destroy()
+  if (swipeLeftGesture.value) swipeLeftGesture.value.destroy()
+  if (swipeRightGesture.value) swipeRightGesture.value.destroy()
+}
+
+
+const progressPercentage = computed(() => {
+  if (!duration.value || duration.value <= 0) return 0
+  const pct = (currentTime.value / duration.value) * 100
+  return Math.max(0, Math.min(100, pct))
 })
 
 const scanAudioFiles = async () => {
   if (isScanning.value) {
     return
   }
-  
+
   isScanning.value = true
   toast.info('Scanning for music files...')
 
@@ -272,7 +552,7 @@ const scanAudioFiles = async () => {
     if (result.files && result.files.length > 0) {
       const newTracks: Track[] = result.files.map((file, index) => {
         const audioId = `track_${Date.now()}_${index}`
-        
+
         return {
           id: file.id,
           title: file.title || 'Unknown Title',
@@ -288,6 +568,8 @@ const scanAudioFiles = async () => {
 
       tracks.value = newTracks
       toast.success(`Found ${newTracks.length} track${newTracks.length > 1 ? 's' : ''}!`)
+
+      startBackgroundAlbumArtLoading()
     } else {
       toast.info('No music files found')
       tracks.value = []
@@ -297,6 +579,38 @@ const scanAudioFiles = async () => {
   } finally {
     isScanning.value = false
   }
+}
+
+const startBackgroundAlbumArtLoading = async () => {
+  if (tracks.value.length === 0) return
+
+  console.log('Starting background album art loading...')
+
+  // Priority: Load current track's album art FIRST
+  const current = currentTrack.value
+  if (current && !current.albumArt && current.albumId) {
+    try {
+      const albumArt = await getAlbumArt(current)
+      if (albumArt) {
+        applyAlbumArt(current.albumId, albumArt)
+        console.log('Current track album art loaded immediately and applied to album')
+      }
+    } catch (e) {
+      console.error('Failed to load current track album art:', e)
+    }
+  }
+
+  // Then load rest in background
+  loadAlbumArtsInBackground(tracks.value, {
+    initialBatchSize: 50,  // Load first 50 unique albums quickly
+    batchSize: 10,         // Then load 10 at a time
+    delayBetweenBatches: 50,
+    onProgress: (loaded: number, total: number) => {
+      if (loaded === total) {
+        console.log(`Album art loading complete: ${loaded}/${total}`)
+      }
+    }
+  })
 }
 
 const scanForMusic = async () => {
@@ -429,6 +743,7 @@ onUnmounted(() => {
     clearInterval(permissionCheckInterval)
     permissionCheckInterval = null
   }
+  removeGesture()
 })
 </script>
 
@@ -444,7 +759,6 @@ onUnmounted(() => {
 
 .blur-background {
   position: absolute;
-  inset: 0;
   background-size: cover;
   background-position: center;
   filter: blur(60px);
@@ -470,7 +784,6 @@ onUnmounted(() => {
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 2.5rem;
   padding: 1rem 1.5rem;
   width: 100%;
   max-width: 100%;
@@ -728,9 +1041,6 @@ onUnmounted(() => {
 }
 
 /* Light Theme Control Icons */
-.music-player[data-theme="light"] .control-icon {
-  color: rgb(51, 65, 85);
-}
 
 .control-icon.large {
   width: 2.25rem;
@@ -771,9 +1081,418 @@ onUnmounted(() => {
 
 /* Light Theme Play Button - keep same for contrast */
 
+/* ... existing styles ... */
+
 .action-buttons {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 1rem;
+  gap: 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 0.5rem 1rem;
+  color: white;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.action-btn:active {
+  transform: scale(0.95);
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.action-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Scan Music Button special style */
+.scan-music-btn {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(56, 189, 248, 0.3);
+  color: rgb(224, 242, 254);
+}
+
+/* Collapsible Player Styles */
+.header-row {
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+  padding-bottom: 0.25rem;
+}
+
+.collapse-btn {
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  touch-action: manipulation;
+  transition: background 0.2s, transform 0.2s;
+  transform: scale(1.15); /* Keep user preference */
+}
+
+.collapse-btn:active {
+  transform: scale(0.9);
+}
+
+.collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.collapse-icon {
+  color: white;
+  width: 20px;
+  height: 20px;
+}
+
+/* Expanded View Container */
+.player-content.expanded {
+  display: flex;
+  flex-direction: column; /* Vertical stack: Header then Body */
+  justify-content: flex-start;
+  padding: 0.5rem 1.5rem 1rem 1.5rem;
+  overflow-y: auto; /* Allow scrolling if really needed */
+}
+
+/* Body container for Album Art and Controls */
+.expanded-body {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2rem;
+  width: 100%;
+  /* Removed flex: 1 to prevent excessive vertical spreading */
+  justify-content: center; /* Center horizontally */
+}
+
+/* Ensure album art container is relative */
+.album-art-container {
+  position: relative;
+  /* Ensure it doesn't shrink awkwardly */
+  flex-shrink: 0;
+}
+
+/* Collapsed View */
+.player-content.collapsed {
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Queue Carousel */
+/* Queue Carousel */
+.queue-carousel {
+  flex: 1;
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 1rem 0; /* Reduced padding */
+  gap: 1rem; /* Reduced gap */
+  align-items: center;
+  width: 100%;
+  scrollbar-width: none; /* Hide scrollbar Firefox */
+  padding-left: 1rem; /* Add start padding */
+}
+
+.queue-carousel::-webkit-scrollbar {
+  display: none; /* Hide scrollbar Chrome/Safari */
+}
+
+.carousel-item {
+  scroll-snap-align: center;
+  flex: 0 0 140px; /* Much smaller fixed width */
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.carousel-art-container {
+  position: relative;
+  width: 100%;
+  height: 140px; /* Force square aspect ratio explicitly */
+  border-radius: 8px; /* Slightly smaller radius */
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.carousel-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.carousel-art-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(60, 60, 60, 0.9), rgba(80, 80, 80, 0.7));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.carousel-placeholder-icon {
+  width: 48px;
+  height: 48px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.carousel-playing-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.carousel-info {
+  text-align: center;
+  width: 100%;
+}
+
+.carousel-title {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.carousel-artist {
+  display: block;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mini Player */
+.mini-player {
+  background: rgba(20, 20, 20, 0.95);
+  backdrop-filter: blur(20px);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  position: relative;
+  z-index: 20;
+}
+
+.mini-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: rgb(56, 189, 248); /* Primary color */
+  transition: width 0.3s linear;
+}
+
+.mini-player-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.mini-track-info {
+  flex: 1;
+  min-width: 0;
+  margin-right: 1rem;
+}
+
+.mini-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-artist {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mini-control-btn {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mini-control-icon {
+  width: 24px;
+  height: 24px;
+  color: white;
+}
+
+.mini-control-btn.play {
+  background: white;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.mini-control-btn.play .mini-control-icon {
+  color: black;
+  width: 20px;
+  height: 20px;
+}
+
+.mini-control-btn.play .mini-control-icon {
+  color: black;
+  width: 20px;
+  height: 20px;
+}
+
+/* Mini Album Art */
+.mini-art-container {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-right: 1rem;
+  flex-shrink: 0;
+  background: rgba(40, 40, 40, 0.8);
+}
+
+.mini-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mini-art-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(50, 50, 50, 0.8);
+}
+
+.mini-placeholder-icon {
+  width: 24px;
+  height: 24px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Light Theme Mini Player */
+.music-player[data-theme="light"] .mini-player {
+  background: rgba(255, 255, 255, 0.95);
+  border-top: 1px solid rgba(0, 0, 0, 0.05); /* Softer border for light theme */
+}
+
+.music-player[data-theme="light"] .mini-title {
+  color: rgb(15, 23, 42);
+}
+
+.music-player[data-theme="light"] .mini-artist {
+  color: rgb(100, 116, 139);
+}
+
+.music-player[data-theme="light"] .mini-control-icon {
+  color: rgb(71, 85, 105);
+}
+
+.music-player[data-theme="light"] .mini-control-btn.play {
+  background: rgb(15, 23, 42); /* Dark button for contrast on light theme */
+}
+
+.music-player[data-theme="light"] .mini-control-btn.play .mini-control-icon {
+  color: white; /* White icon on dark button */
+}
+
+.music-player[data-theme="light"] .mini-art-container {
+  background: rgba(226, 232, 240, 0.8);
+}
+
+.music-player[data-theme="light"] .mini-art-placeholder {
+  background: rgba(203, 213, 225, 0.8);
+}
+
+.music-player[data-theme="light"] .mini-placeholder-icon {
+  color: rgba(71, 85, 105, 0.4);
+}
+
+/* Transition Animations */
+.slide-vertical-enter-active,
+.slide-vertical-leave-active {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.slide-vertical-enter-from {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+.slide-vertical-leave-to {
+  transform: translateY(-10%); 
+  opacity: 0;
+}
+
+.player-content.expanded.slide-vertical-leave-to {
+   transform: translateY(100%);
+   opacity: 0;
+}
+
+.player-content.collapsed.slide-vertical-enter-from {
+   transform: translateY(-20%);
+   opacity: 0;
+
   justify-content: center;
   gap: 0.75rem;
   margin-top: 0.5rem;
@@ -801,11 +1520,6 @@ onUnmounted(() => {
 }
 
 /* Light Theme Action Buttons */
-.music-player[data-theme="light"] .action-btn {
-  background: rgba(203, 213, 225, 0.5);
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  color: rgb(51, 65, 85);
-}
 
 .music-player[data-theme="light"] .action-btn:hover:not(:disabled) {
   background: rgba(203, 213, 225, 0.7);
@@ -899,6 +1613,7 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.3s ease;
   transform-origin: center;
+  transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
 }
 
 .track-item:hover {
@@ -907,6 +1622,8 @@ onUnmounted(() => {
 
 .track-item.active {
   background: rgba(96, 165, 250, 0.1);
+  opacity: 1;
+  transform: scale(1.02);
 }
 
 .track-item.removing {
@@ -1053,6 +1770,12 @@ onUnmounted(() => {
     flex-direction: column;
     gap: 1.5rem;
     align-items: center;
+  }
+
+  /* Force vertical stack for body in portrait */
+  .expanded-body {
+    flex-direction: column;
+    gap: 1.5rem;
   }
 
   .album-art-container {
