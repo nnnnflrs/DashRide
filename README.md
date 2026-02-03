@@ -121,8 +121,9 @@ The app requires the following permissions:
 - **Network State**: For connectivity status
 
 ### Screenshots
-![1](https://github.com/user-attachments/assets/1444d2ef-4b40-4c46-a104-bf99fb63ab03)
-![8](https://github.com/user-attachments/assets/d52b103b-2089-49a4-8848-3e7a7d607774)
+
+![1](https://github.com/user-attachments/assets/5e638223-5123-4a34-89b1-44cfa54609f0)
+![8](https://github.com/user-attachments/assets/46c972b8-c05e-4078-a904-5994ac2b74f1)
 ![9](https://github.com/user-attachments/assets/0cfc590a-e109-4967-b187-bc9d0f5a6dbd)
 ![2](https://github.com/user-attachments/assets/8ec8fb86-0335-43cb-8232-ab82920accd4)
 ![3](https://github.com/user-attachments/assets/dfd1bc19-c5ad-4f91-9636-6cc8d0bc1324)
