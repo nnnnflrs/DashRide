@@ -214,7 +214,7 @@ const animateTestSpeed = () => {
 .gauge-container {
   position: relative;
   width: 100%;
-  max-width: 600px;
+  max-width: var(--gauge-max-width, min(100%, 600px));
   aspect-ratio: 5/3;
   display: flex;
   align-items: center;
@@ -242,6 +242,7 @@ const animateTestSpeed = () => {
   transition: stroke 0.3s ease;
 }
 
+/* SVG text uses viewBox-relative units, these are correct as-is */
 .speed-text {
   font-size: 55px;
   font-weight: 700;
@@ -262,17 +263,18 @@ const animateTestSpeed = () => {
 
 .test-indicator {
   position: absolute;
-  bottom: 10px;
+  bottom: var(--space-sm, 0.5rem);
   left: 50%;
   transform: translateX(-50%);
   background: rgba(239, 68, 68, 0.9);
   color: white;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
+  padding: var(--space-xs, 0.25rem) var(--space-sm, 0.75rem);
+  border-radius: var(--radius-lg, 0.75rem);
+  font-size: var(--text-xs, 0.75rem);
   font-weight: 600;
   animation: pulse 2s infinite;
   z-index: 2;
+  white-space: nowrap;
 }
 
 @keyframes pulse {

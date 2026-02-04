@@ -10,22 +10,21 @@
         key="expanded"
       >
         
-        <div class="header-row">
-          <button class="collapse-btn" @click="toggleExpanded">
-            <ChevronDown class="collapse-icon" />
-          </button>
-        </div>
-
         <div class="expanded-body" ref="expandedBody">
-          <div class="album-art-container" :style="artSwipeStyle">
-            <img
-              v-if="currentTrack?.albumArt"
-              :src="currentTrack.albumArt"
-              alt="Album Art"
-              class="album-art"
-            />
-            <div v-else class="album-art-placeholder">
-              <Music class="placeholder-icon" />
+          <div class="album-art-wrapper">
+            <button class="collapse-btn" @click.stop="toggleExpanded">
+              <ChevronDown class="collapse-icon" />
+            </button>
+            <div class="album-art-container" :style="artSwipeStyle">
+              <img
+                v-if="currentTrack?.albumArt"
+                :src="currentTrack.albumArt"
+                alt="Album Art"
+                class="album-art"
+              />
+              <div v-else class="album-art-placeholder">
+                <Music class="placeholder-icon" />
+              </div>
             </div>
           </div>
 
@@ -36,7 +35,7 @@
               <button @click="toggleFavorite" class="favorite-btn">
                 <Star :class="['star-icon', { filled: isFavorite }]" />
               </button>
-              
+
               <div class="track-details">
                 <h2 class="track-title">{{ currentTrack?.title || 'No Track' }}</h2>
                 <p class="track-artist clickable" @click="showArtistTracks">{{ currentTrack?.artist || 'Unknown Artist' }}</p>
@@ -792,9 +791,10 @@ onUnmounted(() => {
 
 .album-art-container {
   flex-shrink: 0;
-  width: 320px;
-  height: 320px;
-  border-radius: 12px;
+  /* Responsive album art size - scales with viewport */
+  width: var(--album-art-size, clamp(250px, 35vh, 320px));
+  height: var(--album-art-size, clamp(250px, 35vh, 320px));
+  border-radius: var(--radius-lg, 0.75rem);
   overflow: hidden;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
 }
@@ -816,8 +816,8 @@ onUnmounted(() => {
 }
 
 .placeholder-icon {
-  width: 60px;
-  height: 60px;
+  width: var(--icon-xl, 3.75rem);
+  height: var(--icon-xl, 3.75rem);
   color: rgba(255, 255, 255, 0.3);
   transition: color 0.3s ease;
 }
@@ -835,14 +835,14 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
   min-width: 0;
 }
 
 .track-info {
   display: flex;
-  align-items: flex-start;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .favorite-btn,
@@ -850,7 +850,7 @@ onUnmounted(() => {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0.5rem;
+  padding: 0.375rem;
   transition: transform 0.2s;
 }
 
@@ -863,7 +863,7 @@ onUnmounted(() => {
 .add-icon {
   width: 1.25rem;
   height: 1.25rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.5);
   transition: color 0.3s ease;
 }
 
@@ -898,11 +898,11 @@ onUnmounted(() => {
 }
 
 .track-title {
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 700;
   color: white;
-  margin-bottom: 0.25rem;
-  line-height: 1.2;
+  margin-bottom: 0.125rem;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -910,8 +910,8 @@ onUnmounted(() => {
 }
 
 .track-artist {
-  font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
   margin-bottom: 0.125rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -934,7 +934,7 @@ onUnmounted(() => {
 }
 
 .track-album {
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   color: rgba(255, 255, 255, 0.6);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -959,7 +959,7 @@ onUnmounted(() => {
 .progress-container {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
   width: 100%;
 }
 
@@ -969,8 +969,8 @@ onUnmounted(() => {
 }
 
 .time-label {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.6);
   transition: color 0.3s ease;
 }
 
@@ -1015,18 +1015,21 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .control-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0.5rem;
+  padding: var(--space-sm, 0.5rem);
   transition: transform 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Ensure minimum touch target */
+  min-width: var(--touch-target-min, 44px);
+  min-height: var(--touch-target-min, 44px);
 }
 
 .control-btn:active {
@@ -1036,20 +1039,19 @@ onUnmounted(() => {
 .control-icon {
   width: 1.5rem;
   height: 1.5rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.8);
   transition: color 0.3s ease;
 }
 
-/* Light Theme Control Icons */
-
+/* Control icon sizes - consistent hierarchy */
 .control-icon.large {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
 }
 
 .control-icon.xlarge {
-  width: 2rem;
-  height: 2rem;
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 .control-icon.active {
@@ -1062,12 +1064,15 @@ onUnmounted(() => {
 }
 
 .play-btn {
-  width: 3.5rem;
-  height: 3.5rem;
+  width: 3.25rem;
+  height: 3.25rem;
   background: white;
   border-radius: 50%;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   transition: transform 0.2s, box-shadow 0.2s;
+  /* Override control-btn min-size */
+  min-width: 3.25rem;
+  min-height: 3.25rem;
 }
 
 .play-btn:hover {
@@ -1088,20 +1093,21 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   width: 100%;
-  margin-top: 1rem;
-  gap: 8px;
+  margin-top: 0.5rem;
+  gap: 0.5rem;
 }
 
 .action-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.375rem;
   background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 0.5rem 1rem;
-  color: white;
-  font-size: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.8125rem;
+  font-weight: 500;
   cursor: pointer;
   transition: background 0.2s, transform 0.2s;
 }
@@ -1115,8 +1121,8 @@ onUnmounted(() => {
 }
 
 .action-icon {
-  width: 1rem;
-  height: 1rem;
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 /* Scan Music Button special style */
@@ -1126,51 +1132,57 @@ onUnmounted(() => {
   color: rgb(224, 242, 254);
 }
 
-/* Collapsible Player Styles */
-.header-row {
-  width: 100%;
+/* Album Art Wrapper for collapse button positioning */
+.album-art-wrapper {
   display: flex;
-  justify-content: flex-start;
-  padding-bottom: 0.25rem;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-shrink: 0;
 }
 
+/* Collapsible Player Styles */
 .collapse-btn {
-  background: transparent;
+  background: none;
   border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
-  z-index: 10;
-  touch-action: manipulation;
-  transition: background 0.2s, transform 0.2s;
-  transform: scale(1.15); /* Keep user preference */
+  padding: 0.375rem;
+  transition: transform 0.2s;
+  margin-bottom: 0.125rem;
 }
 
 .collapse-btn:active {
   transform: scale(0.9);
 }
 
-.collapse-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+.collapse-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(255, 255, 255, 0.5);
+  display: block;
+  transition: color 0.3s ease;
 }
 
-.collapse-icon {
+.collapse-btn:hover .collapse-icon {
   color: white;
-  width: 20px;
-  height: 20px;
+}
+
+/* Light Theme Collapse Icon */
+.music-player[data-theme="light"] .collapse-icon {
+  color: rgb(100, 116, 139);
+}
+
+.music-player[data-theme="light"] .collapse-btn:hover .collapse-icon {
+  color: rgb(51, 65, 85);
 }
 
 /* Expanded View Container */
 .player-content.expanded {
   display: flex;
-  flex-direction: column; /* Vertical stack: Header then Body */
-  justify-content: flex-start;
-  padding: 0.5rem 1.5rem 1rem 1.5rem;
-  overflow-y: auto; /* Allow scrolling if really needed */
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  overflow-y: auto;
 }
 
 /* Body container for Album Art and Controls */
@@ -1180,8 +1192,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 2rem;
   width: 100%;
-  /* Removed flex: 1 to prevent excessive vertical spreading */
-  justify-content: center; /* Center horizontally */
+  max-width: 100%;
+  justify-content: center;
 }
 
 /* Ensure album art container is relative */
@@ -1360,25 +1372,31 @@ onUnmounted(() => {
 .mini-control-btn {
   background: none;
   border: none;
-  padding: 0.5rem;
+  padding: var(--space-sm, 0.5rem);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Ensure touch target */
+  min-width: var(--touch-target-min, 44px);
+  min-height: var(--touch-target-min, 44px);
 }
 
 .mini-control-icon {
-  width: 24px;
-  height: 24px;
+  width: var(--icon-md, 1.5rem);
+  height: var(--icon-md, 1.5rem);
   color: white;
 }
 
 .mini-control-btn.play {
   background: white;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  width: clamp(2.25rem, 8vw, 2.5rem);
+  height: clamp(2.25rem, 8vw, 2.5rem);
   padding: 0;
+  /* Ensure touch target */
+  min-width: var(--touch-target-min, 44px);
+  min-height: var(--touch-target-min, 44px);
 }
 
 .mini-control-btn.play .mini-control-icon {
@@ -1395,11 +1413,11 @@ onUnmounted(() => {
 
 /* Mini Album Art */
 .mini-art-container {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
+  width: clamp(2.5rem, 10vw, 3rem);
+  height: clamp(2.5rem, 10vw, 3rem);
+  border-radius: var(--radius-md, 0.5rem);
   overflow: hidden;
-  margin-right: 1rem;
+  margin-right: var(--space-md, 1rem);
   flex-shrink: 0;
   background: rgba(40, 40, 40, 0.8);
 }

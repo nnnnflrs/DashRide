@@ -249,7 +249,7 @@
         <p>Modern TFT-style motorcycle dashboard application that transforms your phone into a comprehensive riding companion with real-time data visualization and navigation.</p>
 
         <p class="free-badge">
-          <span class="bold">🎉 Free and always will be</span>
+          <span class="bold">The app is free. No catch. Just ride. 🏍️💨</span>
         </p>
 
         <p class="data-sources-title">
@@ -385,6 +385,27 @@ const openFeedbackForm = () => {
 </script>
 
 <style scoped>
+
+@media (orientation: portrait) {
+  .toggle-button {
+    width: clamp(5rem, 8vw, 8rem);
+  }
+  .toggle-knob.active {
+    left: 30%;
+  }
+}
+
+
+@media (orientation: landscape) {
+  .toggle-button {
+    width: clamp(4rem, 8vw, 8rem);
+  }
+
+  .toggle-knob.active {
+    left: 20%;
+  }
+}
+
 .settings-container {
   max-width: 42rem;
   margin: 0 auto;
@@ -505,14 +526,16 @@ const openFeedbackForm = () => {
 
 .unit-button,
 .theme-button {
-  padding: 0.75rem;
-  border-radius: 0.5rem;
+  padding: var(--space-sm, 0.75rem);
+  border-radius: var(--radius-md, 0.5rem);
   font-weight: 600;
   transition: all 0.2s;
   background: rgb(31, 41, 55);
   color: rgba(156, 163, 175, 1);
   border: none;
   cursor: pointer;
+  /* Ensure touch target minimum size */
+  min-height: var(--touch-target-min, 44px);
 }
 
 .unit-button:hover,
@@ -572,14 +595,18 @@ const openFeedbackForm = () => {
 
 .toggle-button {
   position: relative;
-  width: 3.5rem;
-  height: 2rem;
-  border-radius: 9999px;
+  height: clamp(1.75rem, 5vw, 2rem);
+  border-radius: var(--radius-full, 9999px);
   transition: background-color 0.2s;
   background: rgb(55, 65, 81);
   border: none;
   cursor: pointer;
   flex-shrink: 0;
+  /* Ensure touch target minimum size */
+  min-width: var(--touch-target-min, 44px);
+  min-height: var(--touch-target-min, 44px);
+  display: flex;
+  align-items: center;
 }
 
 .toggle-button.active {
@@ -589,7 +616,6 @@ const openFeedbackForm = () => {
 .toggle-knob {
   position: absolute;
   left: 0.25rem;
-  top: 0.25rem;
   width: 1.5rem;
   height: 1.5rem;
   background: white;
@@ -793,18 +819,20 @@ const openFeedbackForm = () => {
 .share-button {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
+  gap: var(--space-sm, 0.5rem);
+  padding: var(--space-sm, 0.75rem) var(--space-md, 1.25rem);
   border: none;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
+  border-radius: var(--radius-md, 0.5rem);
+  font-size: var(--text-sm, 0.875rem);
   font-weight: 600;
   color: white;
   cursor: pointer;
   transition: all 0.2s ease;
   flex: 1;
-  min-width: 120px;
+  min-width: 100px;
   justify-content: center;
+  /* Ensure touch target minimum size */
+  min-height: var(--touch-target-min, 44px);
 }
 
 .share-icon {

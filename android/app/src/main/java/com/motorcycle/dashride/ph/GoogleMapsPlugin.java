@@ -2,7 +2,9 @@ package com.motorcycle.dashride.ph;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.provider.Settings;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -1180,5 +1182,18 @@ public class GoogleMapsPlugin extends Plugin implements OnMapReadyCallback {
                 call.reject("Failed to stop location tracking: " + e.getMessage());
             }
         });
+    }
+
+    @PluginMethod
+    public void openLocationSettings(PluginCall call) {
+        try {
+            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getActivity().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            Log.e(TAG, "Error opening location settings", e);
+            call.reject("Failed to open location settings: " + e.getMessage());
+        }
     }
 }

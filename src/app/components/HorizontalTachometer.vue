@@ -271,21 +271,29 @@ const animateTestSpeed = () => {
 .horizontal-tachometer {
   position: relative;
   width: 100%;
-  max-width: 700px;
+  max-width: min(100%, 700px);
   margin: 0 auto;
   cursor: pointer;
   z-index: 10;
 }
 
 .tft-display {
-  padding: 0px 24px;
+  padding: 0 var(--space-lg, 1.5rem);
   position: relative;
 }
 
 .tachometer-bar {
   width: 100%;
-  height: 130px;
+  /* Fluid height - larger in landscape, smaller in portrait */
+  height: clamp(100px, 25vh, 180px);
   margin-bottom: 0;
+}
+
+/* Landscape mode - ensure taller tachometer */
+@media (orientation: landscape) {
+  .tachometer-bar {
+    height: clamp(130px, 30vh, 180px);
+  }
 }
 
 .tachometer-svg {
@@ -308,6 +316,7 @@ const animateTestSpeed = () => {
   letter-spacing: 0.5px;
 }
 
+/* SVG text uses viewBox-relative units */
 .unit-indicator {
   fill: rgba(160, 190, 220, 0.9);
   font-size: 12px;
@@ -320,10 +329,10 @@ const animateTestSpeed = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: 4px;
+  padding-top: var(--space-xs, 0.25rem);
   position: absolute;
   left: 50%;
-  top: 85%;
+  top: 20vh;
   transform: translateX(-50%);
 }
 
@@ -331,25 +340,26 @@ const animateTestSpeed = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-xs, 0.25rem);
 }
 
 .speed-value {
-  font-size: 72px;
+  /* Fluid font-size: scales between portrait and landscape */
+  font-size: clamp(3.5rem, 12vw, 6.25rem);
   font-weight: 700;
   line-height: 1;
   font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
-  letter-spacing: -2px;
+  letter-spacing: -0.02em;
   transition: color 0.2s ease, text-shadow 0.2s ease;
 }
 
 .speed-unit {
-  font-size: 16px;
+  font-size: clamp(0.875rem, 2.5vw, 1.25rem);
   color: rgba(120, 150, 180, 0.9);
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: 0.125em;
   text-transform: uppercase;
-  margin-top: 4px;
+  margin-top: var(--space-xs, 0.25rem);
   font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
 }
 
@@ -360,62 +370,32 @@ const animateTestSpeed = () => {
   transform: translateX(-50%);
   background: linear-gradient(135deg, #ff0a4a, #ff4060);
   color: white;
-  padding: 6px 16px;
-  border-radius: 4px;
-  font-size: 11px;
+  padding: var(--space-xs, 0.375rem) var(--space-md, 1rem);
+  border-radius: var(--radius-sm, 0.25rem);
+  font-size: var(--text-xs, 0.6875rem);
   font-weight: 700;
   font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
-  letter-spacing: 1px;
+  letter-spacing: 0.0625em;
   text-transform: uppercase;
   animation: pulse 1.5s infinite;
-  box-shadow: 0 0 20px rgba(255, 10, 74, 0.5);
+  box-shadow: 0 0 1.25rem rgba(255, 10, 74, 0.5);
   z-index: 2;
+  white-space: nowrap;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 20px rgba(255, 10, 74, 0.5); }
-  50% { opacity: 0.8; box-shadow: 0 0 30px rgba(255, 10, 74, 0.8); }
+  0%, 100% { opacity: 1; box-shadow: 0 0 1.25rem rgba(255, 10, 74, 0.5); }
+  50% { opacity: 0.8; box-shadow: 0 0 1.875rem rgba(255, 10, 74, 0.8); }
 }
 
-@media (max-width: 600px) {
-  .speed-value {
-    font-size: 56px;
-  }
-
-  .tft-display {
-    padding: 8px 12px;
-  }
-}
-
-@media (orientation: landscape) {
-  .horizontal-tachometer {
-    max-width: 100%;
-  }
-
-  .tachometer-bar {
-    height: 150px;
-  }
-
-  .speed-value {
-    font-size: 100px;
-  }
-
-  .speed-unit {
-    font-size: 20px;
-  }
-}
-
+/* Portrait mode adjustments */
 @media (orientation: portrait) {
   .horizontal-tachometer {
     max-width: 100%;
   }
 
   .tft-display {
-    padding: 0 12px;
-  }
-
-  .tachometer-bar {
-    height: 100px;
+    padding: 0 var(--space-sm, 0.75rem);
   }
 
   .main-display {
@@ -423,19 +403,18 @@ const animateTestSpeed = () => {
     left: auto;
     top: auto;
     transform: none;
-    margin-top: 0.5rem;
-  }
-
-  .speed-value {
-    font-size: 80px;
-  }
-
-  .speed-unit {
-    font-size: 18px;
+    margin-top: var(--space-sm, 0.5rem);
   }
 
   .test-indicator {
-    bottom: -40px;
+    bottom: clamp(-2.5rem, -5vh, -1.5rem);
+  }
+}
+
+/* Landscape mode adjustments */
+@media (orientation: landscape) {
+  .horizontal-tachometer {
+    max-width: 100%;
   }
 }
 </style>

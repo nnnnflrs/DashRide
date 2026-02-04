@@ -14,15 +14,32 @@
 
     <!-- Search Input -->
     <div v-if="!isNavigating && !loading && !error" class="search-container" :data-theme="theme">
-      <input
-        v-model="searchQuery"
-        type="text"
-        placeholder="Search location..."
-        class="search-input"
-        @input="onSearchInput"
-        @focus="onSearchFocus"
-        @blur="onSearchBlur"
-      />
+      <div class="search-input-wrapper">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search location..."
+          class="search-input"
+          @input="onSearchInput"
+          @focus="onSearchFocus"
+          @blur="onSearchBlur"
+        />
+        <div
+          v-if="searchSuggestions.length > 0"
+          class="suggestions-container"
+          :data-theme="theme"
+        >
+          <div
+            v-for="suggestion in searchSuggestions"
+            :key="suggestion.placeId"
+            class="suggestion-item"
+            @click="selectPlace(suggestion)"
+          >
+            <div class="suggestion-primary">{{ suggestion.primaryText }}</div>
+            <div class="suggestion-secondary">{{ suggestion.secondaryText }}</div>
+          </div>
+        </div>
+      </div>
       <button
         v-if="searchQuery"
         @click="clearSearch"
@@ -31,23 +48,6 @@
       >
         <X class="clear-icon" />
       </button>
-    </div>
-
-    <!-- Autocomplete Suggestions -->
-    <div
-      v-if="searchSuggestions.length > 0"
-      class="suggestions-container"
-      :data-theme="theme"
-    >
-      <div
-        v-for="suggestion in searchSuggestions"
-        :key="suggestion.placeId"
-        class="suggestion-item"
-        @click="selectPlace(suggestion)"
-      >
-        <div class="suggestion-primary">{{ suggestion.primaryText }}</div>
-        <div class="suggestion-secondary">{{ suggestion.secondaryText }}</div>
-      </div>
     </div>
 
     <!-- Directions Button (Step 1: Show after place selection) -->
@@ -99,7 +99,7 @@
 
     <div v-if="error" class="error-overlay">
       <p class="error-text">{{ error }}</p>
-      <button @click="initMap" class="retry-button">Request permission</button>
+      <button @click="handleRetryPermission" class="retry-button">Enable Location</button>
     </div>
 
     <button
@@ -427,6 +427,20 @@ const requestLocationPermission = async () => {
     }
 }
 
+// Handle retry button click - opens native location settings
+const handleRetryPermission = async () => {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      // Open native location settings
+      await GoogleMapsNative.openLocationSettings()
+    } catch (err) {
+      console.error('Error opening location settings:', err)
+    }
+  } else {
+    // On web, just retry init
+    await initMap()
+  }
+}
 
 const initMap = async () => {
   loading.value = true
@@ -1477,17 +1491,22 @@ onUnmounted(async () => {
 
 .search-container {
   position: absolute;
-  top: 3.25rem;
-  left: 0.75rem;
-  right: 0.75rem;
+  top: calc(var(--safe-area-inset-top, 0px) + var(--space-xl, 3.25rem));
+  left: max(var(--space-sm, 0.75rem), var(--safe-area-inset-left, 0px));
+  right: max(var(--space-sm, 0.75rem), var(--safe-area-inset-right, 0px));
   z-index: 100;
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: flex-start;
+  gap: var(--space-sm, 0.5rem);
+}
+
+.search-input-wrapper {
+  position: relative;
+  flex: 1;
 }
 
 .search-input {
-  flex: 1;
+  width: 100%;
   padding: 0.625rem 0.875rem;
   background: rgba(0, 0, 0, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1519,16 +1538,19 @@ onUnmounted(async () => {
 }
 
 .clear-button {
-  padding: 0.4rem;
+  padding: var(--space-sm, 0.5rem);
   background: white;
   border: none;
-  border-radius: 0.4rem;
+  border-radius: var(--radius-md, 0.4rem);
   color: black;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
+  /* Ensure touch target minimum size */
+  min-width: var(--touch-target-min, 44px);
+  min-height: var(--touch-target-min, 44px);
 }
 
 .clear-button:hover {
@@ -1542,9 +1564,10 @@ onUnmounted(async () => {
 
 .suggestions-container {
   position: absolute;
-  top: 6rem;
-  left: 0.75rem;
-  right: 3rem;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 0.5rem;
   max-height: 12rem;
   overflow-y: auto;
   background: rgba(0, 0, 0, 0.98);
@@ -1609,21 +1632,24 @@ onUnmounted(async () => {
 .start-nav-button,
 .stop-nav-button {
   position: absolute;
-  bottom: 2rem;
+  bottom: calc(var(--safe-area-inset-bottom, 0px) + var(--space-lg, 2rem));
   left: 50%;
   transform: translateX(-50%);
-  padding: 1rem 2rem;
+  padding: var(--space-md, 1rem) var(--space-xl, 2rem);
   border: none;
-  border-radius: 2rem;
-  font-size: 1.125rem;
+  border-radius: var(--radius-full, 2rem);
+  font-size: clamp(1rem, 3vw, 1.125rem);
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-sm, 0.5rem);
   transition: all 0.3s;
   z-index: 100;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  /* Ensure touch target minimum size */
+  min-height: var(--touch-target-min, 44px);
+  white-space: nowrap;
 }
 
 .directions-button {
@@ -1658,10 +1684,10 @@ onUnmounted(async () => {
 
 .location-button {
   position: absolute;
-  bottom: 2rem;
-  right: 1rem;
-  width: 3.5rem;
-  height: 3.5rem;
+  bottom: calc(var(--safe-area-inset-bottom, 0px) + var(--space-lg, 2rem));
+  right: max(var(--space-md, 1rem), var(--safe-area-inset-right, 0px));
+  width: clamp(3rem, 8vw, 3.5rem);
+  height: clamp(3rem, 8vw, 3.5rem);
   background: white;
   border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
@@ -1674,6 +1700,9 @@ onUnmounted(async () => {
   backdrop-filter: blur(10px);
   z-index: 100;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  /* Ensure touch target minimum size */
+  min-width: var(--touch-target-min, 44px);
+  min-height: var(--touch-target-min, 44px);
 }
 
 .location-icon {
@@ -1731,17 +1760,17 @@ onUnmounted(async () => {
 /* Route Info Bar (Compact Google Maps Style) */
 .route-info-bar {
   position: absolute;
-  bottom: 1rem;
-  left: 1rem;
-  right: 5rem;
+  bottom: calc(var(--safe-area-inset-bottom, 0px) + var(--space-md, 1rem));
+  left: max(var(--space-md, 1rem), var(--safe-area-inset-left, 0px));
+  right: calc(max(var(--space-md, 1rem), var(--safe-area-inset-right, 0px)) + 4rem);
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(10px);
-  border-radius: 0.75rem;
-  padding: 0.75rem 1rem;
+  border-radius: var(--radius-lg, 0.75rem);
+  padding: var(--space-sm, 0.75rem) var(--space-md, 1rem);
   z-index: 100;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-sm, 0.75rem);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
 }
 

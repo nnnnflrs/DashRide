@@ -134,7 +134,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem 1rem;
+  padding: 0 1rem;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid rgba(128, 128, 128, 0.5);
@@ -150,21 +150,21 @@ onUnmounted(() => {
 .left, .right {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-sm, 0.5rem);
 }
 
 .left {
-  padding-left: 0.75rem;
+  padding-left: var(--space-sm, 0.75rem);
 }
 
 .right {
-  padding-right: 0.75rem;;
-  gap: 0.75rem;
+  padding-right: var(--space-sm, 0.75rem);
+  gap: var(--space-sm, 0.75rem);
 }
 
 .icon {
-  width: 1rem;
-  height: 1rem;
+  width: var(--icon-sm, 1rem);
+  height: var(--icon-sm, 1rem);
   color: rgba(156, 163, 175, 1);
   transition: color 0.3s;
 }
@@ -180,7 +180,7 @@ onUnmounted(() => {
 .battery {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--space-xs, 0.25rem);
 }
 
 .battery-icon {
@@ -196,17 +196,17 @@ onUnmounted(() => {
 }
 
 .label {
-  font-size: 0.75rem;
+  font-size: var(--text-xs, 0.75rem);
   color: rgba(156, 163, 175, 1);
   transition: color 0.3s ease;
 }
 
 .time-label {
-  font-size: 0.875rem;
+  font-size: var(--text-sm, 0.875rem);
   font-weight: 600;
   color: white;
-  margin-right: 0.5rem;
-  padding-left: 12px;
+  margin-right: var(--space-sm, 0.5rem);
+  padding-left: var(--space-sm, 0.75rem);
   transition: color 0.3s ease;
 }
 

@@ -55,6 +55,9 @@ const tabs = [
   backdrop-filter: blur(12px);
   border-top: 1px solid rgba(128, 128, 128, 0.5);
   transition: background 0.3s ease, border-color 0.3s ease;
+  /* Safe area support for landscape notched devices */
+  padding-left: var(--safe-area-inset-left, 0px);
+  padding-right: var(--safe-area-inset-right, 0px);
 }
 
 /* Light Theme */
@@ -66,8 +69,8 @@ const tabs = [
 .nav-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.25rem;
-  padding: 0.5rem;
+  gap: var(--space-xs, 0.25rem);
+  padding: var(--space-xs, 0.5rem);
 }
 
 .nav-button {
@@ -75,14 +78,16 @@ const tabs = [
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
+  justify-content: center;
+  gap: var(--space-xs, 0.25rem);
+  padding: var(--space-sm, 0.5rem) var(--space-sm, 0.75rem);
+  border-radius: var(--radius-md, 0.5rem);
   transition: all 0.2s;
   background: transparent;
   border: none;
   cursor: pointer;
   color: rgba(156, 163, 175, 1);
+  /* Touch target achieved through padding, not forced min-height */
 }
 
 .nav-button:hover {
@@ -125,20 +130,20 @@ const tabs = [
   position: absolute;
   inset: 0;
   background: rgba(37, 99, 235, 0.2);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md, 0.5rem);
   border: 1px solid rgba(59, 130, 246, 0.3);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: var(--icon-sm, 1.25rem);
+  height: var(--icon-sm, 1.25rem);
   position: relative;
   z-index: 10;
 }
 
 .nav-label {
-  font-size: 0.75rem;
+  font-size: var(--text-xs, 0.75rem);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;

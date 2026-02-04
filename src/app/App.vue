@@ -1144,8 +1144,8 @@ watch(isNavigating, (navigating) => {
   position: absolute;
   top: 0;
   left: 25%;
-  width: 24rem;
-  height: 24rem;
+  width: clamp(15rem, 40vw, 24rem);
+  height: clamp(15rem, 40vw, 24rem);
   border-radius: 50%;
   filter: blur(80px);
   transition: background 0.3s ease;
@@ -1155,8 +1155,8 @@ watch(isNavigating, (navigating) => {
   position: absolute;
   bottom: 0;
   right: 25%;
-  width: 24rem;
-  height: 24rem;
+  width: clamp(15rem, 40vw, 24rem);
+  height: clamp(15rem, 40vw, 24rem);
   border-radius: 50%;
   filter: blur(80px);
   transition: background 0.3s ease;
@@ -1177,7 +1177,7 @@ watch(isNavigating, (navigating) => {
 
 .tab-content {
   height: 100%;
-  padding: 1rem 1rem 8px 1rem;
+  padding: 0 1rem 0.5rem 1rem;
   overflow-y: auto;
 }
 
@@ -1261,14 +1261,16 @@ watch(isNavigating, (navigating) => {
 }
 
 .bottom-center-section {
-  position: absolute;
+  position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 0;
+  /* Position just above bottom navigation, below tachometer speed display */
+  bottom: 4.25rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 0.25rem;
+  z-index: 6;
 }
 
 .bottom-time {
@@ -1293,12 +1295,13 @@ watch(isNavigating, (navigating) => {
 .bottom-info-section.right-section {
   position: fixed;
   right: 1rem;
-  top: 60%;
-  transform: translateY(-50%);
+  bottom: 5.5rem;
   align-items: flex-end;
   max-width: 320px;
   z-index: 10;
-  padding-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .bottom-info-grid {
@@ -1322,7 +1325,7 @@ watch(isNavigating, (navigating) => {
 }
 
 .bottom-info-grid.nav-grid.single-column .info-value {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -1341,7 +1344,7 @@ watch(isNavigating, (navigating) => {
 }
 
 .bottom-info-grid.stats-grid .info-value {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -1397,8 +1400,8 @@ watch(isNavigating, (navigating) => {
   border-radius: 12px;
   border: 1px solid rgba(75, 85, 99, 0.4);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  max-width: 500px;
-  min-width: 360px;
+  max-width: min(500px, 90vw);
+  min-width: min(320px, 80vw);
 }
 
 .bottom-music-info {
@@ -1410,9 +1413,9 @@ watch(isNavigating, (navigating) => {
 }
 
 .bottom-album-art {
-  width: 48px;
-  height: 48px;
-  border-radius: 6px;
+  width: clamp(2.5rem, 8vw, 3rem);
+  height: clamp(2.5rem, 8vw, 3rem);
+  border-radius: var(--radius-md, 0.375rem);
   overflow: hidden;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(147, 51, 234, 0.2));
   display: flex;
@@ -1463,8 +1466,8 @@ watch(isNavigating, (navigating) => {
 }
 
 .bottom-control-btn {
-  width: 40px;
-  height: 40px;
+  width: clamp(2.25rem, 6vw, 2.5rem);
+  height: clamp(2.25rem, 6vw, 2.5rem);
   border-radius: 50%;
   border: none;
   background: rgba(55, 65, 81, 0.6);
@@ -1473,6 +1476,9 @@ watch(isNavigating, (navigating) => {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  /* Ensure touch target minimum size */
+  min-width: var(--touch-target-min, 44px);
+  min-height: var(--touch-target-min, 44px);
 }
 
 .bottom-control-btn:hover {
@@ -1485,9 +1491,12 @@ watch(isNavigating, (navigating) => {
 }
 
 .bottom-play-btn {
-  width: 44px;
-  height: 44px;
+  width: clamp(2.5rem, 7vw, 2.75rem);
+  height: clamp(2.5rem, 7vw, 2.75rem);
   background: linear-gradient(135deg, rgb(59, 130, 246), rgb(37, 99, 235));
+  /* Ensure touch target minimum size */
+  min-width: var(--touch-target-min, 44px);
+  min-height: var(--touch-target-min, 44px);
 }
 
 .bottom-play-btn:hover {
@@ -2566,11 +2575,13 @@ watch(isNavigating, (navigating) => {
     position: relative;
     right: auto;
     top: auto;
+    bottom: auto;
     transform: none;
     width: 100%;
     max-width: 100%;
     padding-bottom: 0;
     align-items: center;
+    justify-content: flex-start;
   }
 
   .dashboard-container.horizontal-gauge-mode .bottom-info-grid.stats-grid {
@@ -2599,6 +2610,7 @@ watch(isNavigating, (navigating) => {
   .dashboard-container.horizontal-gauge-mode .bottom-center-section {
     position: relative;
     left: auto;
+    bottom: auto;
     transform: none;
     width: 100%;
     max-width: 100%;

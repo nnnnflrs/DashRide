@@ -185,6 +185,12 @@ export interface GoogleMapsNativePlugin {
       timestamp: number
     }) => void
   ): Promise<{ remove: () => void }>
+
+  /**
+   * Open the device's location settings (Android only)
+   * Opens the native location settings screen to allow user to enable location services
+   */
+  openLocationSettings(): Promise<void>
 }
 
 const GoogleMapsNative = registerPlugin<GoogleMapsNativePlugin>('GoogleMapsNative')
