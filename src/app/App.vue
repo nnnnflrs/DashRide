@@ -119,13 +119,13 @@
                   @click="showTooltip('Maximum Speed')"
                 >
                   <Zap class="info-icon" />
-                  <span class="info-value">{{ tripData.maxSpeed.toFixed(1) }} {{ unit === 'mph' ? 'mph' : 'km/h' }}</span>
+                  <span class="info-value">{{ activeTripData.maxSpeed.toFixed(1) }} {{ unit === 'mph' ? 'mph' : 'km/h' }}</span>
                   <div v-if="activeTooltip === 'Maximum Speed' && !isResettingMax" class="info-tooltip">Maximum Speed</div>
                   <div v-if="isResettingMax" class="info-tooltip reset-tooltip">Hold to reset max speed</div>
                   <div v-if="isResettingMax" class="reset-progress" :style="{ width: resetProgressMax + '%' }"></div>
                 </div>
 
-                <!-- Trip (with reset on long-press) -->
+                <!-- Trip (with reset on long-press, double-tap to switch) -->
                 <div
                   class="info-item"
                   :class="{ 'resetting': isResettingTrip }"
@@ -136,10 +136,11 @@
                   @mouseup="cancelReset('trip')"
                   @mouseleave="cancelReset('trip')"
                   @click="showTooltip('Trip')"
+                  @dblclick="handleTripDoubleTap"
                 >
-                  <Route class="info-icon" />
-                  <span class="info-value">{{ tripData.distance.toFixed(1) }} {{ unit === 'mph' ? 'mi' : 'km' }}</span>
-                  <div v-if="activeTooltip === 'Trip' && !isResettingTrip" class="info-tooltip">Trip</div>
+                  <Route class="info-icon" /><sup class="trip-indicator">{{ activeTrip }}</sup>
+                  <span class="info-value">{{ activeTripData.distance.toFixed(1) }} {{ unit === 'mph' ? 'mi' : 'km' }}</span>
+                  <div v-if="activeTooltip === 'Trip' && !isResettingTrip" class="info-tooltip">Trip {{ activeTrip }}</div>
                   <div v-if="isResettingTrip" class="info-tooltip reset-tooltip">Hold to reset trip</div>
                   <div v-if="isResettingTrip" class="reset-progress" :style="{ width: resetProgressTrip + '%' }"></div>
                 </div>
@@ -317,13 +318,13 @@
                     @click="showTooltip('Maximum Speed')"
                   >
                     <Zap class="info-icon" />
-                    <span class="info-value">{{ tripData.maxSpeed.toFixed(1) }} {{ unit === 'mph' ? 'mph' : 'km/h' }}</span>
+                    <span class="info-value">{{ activeTripData.maxSpeed.toFixed(1) }} {{ unit === 'mph' ? 'mph' : 'km/h' }}</span>
                     <div v-if="activeTooltip === 'Maximum Speed' && !isResettingMax" class="info-tooltip">Maximum Speed</div>
                     <div v-if="isResettingMax" class="info-tooltip reset-tooltip">Hold to reset max speed</div>
                     <div v-if="isResettingMax" class="reset-progress" :style="{ width: resetProgressMax + '%' }"></div>
                   </div>
 
-                  <!-- Trip -->
+                  <!-- Trip (with reset on long-press, double-tap to switch) -->
                   <div
                     class="info-item"
                     :class="{ 'resetting': isResettingTrip }"
@@ -334,10 +335,11 @@
                     @mouseup="cancelReset('trip')"
                     @mouseleave="cancelReset('trip')"
                     @click="showTooltip('Trip')"
+                    @dblclick="handleTripDoubleTap"
                   >
-                    <Route class="info-icon" />
-                    <span class="info-value">{{ tripData.distance.toFixed(1) }} {{ unit === 'mph' ? 'mi' : 'km' }}</span>
-                    <div v-if="activeTooltip === 'Trip' && !isResettingTrip" class="info-tooltip">Trip Distance</div>
+                    <Route class="info-icon" /><sup class="trip-indicator">{{ activeTrip }}</sup>
+                    <span class="info-value">{{ activeTripData.distance.toFixed(1) }} {{ unit === 'mph' ? 'mi' : 'km' }}</span>
+                    <div v-if="activeTooltip === 'Trip' && !isResettingTrip" class="info-tooltip">Trip {{ activeTrip }}</div>
                     <div v-if="isResettingTrip" class="info-tooltip reset-tooltip">Hold to reset trip</div>
                     <div v-if="isResettingTrip" class="reset-progress" :style="{ width: resetProgressTrip + '%' }"></div>
                   </div>
@@ -464,10 +466,13 @@ const {
 
 const {
   tripData,
+  activeTrip,
+  activeTripData,
   avgSpeed,
   updateTripData,
   startTripTimer,
   stopTripTimer,
+  switchTrip,
   resetAverageSpeed,
   resetMaxSpeed,
   resetTripDistance,
@@ -582,7 +587,7 @@ const handleNativeLocationUpdate = (location: NativeGPSPosition) => {
   updateSlope(location.latitude, location.longitude, location.altitude || 0, speedKmh, location.accuracy)
 
   const lastPos = getLastPosition()
-  updateTripData(currentSpeed, { latitude: location.latitude, longitude: location.longitude }, lastPos)
+  updateTripData(currentSpeed, { latitude: location.latitude, longitude: location.longitude }, lastPos, location.accuracy)
 }
 
 const handleWebLocationUpdate = (position: GeolocationPosition) => {
@@ -592,7 +597,7 @@ const handleWebLocationUpdate = (position: GeolocationPosition) => {
   updateSlope(position.coords.latitude, position.coords.longitude, position.coords.altitude || 0, speedKmh, position.coords.accuracy)
 
   const lastPos = getLastPosition()
-  updateTripData(currentSpeed, { latitude: position.coords.latitude, longitude: position.coords.longitude }, lastPos)
+  updateTripData(currentSpeed, { latitude: position.coords.latitude, longitude: position.coords.longitude }, lastPos, position.coords.accuracy)
 }
 
 const startTimeUpdater = () => {
@@ -750,6 +755,12 @@ const startReset = (type: 'avg' | 'max' | 'trip') => {
       resetProgressTrip.value = 0
     }, duration)
   }
+}
+
+// Double-tap to switch between Trip 1 and Trip 2
+const handleTripDoubleTap = () => {
+  switchTrip()
+  try { Haptics.impact({ style: ImpactStyle.Medium }) } catch {}
 }
 
 const setupExpandedGestures = () => {
@@ -1784,6 +1795,22 @@ watch(isNavigating, (navigating) => {
 .info-icon.slope-flat {
   color: #00ffd5;
   filter: drop-shadow(0 0 3px rgba(100, 130, 160, 0.4));
+}
+
+/* Trip indicator superscript */
+.trip-indicator {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #00ffd5;
+  margin-left: -0.15rem;
+  margin-right: 0.2rem;
+  vertical-align: super;
+  filter: drop-shadow(0 0 2px rgba(0, 255, 213, 0.5));
+}
+
+.app-container[data-theme="light"] .trip-indicator {
+  color: rgb(56, 189, 248);
+  filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.5));
 }
 
 /* TFT Digital text styles for horizontal gauge mode */

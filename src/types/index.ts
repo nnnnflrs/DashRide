@@ -35,14 +35,22 @@ export interface WebGPSPosition {
 }
 
 /**
- * Trip data tracking interface
+ * Individual trip data
  */
-export interface TripData {
+export interface SingleTripData {
   distance: number
   duration: number
   maxSpeed: number
-  totalSpeed: number
-  speedSamples: number
+  movingTime: number // Time spent actually moving (in seconds)
+}
+
+/**
+ * Trip data tracking interface with two trips
+ */
+export interface TripData {
+  trip1: SingleTripData
+  trip2: SingleTripData
+  activeTrip: 1 | 2
   totalDistance: number
 }
 

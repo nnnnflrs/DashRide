@@ -45,11 +45,12 @@ export function useGPSTracker() {
       lng: location.longitude
     }
 
-    lastPosition = { latitude: location.latitude, longitude: location.longitude }
-
+    // Call callback BEFORE updating lastPosition so getLastPosition() returns the previous position
     if (onUpdate) {
       onUpdate(location)
     }
+
+    lastPosition = { latitude: location.latitude, longitude: location.longitude }
   }
 
 
@@ -72,11 +73,12 @@ export function useGPSTracker() {
       lng: position.coords.longitude
     }
 
-    lastPosition = { latitude: position.coords.latitude, longitude: position.coords.longitude }
-
+    // Call callback BEFORE updating lastPosition so getLastPosition() returns the previous position
     if (onUpdate) {
       onUpdate(position)
     }
+
+    lastPosition = { latitude: position.coords.latitude, longitude: position.coords.longitude }
   }
 
   const startTracking = async (
