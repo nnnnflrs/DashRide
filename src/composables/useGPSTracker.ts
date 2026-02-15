@@ -15,14 +15,26 @@ const currentLocation = ref<Location | null>(null)
 let watchId: string | null = null
 let lastPosition: { latitude: number; longitude: number } | null = null
 
-const ZERO_THRESHOLD_KMH = 2
+const BASE_ZERO_THRESHOLD_KMH = 2
 
 
 export function useGPSTracker() {
   const { unit, gpsAccuracyFilter } = useSettings()
 
-  const processSpeed = (rawSpeed: number): number => {
-    const threshold = unit.value === 'mph' ? ZERO_THRESHOLD_KMH * 0.621371 : ZERO_THRESHOLD_KMH
+  const processSpeed = (rawSpeed: number, accuracy?: number): number => {
+    let thresholdKmh = BASE_ZERO_THRESHOLD_KMH
+
+    if (gpsAccuracyFilter.value && accuracy !== undefined) {
+      if (accuracy > 30) {
+        return 0
+      } else if (accuracy > 15) {
+        thresholdKmh = BASE_ZERO_THRESHOLD_KMH + (accuracy - 15) * 0.2
+      } else if (accuracy > 10) {
+        thresholdKmh = BASE_ZERO_THRESHOLD_KMH + 0.5
+      }
+    }
+
+    const threshold = unit.value === 'mph' ? thresholdKmh * 0.621371 : thresholdKmh
     return rawSpeed < threshold ? 0 : rawSpeed
   }
 
@@ -31,12 +43,7 @@ export function useGPSTracker() {
     const speedKmh = speedMps * 3.6
     const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
 
-    if (gpsAccuracyFilter.value && location.accuracy && location.accuracy > 20) {
-      speed.value = processSpeed(0)
-    } else {
-      speed.value = processSpeed(currentSpeed)
-    }
-
+    speed.value = processSpeed(currentSpeed, location.accuracy)
     altitude.value = location.altitude || 0
     bearing.value = location.bearing || 0
 
@@ -45,7 +52,6 @@ export function useGPSTracker() {
       lng: location.longitude
     }
 
-    // Call callback BEFORE updating lastPosition so getLastPosition() returns the previous position
     if (onUpdate) {
       onUpdate(location)
     }
@@ -59,11 +65,7 @@ export function useGPSTracker() {
     const speedKmh = speedMps * 3.6
     const currentSpeed = unit.value === 'mph' ? speedKmh * 0.621371 : speedKmh
 
-    if (gpsAccuracyFilter.value && position.coords.accuracy && position.coords.accuracy > 20) {
-      speed.value = processSpeed(0)
-    } else {
-      speed.value = processSpeed(currentSpeed)
-    }
+    speed.value = processSpeed(currentSpeed, position.coords.accuracy)
 
     altitude.value = position.coords.altitude || 0
     bearing.value = position.coords.heading || 0
@@ -73,7 +75,6 @@ export function useGPSTracker() {
       lng: position.coords.longitude
     }
 
-    // Call callback BEFORE updating lastPosition so getLastPosition() returns the previous position
     if (onUpdate) {
       onUpdate(position)
     }
