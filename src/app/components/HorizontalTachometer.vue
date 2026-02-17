@@ -1,5 +1,5 @@
 <template>
-  <div class="horizontal-tachometer" :data-shader="isMetalShader ? 'metal' : 'original'" @dblclick="toggleTestMode" @touchend="handleTap">
+  <div class="horizontal-tachometer" :data-shader="isMetalShader ? 'metal' : 'original'" @dblclick="!isIos && toggleTestMode()" @touchend="isIos && handleTap()">
     <div class="tft-display">
       <!-- Top Tachometer Bar -->
       <div class="tachometer-bar">
@@ -110,8 +110,11 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { Capacitor } from '@capacitor/core'
 import { useSettings } from '../../composables/useSettings'
 import { useGaugeColors } from '../../composables/useGaugeColors'
+
+const isIos = Capacitor.getPlatform() === 'ios'
 
 interface Props {
   speed: number

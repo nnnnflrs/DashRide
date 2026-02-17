@@ -1,5 +1,5 @@
 <template>
-  <div class="gauge-container" :data-shader="isMetalShader ? 'metal' : 'original'" @dblclick="toggleTestMode" @touchend="handleTap" >
+  <div class="gauge-container" :data-shader="isMetalShader ? 'metal' : 'original'" @dblclick="!isIos && toggleTestMode()" @touchend="isIos && handleTap()" >
     <svg class="gauge-svg" viewBox="0 0 300 180" :style="{ filter: gaugeGlow }">
       <defs>
         <!-- Chrome ring gradient - polished metal -->
@@ -126,8 +126,11 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { Capacitor } from '@capacitor/core'
 import { useSettings } from '../../composables/useSettings'
 import { useGaugeColors } from '../../composables/useGaugeColors'
+
+const isIos = Capacitor.getPlatform() === 'ios'
 
 interface Props {
   speed: number
