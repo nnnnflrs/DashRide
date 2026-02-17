@@ -1,28 +1,6 @@
-import { computed } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
 
 export type AccentTheme = 'pag-asa' | 'hiraya' | 'sinta' | 'dalisay' | 'tanglaw' | 'tadhana' | 'bighani' | 'marilag' | 'gabay' | 'hiwaga' | 'malaya' | 'panalangin'
-
-// Migration: boolean -> string (v1), old accent names -> new names (v2)
-const rawValue = localStorage.getItem('metalShader')
-if (rawValue === 'true') {
-  localStorage.setItem('metalShader', '"hiraya"')
-} else if (rawValue === 'false') {
-  localStorage.setItem('metalShader', '"pag-asa"')
-} else if (rawValue) {
-  const nameMigrations: Record<string, string> = {
-    '"hiraya"': '"hiraya"',
-    '"silakbo"': '"sinta"',
-    '"diwa"': '"dalisay"',
-    '"mutya"': '"tanglaw"',
-    '"panimdim"': '"tadhana"',
-    '"pusali"': '"gabay"',
-    '"original"': '"pag-asa"',
-  }
-  if (nameMigrations[rawValue]) {
-    localStorage.setItem('metalShader', nameMigrations[rawValue])
-  }
-}
 
 export function useSettings() {
   const theme = useLocalStorage<'auto' | 'light' | 'dark'>('theme', 'dark')
@@ -36,8 +14,7 @@ export function useSettings() {
   const showStatusBar = useLocalStorage('showStatusBar', false)
   const gaugeSkin = useLocalStorage<'circular' | 'horizontal'>('gaugeSkin', 'horizontal')
   const gpsAccuracyFilter = useLocalStorage('gpsAccuracyFilter', true)
-  const metalShader = useLocalStorage<AccentTheme>('metalShader', 'hiraya')
-  const isMetalShader = computed(() => metalShader.value !== 'pag-asa')
+  const accentTheme = useLocalStorage<AccentTheme>('accentTheme', 'hiraya')
 
   return {
     theme,
@@ -51,7 +28,6 @@ export function useSettings() {
     showStatusBar,
     gaugeSkin,
     gpsAccuracyFilter,
-    metalShader,
-    isMetalShader
+    accentTheme
   }
 }

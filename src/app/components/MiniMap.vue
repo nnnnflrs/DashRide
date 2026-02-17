@@ -1,5 +1,5 @@
 <template>
-  <div ref="containerRef" class="mini-map" :data-style="mapStyle" :data-shader="isMetalShader ? 'metal' : 'original'" @dblclick="$emit('expand')">
+  <div ref="containerRef" class="mini-map" :data-style="mapStyle" @dblclick="$emit('expand')">
     <div class="distance-badge">
       <TrendingUp class="badge-icon" />
       <span class="badge-text">{{ displayDistance }}</span>
@@ -23,9 +23,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Navigation, TrendingUp } from 'lucide-vue-next'
 import { GoogleMapsNative } from '../../plugins/googlemaps'
-import { useSettings } from '../../composables/useSettings'
 
-const { isMetalShader } = useSettings()
 
 interface Props {
   distance: number
@@ -501,64 +499,5 @@ onUnmounted(() => {
 
 .mini-map[data-style="light"] .turn-street {
   color: var(--chrome-highlight, #cfd8dc);
-}
-
-/* ============ ORIGINAL STYLE (Metal Shader OFF) ============ */
-.mini-map[data-shader="original"] {
-  border: 1px solid rgba(128, 128, 128, 0.3);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.mini-map[data-shader="original"][data-style="dark"] {
-  background: rgba(17, 24, 39, 0.8);
-}
-
-.mini-map[data-shader="original"][data-style="light"] {
-  background: rgba(241, 245, 249, 0.8);
-}
-
-.mini-map[data-shader="original"] .distance-badge {
-  background: rgba(17, 24, 39, 0.9);
-  border: 1px solid rgba(128, 128, 128, 0.2);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
-.mini-map[data-shader="original"] .badge-icon {
-  color: #00ffd5;
-  filter: none;
-}
-
-.mini-map[data-shader="original"] .badge-text {
-  color: white;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-}
-
-.mini-map[data-shader="original"] .zoom-hint {
-  background: rgba(17, 24, 39, 0.9);
-  border: 1px solid rgba(128, 128, 128, 0.2);
-}
-
-.mini-map[data-shader="original"] .hint-text {
-  color: rgba(156, 163, 175, 0.9);
-}
-
-.mini-map[data-shader="original"] .turn-info {
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.6));
-  border-top: 1px solid rgba(128, 128, 128, 0.2);
-}
-
-.mini-map[data-shader="original"] .turn-icon {
-  color: #00ffd5;
-  filter: none;
-}
-
-.mini-map[data-shader="original"] .turn-label {
-  color: rgba(156, 163, 175, 0.9);
-  text-shadow: none;
-}
-
-.mini-map[data-shader="original"] .turn-street {
-  color: white;
-  text-shadow: none;
 }
 </style>

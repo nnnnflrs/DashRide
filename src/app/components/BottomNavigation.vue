@@ -2,7 +2,6 @@
   <div
     class="bottom-nav"
     :data-theme="theme"
-    :data-shader="isMetalShader ? 'metal' : 'original'"
     :style="{
       paddingBottom: isNavigationBarVisible && navBarPosition === 'bottom' ? `${bottomInset}px` : '0px',
       paddingLeft: isNavigationBarVisible && navBarPosition === 'left' ? `${leftInset}px` : '0px',
@@ -27,7 +26,6 @@
 <script setup lang="ts">
 import { Navigation, Music, Gauge, Settings } from 'lucide-vue-next'
 import { useSafeArea } from '../../composables/useSafeArea'
-import { useSettings } from '../../composables/useSettings'
 
 interface Props {
   activeTab: 'nav' | 'music' | 'riding' | 'settings'
@@ -40,7 +38,6 @@ defineEmits<{
   'update:activeTab': [tab: 'nav' | 'music' | 'riding' | 'settings']
 }>()
 
-const { isMetalShader } = useSettings()
 const { bottomInset, leftInset, rightInset, navBarPosition, isNavigationBarVisible } = useSafeArea()
 
 const tabs = [
@@ -174,66 +171,5 @@ const tabs = [
   z-index: 10;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
   font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
-}
-
-/* ============ ORIGINAL STYLE (Metal Shader OFF) ============ */
-.bottom-nav[data-shader="original"] {
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(128, 128, 128, 0.2);
-  box-shadow: none;
-}
-
-.bottom-nav[data-shader="original"] .nav-button {
-  color: rgba(156, 163, 175, 0.8);
-}
-
-.bottom-nav[data-shader="original"] .nav-button:hover {
-  color: white;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.bottom-nav[data-shader="original"] .nav-button.active {
-  background: color-mix(in srgb, var(--accent-green) 15%, transparent);
-  color: var(--accent-green);
-  border: 1px solid color-mix(in srgb, var(--accent-green) 30%, transparent);
-  box-shadow: none;
-}
-
-.bottom-nav[data-shader="original"] .active-indicator {
-  background: color-mix(in srgb, var(--accent-green) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent-green) 20%, transparent);
-  box-shadow: none;
-}
-
-.bottom-nav[data-shader="original"] .nav-button.active .nav-icon {
-  filter: none;
-}
-
-.bottom-nav[data-shader="original"] .nav-label {
-  text-shadow: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  letter-spacing: 0.05em;
-}
-
-/* Light theme original */
-.bottom-nav[data-shader="original"][data-theme="light"] {
-  background: rgba(255, 255, 255, 0.85);
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.bottom-nav[data-shader="original"][data-theme="light"] .nav-button {
-  color: #64748b;
-}
-
-.bottom-nav[data-shader="original"][data-theme="light"] .nav-button.active {
-  color: var(--accent-green-dim);
-  background: color-mix(in srgb, var(--accent-green) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent-green) 20%, transparent);
-}
-
-.bottom-nav[data-shader="original"][data-theme="light"] .active-indicator {
-  background: color-mix(in srgb, var(--accent-green) 6%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent-green) 15%, transparent);
 }
 </style>

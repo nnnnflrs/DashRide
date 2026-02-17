@@ -1,5 +1,5 @@
 <template>
-  <div class="gauge-container" :data-shader="isMetalShader ? 'metal' : 'original'" @dblclick="!isIos && toggleTestMode()" @touchend="isIos && handleTap()" >
+  <div class="gauge-container" @dblclick="toggleTestMode" @touchend.prevent="handleTap" >
     <svg class="gauge-svg" viewBox="0 0 300 180" :style="{ filter: gaugeGlow }">
       <defs>
         <!-- Chrome ring gradient - polished metal -->
@@ -35,8 +35,8 @@
         </filter>
       </defs>
 
-      <!-- Chrome ring background - polished bezel (metal shader only) -->
-      <template v-if="isMetalShader">
+      <!-- Chrome ring background - polished bezel -->
+      <template>
         <path
           d="M 30 150 A 120 120 0 0 1 270 150"
           fill="none"
@@ -126,11 +126,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Capacitor } from '@capacitor/core'
-import { useSettings } from '../../composables/useSettings'
 import { useGaugeColors } from '../../composables/useGaugeColors'
-
-const isIos = Capacitor.getPlatform() === 'ios'
 
 interface Props {
   speed: number
@@ -138,7 +134,6 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const { isMetalShader } = useSettings()
 const { colors: gaugeColors } = useGaugeColors()
 
 const testMode = ref(false)
@@ -336,19 +331,5 @@ const animateTestSpeed = () => {
     opacity: 0.7;
     box-shadow: 0 0 20px var(--glow-red, rgba(255, 23, 68, 0.6));
   }
-}
-
-/* ============ ORIGINAL STYLE (Metal Shader OFF) ============ */
-.gauge-container[data-shader="original"] .mark-text {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-}
-
-.gauge-container[data-shader="original"] .speed-text {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-}
-
-.gauge-container[data-shader="original"] .unit-text {
-  fill: rgba(156, 163, 175, 0.9);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 </style>

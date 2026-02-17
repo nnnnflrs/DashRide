@@ -1,5 +1,5 @@
 <template>
-  <div v-if="showStatusBar" class="status-bar" :data-theme="theme" :data-shader="isMetalShader ? 'metal' : 'original'" :style="{ paddingTop: isNavigationBarVisible && navBarPosition === 'top' ? `${topInset}px` : '0px' }">
+  <div v-if="showStatusBar" class="status-bar" :data-theme="theme" :style="{ paddingTop: isNavigationBarVisible && navBarPosition === 'top' ? `${topInset}px` : '0px' }">
     <div class="left">
       <span class="time-label">{{ currentTime }}</span>
       <template v-if="isGpsActive">
@@ -30,7 +30,7 @@ import { BleClient } from '@capacitor-community/bluetooth-le'
 import { useSettings } from '@/composables/useSettings'
 import { useSafeArea } from '@/composables/useSafeArea'
 
-const { showStatusBar, isMetalShader } = useSettings()
+const { showStatusBar } = useSettings()
 const { topInset, navBarPosition, isNavigationBarVisible } = useSafeArea()
 
 interface Props {
@@ -271,76 +271,5 @@ onUnmounted(() => {
 
 .status-bar[data-theme="light"] .time-label {
   color: var(--chrome-highlight, #cfd8dc);
-}
-
-/* ============ ORIGINAL STYLE (Metal Shader OFF) ============ */
-.status-bar[data-shader="original"] {
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
-  box-shadow: none;
-}
-
-.status-bar[data-shader="original"]::before {
-  display: none;
-}
-
-.status-bar[data-shader="original"] .icon {
-  color: rgba(156, 163, 175, 0.7);
-  filter: none;
-}
-
-.status-bar[data-shader="original"] .icon.connected {
-  color: #4ade80;
-  filter: none;
-}
-
-.status-bar[data-shader="original"] .gps-icon {
-  color: #4ade80;
-  filter: none;
-}
-
-.status-bar[data-shader="original"] .battery-icon {
-  color: #4ade80;
-  filter: none;
-}
-
-.status-bar[data-shader="original"] .battery-low {
-  color: #ef4444;
-  filter: none;
-}
-
-.status-bar[data-shader="original"] .bluetooth-icon {
-  color: #60a5fa;
-  filter: none;
-}
-
-.status-bar[data-shader="original"] .label {
-  color: rgba(156, 163, 175, 0.9);
-  text-shadow: none;
-}
-
-.status-bar[data-shader="original"] .time-label {
-  color: white;
-  text-shadow: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-}
-
-/* Light theme original */
-.status-bar[data-shader="original"][data-theme="light"] {
-  background: rgba(255, 255, 255, 0.8);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.status-bar[data-shader="original"][data-theme="light"] .icon {
-  color: #64748b;
-}
-
-.status-bar[data-shader="original"][data-theme="light"] .label {
-  color: #64748b;
-}
-
-.status-bar[data-shader="original"][data-theme="light"] .time-label {
-  color: #1e293b;
 }
 </style>

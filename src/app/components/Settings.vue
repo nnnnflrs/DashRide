@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-container" :data-theme="theme" :data-shader="isMetalShader ? 'metal' : 'original'">
+  <div class="settings-container" :data-theme="theme">
     <h2 class="settings-title">Settings</h2>
     
     <!-- Theme Setting -->
@@ -152,9 +152,9 @@
           <button
             v-for="accent in accentThemes"
             :key="accent.id"
-            @click="metalShader = accent.id"
-            :class="['accent-option', { active: metalShader === accent.id }]"
-            :style="metalShader === accent.id ? { borderColor: accent.color, boxShadow: `0 0 12px ${accent.color}25` } : {}"
+            @click="accentTheme = accent.id"
+            :class="['accent-option', { active: accentTheme === accent.id }]"
+            :style="accentTheme === accent.id ? { borderColor: accent.color, boxShadow: `0 0 12px ${accent.color}25` } : {}"
           >
             <div class="accent-color-dot" :style="{ backgroundColor: accent.color, boxShadow: `0 0 8px ${accent.color}60` }" />
             <span class="accent-name">{{ accent.name }}</span>
@@ -364,7 +364,7 @@ interface Props {
 
 defineProps<Props>()
 
-const { theme: settingsTheme, unit, keepScreenOn, avoidTolls, showMinimap, mapStyle, showDetailsOnNavigation, voiceInstructions, showStatusBar, gaugeSkin, gpsAccuracyFilter, metalShader, isMetalShader } = useSettings()
+const { theme: settingsTheme, unit, keepScreenOn, avoidTolls, showMinimap, mapStyle, showDetailsOnNavigation, voiceInstructions, showStatusBar, gaugeSkin, gpsAccuracyFilter, accentTheme } = useSettings()
 
 const accentThemes = [
   { id: 'hiraya' as const, name: 'Hiraya', subtitle: 'Aspirations', color: '#00ff88' },
@@ -1075,33 +1075,6 @@ const openFeedbackForm = () => {
   color: #64748b;
 }
 
-.settings-container[data-shader="original"] .accent-option {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: none;
-}
-
-.settings-container[data-shader="original"] .accent-option:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.settings-container[data-shader="original"] .accent-option.active {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.settings-container[data-shader="original"][data-theme="light"] .accent-option {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: rgba(0, 0, 0, 0.1);
-}
-
-.settings-container[data-shader="original"][data-theme="light"] .accent-option:hover {
-  background: rgba(0, 0, 0, 0.06);
-}
-
-.settings-container[data-shader="original"][data-theme="light"] .accent-option.active {
-  background: rgba(0, 0, 0, 0.08);
-}
-
 /* Gauge Skin Selection */
 .skin-description {
   font-size: 0.875rem;
@@ -1249,235 +1222,5 @@ const openFeedbackForm = () => {
   .skin-options {
     grid-template-columns: 1fr;
   }
-}
-
-/* ============ ORIGINAL STYLE (Metal Shader OFF) ============ */
-.settings-container[data-shader="original"] .settings-title {
-  color: white;
-  text-shadow: none;
-}
-
-.settings-container[data-shader="original"] .setting-card {
-  background: rgba(17, 24, 39, 0.6);
-  border: 1px solid rgba(128, 128, 128, 0.2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.settings-container[data-shader="original"] .setting-label {
-  color: rgba(156, 163, 175, 0.9);
-  text-shadow: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-}
-
-.settings-container[data-shader="original"] .unit-button,
-.settings-container[data-shader="original"] .theme-button {
-  background: rgba(55, 65, 81, 0.6);
-  color: rgba(156, 163, 175, 1);
-  border: 1px solid rgba(128, 128, 128, 0.2);
-  box-shadow: none;
-  text-shadow: none;
-}
-
-.settings-container[data-shader="original"] .unit-button:hover,
-.settings-container[data-shader="original"] .theme-button:hover {
-  background: rgba(75, 85, 99, 0.8);
-}
-
-.settings-container[data-shader="original"] .unit-button.active,
-.settings-container[data-shader="original"] .theme-button.active {
-  background: linear-gradient(135deg, var(--accent-green-dim), var(--accent-green));
-  color: white;
-  border: 1px solid var(--accent-green);
-  box-shadow: 0 0 8px var(--glow-green);
-  text-shadow: none;
-}
-
-.settings-container[data-shader="original"] .toggle-title {
-  color: white;
-  text-shadow: none;
-}
-
-.settings-container[data-shader="original"] .toggle-description {
-  color: rgba(156, 163, 175, 0.9);
-}
-
-.settings-container[data-shader="original"] .toggle-button {
-  background: rgba(55, 65, 81, 0.6);
-  border: 1px solid rgba(128, 128, 128, 0.2);
-  box-shadow: none;
-}
-
-.settings-container[data-shader="original"] .toggle-button.active {
-  background: var(--accent-green);
-  border-color: var(--accent-green);
-  box-shadow: none;
-}
-
-.settings-container[data-shader="original"] .toggle-knob {
-  background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.settings-container[data-shader="original"] .toggle-knob.active {
-  background: white;
-}
-
-.settings-container[data-shader="original"] .about-title {
-  color: white;
-  text-shadow: none;
-}
-
-.settings-container[data-shader="original"] .about-content {
-  color: rgba(156, 163, 175, 0.9);
-}
-
-.settings-container[data-shader="original"] .bold {
-  color: white;
-}
-
-.settings-container[data-shader="original"] .skin-option {
-  background: rgba(55, 65, 81, 0.4);
-  border: 2px solid rgba(128, 128, 128, 0.2);
-  box-shadow: none;
-}
-
-.settings-container[data-shader="original"] .skin-option:hover {
-  background: rgba(75, 85, 99, 0.6);
-}
-
-.settings-container[data-shader="original"] .skin-option.active {
-  border-color: var(--accent-green);
-  background: color-mix(in srgb, var(--accent-green) 10%, transparent);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--accent-green) 20%, transparent);
-}
-
-.settings-container[data-shader="original"] .skin-preview {
-  background: rgba(17, 24, 39, 0.8);
-  border: 1px solid rgba(128, 128, 128, 0.2);
-  box-shadow: none;
-}
-
-.settings-container[data-shader="original"] .skin-option.active .skin-preview-svg {
-  color: var(--accent-green);
-  filter: none;
-}
-
-.settings-container[data-shader="original"] .skin-name {
-  color: rgba(156, 163, 175, 1);
-  text-shadow: none;
-}
-
-.settings-container[data-shader="original"] .skin-option.active .skin-name {
-  color: var(--accent-green);
-}
-
-.settings-container[data-shader="original"] .skin-badge.default {
-  background: rgba(55, 65, 81, 0.6);
-  color: rgba(156, 163, 175, 0.8);
-  border: 1px solid rgba(128, 128, 128, 0.2);
-}
-
-.settings-container[data-shader="original"] .skin-badge.new {
-  background: linear-gradient(135deg, var(--accent-green-dim), var(--accent-green));
-  color: white;
-  border: 1px solid var(--accent-green);
-  box-shadow: none;
-}
-
-.settings-container[data-shader="original"] .skin-description {
-  color: rgba(156, 163, 175, 0.9);
-}
-
-.settings-container[data-shader="original"] .feedback-button {
-  background: rgba(55, 65, 81, 0.6);
-  color: white;
-  border: 1px solid rgba(128, 128, 128, 0.2);
-  box-shadow: none;
-  text-shadow: none;
-}
-
-.settings-container[data-shader="original"] .feedback-button:hover {
-  background: rgba(75, 85, 99, 0.8);
-}
-
-.settings-container[data-shader="original"] .feedback-description {
-  color: rgba(156, 163, 175, 0.9);
-}
-
-.settings-container[data-shader="original"] .donation-row {
-  background: rgba(17, 24, 39, 0.6);
-  border: 1px solid rgba(128, 128, 128, 0.2);
-  box-shadow: none;
-}
-
-.settings-container[data-shader="original"] .donation-title {
-  color: rgba(156, 163, 175, 0.9);
-}
-
-.settings-container[data-shader="original"] .donation-text {
-  color: rgba(156, 163, 175, 0.8);
-}
-
-.settings-container[data-shader="original"] .free-badge {
-  background: color-mix(in srgb, var(--accent-green) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent-green) 25%, transparent);
-  box-shadow: none;
-}
-
-.settings-container[data-shader="original"] .coming-soon-badge {
-  background: rgba(55, 65, 81, 0.6);
-  color: rgb(250, 204, 21);
-  border: 1px solid rgba(250, 204, 21, 0.3);
-  box-shadow: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-}
-
-/* Light theme original overrides */
-.settings-container[data-shader="original"][data-theme="light"] .settings-title {
-  color: #1e293b;
-}
-
-.settings-container[data-shader="original"][data-theme="light"] .setting-card {
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.settings-container[data-shader="original"][data-theme="light"] .setting-label {
-  color: #64748b;
-}
-
-.settings-container[data-shader="original"][data-theme="light"] .toggle-title {
-  color: #1e293b;
-}
-
-.settings-container[data-shader="original"][data-theme="light"] .toggle-description {
-  color: #64748b;
-}
-
-.settings-container[data-shader="original"][data-theme="light"] .unit-button,
-.settings-container[data-shader="original"][data-theme="light"] .theme-button {
-  background: rgba(241, 245, 249, 0.9);
-  color: #64748b;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.settings-container[data-shader="original"][data-theme="light"] .unit-button.active,
-.settings-container[data-shader="original"][data-theme="light"] .theme-button.active {
-  background: linear-gradient(135deg, var(--accent-green-dim), var(--accent-green));
-  color: white;
-  border: 1px solid var(--accent-green);
-}
-
-.settings-container[data-shader="original"][data-theme="light"] .about-title {
-  color: #1e293b;
-}
-
-.settings-container[data-shader="original"][data-theme="light"] .about-content {
-  color: #64748b;
-}
-
-.settings-container[data-shader="original"][data-theme="light"] .bold {
-  color: #1e293b;
 }
 </style>

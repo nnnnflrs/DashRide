@@ -3,8 +3,7 @@
   <div
     class="app-container"
     :data-theme="currentTheme"
-    :data-shader="metalShader === 'pag-asa' ? 'pag-asa' : 'metal'"
-    :data-accent="metalShader"
+    :data-accent="accentTheme"
     :class="{ 'native-map-active': activeTab === 'nav' }"
     :style="{
       paddingLeft: isNavigationBarVisible && navBarPosition === 'left' ? `${leftInset}px` : '0px',
@@ -12,13 +11,13 @@
     }"
   >
     <div class="background-gradient" />
-    <div v-if="isMetalShader" class="carbon-fiber-texture" />
+    <div class="carbon-fiber-texture" />
 
     <div class="glow-top" />
     <div class="glow-bottom" />
 
     <!-- Glass overlay with subtle imperfections -->
-    <div v-if="isMetalShader" class="glass-overlay" />
+    <div class="glass-overlay" />
 
     <div class="content-wrapper">
       <StatusBar :isGpsActive="isTracking" :theme="currentTheme" />
@@ -537,7 +536,7 @@ const isSearchingLocation = ref(false)
 const activeTooltip = ref<string | null>(null)
 let tooltipTimeout: number | null = null
 
-const { theme, unit, keepScreenOn, showMinimap, showDetailsOnNavigation, mapStyle, gaugeSkin, metalShader, isMetalShader, showStatusBar } = useSettings()
+const { theme, unit, keepScreenOn, showMinimap, showDetailsOnNavigation, mapStyle, gaugeSkin, accentTheme, showStatusBar } = useSettings()
 
 const currentTheme = computed(() => {
   if (theme.value === 'auto') {
@@ -2849,227 +2848,4 @@ watch(isNavigating, (navigating) => {
   opacity: 0;
 }
 
-/* ============================================
-   ORIGINAL THEME OVERRIDES (Metal Shader OFF)
-   ============================================ */
-
-/* Dark theme - original TFT style */
-.app-container[data-shader="original"][data-theme="dark"] {
-  background: #000000;
-  color: #e0e0e0;
-}
-
-.app-container[data-shader="original"][data-theme="dark"] .background-gradient {
-  background: linear-gradient(135deg, #000000 0%, #111827 50%, #000000 100%);
-}
-
-.app-container[data-shader="original"][data-theme="dark"] .glow-top {
-  background: radial-gradient(circle, rgba(0, 255, 213, 0.08) 0%, transparent 70%);
-}
-
-.app-container[data-shader="original"][data-theme="dark"] .glow-bottom {
-  background: radial-gradient(circle, color-mix(in srgb, var(--accent-green) 6%, transparent) 0%, transparent 70%);
-}
-
-/* Light theme - original style */
-.app-container[data-shader="original"][data-theme="light"] {
-  background: linear-gradient(135deg, #f8fafc, #e2e8f0, #f1f5f9);
-  color: #1e293b;
-}
-
-.app-container[data-shader="original"][data-theme="light"] .background-gradient {
-  background: linear-gradient(135deg, #f8fafc, #e2e8f0, #f1f5f9);
-}
-
-.app-container[data-shader="original"][data-theme="light"] .glow-top {
-  background: radial-gradient(circle, color-mix(in srgb, var(--accent-green) 10%, transparent) 0%, transparent 60%);
-}
-
-.app-container[data-shader="original"][data-theme="light"] .glow-bottom {
-  background: radial-gradient(circle, rgba(147, 51, 234, 0.08) 0%, transparent 60%);
-}
-
-/* Original info icons - accent colored */
-.app-container[data-shader="original"] .info-icon {
-  color: var(--accent-green);
-  filter: none;
-}
-
-.app-container[data-shader="original"] .info-icon.weather {
-  color: var(--accent-green);
-  filter: none;
-}
-
-.app-container[data-shader="original"] .info-icon.slope-uphill {
-  color: #ff1744;
-  filter: none;
-}
-
-.app-container[data-shader="original"] .info-icon.slope-downhill {
-  color: var(--accent-green);
-  filter: none;
-}
-
-.app-container[data-shader="original"] .info-icon.slope-flat {
-  color: rgba(156, 163, 175, 0.7);
-  filter: none;
-}
-
-.app-container[data-shader="original"] .trip-indicator {
-  color: var(--accent-green);
-  filter: none;
-}
-
-/* Original info values - white text, no metal tones */
-.app-container[data-shader="original"] .info-value {
-  color: white;
-  text-shadow: none;
-}
-
-.app-container[data-shader="original"] .info-value-large {
-  color: white;
-  text-shadow: none;
-}
-
-/* Original tooltip - simple dark glass */
-.app-container[data-shader="original"] .info-tooltip {
-  background: rgba(17, 24, 39, 0.95);
-  color: white;
-  border: 1px solid rgba(128, 128, 128, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  text-shadow: none;
-}
-
-/* Original bottom time */
-.app-container[data-shader="original"] .bottom-time {
-  color: white;
-}
-
-.app-container[data-shader="original"] .circular-time {
-  color: white;
-}
-
-/* Original music player - simple dark glass */
-.app-container[data-shader="original"] .mini-music-player,
-.app-container[data-shader="original"] .bottom-music-player {
-  background: rgba(17, 24, 39, 0.95);
-  border: 1px solid rgba(128, 128, 128, 0.3);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-}
-
-.app-container[data-shader="original"] .mini-album-art,
-.app-container[data-shader="original"] .bottom-album-art {
-  background: rgba(55, 65, 81, 0.6);
-  border: 1px solid rgba(128, 128, 128, 0.2);
-}
-
-/* Original control buttons - simple flat style */
-.app-container[data-shader="original"] .mini-control-btn,
-.app-container[data-shader="original"] .bottom-control-btn {
-  background: rgba(55, 65, 81, 0.6);
-  border: 1px solid rgba(128, 128, 128, 0.3);
-  box-shadow: none;
-}
-
-.app-container[data-shader="original"] .mini-control-btn:hover,
-.app-container[data-shader="original"] .bottom-control-btn:hover {
-  background: rgba(75, 85, 99, 0.8);
-}
-
-/* Original play button - accent colored */
-.app-container[data-shader="original"] .mini-play-btn,
-.app-container[data-shader="original"] .bottom-play-btn {
-  background: linear-gradient(135deg, var(--accent-green-dim), var(--accent-green));
-  border: 1px solid var(--accent-green);
-  box-shadow: 0 0 8px var(--glow-green);
-}
-
-.app-container[data-shader="original"] .mini-play-btn:hover,
-.app-container[data-shader="original"] .bottom-play-btn:hover {
-  box-shadow: 0 0 16px color-mix(in srgb, var(--accent-green) 50%, transparent);
-}
-
-/* Original close button */
-.app-container[data-shader="original"] .mini-close-btn,
-.app-container[data-shader="original"] .bottom-close-btn {
-  background: rgba(55, 65, 81, 0.6);
-  border: 1px solid rgba(128, 128, 128, 0.2);
-}
-
-.app-container[data-shader="original"] .mini-close-btn:hover,
-.app-container[data-shader="original"] .bottom-close-btn:hover {
-  background: rgba(75, 85, 99, 0.8);
-}
-
-/* Original bottom info */
-.app-container[data-shader="original"] .bottom-info {
-  background: rgba(17, 24, 39, 0.9);
-  border: 1px solid rgba(128, 128, 128, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-.app-container[data-shader="original"] .center-bottom-info {
-  background: rgba(17, 24, 39, 0.9);
-  border: 1px solid rgba(128, 128, 128, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-/* Original light theme text colors */
-.app-container[data-shader="original"][data-theme="light"] .info-value,
-.app-container[data-shader="original"][data-theme="light"] .info-value-large,
-.app-container[data-shader="original"][data-theme="light"] .bottom-time {
-  color: #1e293b;
-  text-shadow: none;
-}
-
-.app-container[data-shader="original"][data-theme="light"] .info-label,
-.app-container[data-shader="original"][data-theme="light"] .info-sublabel {
-  color: #64748b;
-}
-
-.app-container[data-shader="original"][data-theme="light"] .info-icon {
-  color: var(--accent-green-dim);
-  filter: none;
-}
-
-.app-container[data-shader="original"][data-theme="light"] .mini-music-player,
-.app-container[data-shader="original"][data-theme="light"] .bottom-music-player {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.app-container[data-shader="original"][data-theme="light"] .mini-control-btn,
-.app-container[data-shader="original"][data-theme="light"] .bottom-control-btn {
-  background: rgba(241, 245, 249, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.app-container[data-shader="original"][data-theme="light"] .info-tooltip {
-  background: rgba(255, 255, 255, 0.95);
-  color: #1e293b;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* Original portrait card styles */
-@media (orientation: portrait) {
-  .app-container[data-shader="original"] .info-item {
-    background: rgba(17, 24, 39, 0.6) !important;
-    border: 1px solid rgba(128, 128, 128, 0.2) !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-  }
-
-  .app-container[data-shader="original"] .info-items-row .info-item {
-    background: rgba(17, 24, 39, 0.6) !important;
-    border: 1px solid rgba(128, 128, 128, 0.2) !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-  }
-
-  .app-container[data-shader="original"][data-theme="light"] .info-item {
-    background: rgba(255, 255, 255, 0.8) !important;
-    border: 1px solid rgba(0, 0, 0, 0.1) !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
-  }
-}
 </style>

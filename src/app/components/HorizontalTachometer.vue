@@ -1,5 +1,5 @@
 <template>
-  <div class="horizontal-tachometer" :data-shader="isMetalShader ? 'metal' : 'original'" @dblclick="!isIos && toggleTestMode()" @touchend="isIos && handleTap()">
+  <div class="horizontal-tachometer" @dblclick="toggleTestMode" @touchend.prevent="handleTap">
     <div class="tft-display">
       <!-- Top Tachometer Bar -->
       <div class="tachometer-bar">
@@ -110,11 +110,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Capacitor } from '@capacitor/core'
-import { useSettings } from '../../composables/useSettings'
 import { useGaugeColors } from '../../composables/useGaugeColors'
-
-const isIos = Capacitor.getPlatform() === 'ios'
 
 interface Props {
   speed: number
@@ -122,7 +118,6 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const { isMetalShader } = useSettings()
 const { colors: gaugeColors } = useGaugeColors()
 
 const testMode = ref(false)
@@ -429,28 +424,5 @@ const handleTap = () => {
   .horizontal-tachometer {
     max-width: 100%;
   }
-}
-
-/* ============ ORIGINAL STYLE (Metal Shader OFF) ============ */
-.horizontal-tachometer[data-shader="original"] .segment-bg {
-  fill: rgba(255, 255, 255, 0.06);
-  stroke: rgba(255, 255, 255, 0.08);
-}
-
-.horizontal-tachometer[data-shader="original"] .unit-indicator {
-  fill: rgba(156, 163, 175, 0.9);
-}
-
-.horizontal-tachometer[data-shader="original"] .speed-unit {
-  color: rgba(156, 163, 175, 0.9);
-  text-shadow: none;
-}
-
-.horizontal-tachometer[data-shader="original"] .tick-text {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-}
-
-.horizontal-tachometer[data-shader="original"] .speed-value {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 </style>
