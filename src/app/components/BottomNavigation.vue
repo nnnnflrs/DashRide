@@ -2,6 +2,7 @@
   <div
     class="bottom-nav"
     :data-theme="theme"
+    :data-shader="isMetalShader ? 'metal' : 'original'"
     :style="{
       paddingBottom: isNavigationBarVisible && navBarPosition === 'bottom' ? `${bottomInset}px` : '0px',
       paddingLeft: isNavigationBarVisible && navBarPosition === 'left' ? `${leftInset}px` : '0px',
@@ -26,6 +27,7 @@
 <script setup lang="ts">
 import { Navigation, Music, Gauge, Settings } from 'lucide-vue-next'
 import { useSafeArea } from '../../composables/useSafeArea'
+import { useSettings } from '../../composables/useSettings'
 
 interface Props {
   activeTab: 'nav' | 'music' | 'riding' | 'settings'
@@ -38,6 +40,7 @@ defineEmits<{
   'update:activeTab': [tab: 'nav' | 'music' | 'riding' | 'settings']
 }>()
 
+const { isMetalShader } = useSettings()
 const { bottomInset, leftInset, rightInset, navBarPosition, isNavigationBarVisible } = useSafeArea()
 
 const tabs = [
@@ -49,21 +52,27 @@ const tabs = [
 </script>
 
 <style scoped>
-/* Dark Theme (Default) */
+/* Dark Theme (Default) - Machined metal navigation bar */
 .bottom-nav {
-  background: rgba(0, 0, 0, 0.6);
+  background: linear-gradient(0deg,
+    rgba(18, 22, 26, 0.98) 0%,
+    rgba(26, 31, 37, 0.98) 50%,
+    rgba(37, 43, 51, 0.98) 100%);
   backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(128, 128, 128, 0.5);
+  border-top: 1px solid rgba(90, 101, 119, 0.3);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition: background 0.3s ease, border-color 0.3s ease;
-  /* Safe area support for landscape notched devices */
   padding-left: var(--safe-area-inset-left, 0px);
   padding-right: var(--safe-area-inset-right, 0px);
 }
 
 /* Light Theme */
 .bottom-nav[data-theme="light"] {
-  background: rgba(255, 255, 255, 0.85);
-  border-top: 1px solid rgba(148, 163, 184, 0.4);
+  background: linear-gradient(0deg,
+    rgba(26, 31, 37, 0.98) 0%,
+    rgba(37, 43, 51, 0.98) 50%,
+    rgba(42, 48, 56, 0.98) 100%);
+  border-top: 1px solid rgba(90, 101, 119, 0.4);
 }
 
 .nav-grid {
@@ -73,6 +82,7 @@ const tabs = [
   padding: var(--space-xs, 0.5rem);
 }
 
+/* Machined metal button - recessed with bevel */
 .nav-button {
   position: relative;
   display: flex;
@@ -84,54 +94,61 @@ const tabs = [
   border-radius: var(--radius-md, 0.5rem);
   transition: all 0.2s;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
-  color: rgba(156, 163, 175, 1);
-  /* Touch target achieved through padding, not forced min-height */
+  color: var(--metal-shine, rgba(136, 153, 170, 1));
 }
 
 .nav-button:hover {
-  color: rgba(209, 213, 219, 1);
+  color: var(--aluminum-shine, #a0aec0);
+  background: rgba(58, 66, 77, 0.3);
 }
 
 .nav-button:active {
-  background: rgba(31, 41, 55, 0.5);
+  background: rgba(18, 22, 26, 0.6);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
+/* Active state - LED glow accent */
 .nav-button.active {
-  background: rgba(37, 99, 235, 0.2);
-  color: rgb(96, 165, 250);
+  background: linear-gradient(145deg, rgba(37, 43, 51, 0.8), rgba(18, 22, 26, 0.8));
+  color: var(--accent-green, #00ff88);
+  border: 1px solid color-mix(in srgb, var(--accent-green, #00ff88) 20%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* Light Theme Navigation Buttons */
 .bottom-nav[data-theme="light"] .nav-button {
-  color: rgb(71, 85, 105);
+  color: var(--aluminum-light, #718096);
 }
 
 .bottom-nav[data-theme="light"] .nav-button:hover {
-  color: rgb(51, 65, 85);
+  color: var(--aluminum-shine, #a0aec0);
 }
 
 .bottom-nav[data-theme="light"] .nav-button:active {
-  background: rgba(203, 213, 225, 0.5);
+  background: rgba(18, 22, 26, 0.6);
 }
 
 .bottom-nav[data-theme="light"] .nav-button.active {
-  background: rgba(37, 99, 235, 0.15);
-  color: rgb(37, 99, 235);
+  color: var(--accent-green, #00ff88);
+  background: linear-gradient(145deg, rgba(37, 43, 51, 0.8), rgba(18, 22, 26, 0.8));
+  border: 1px solid color-mix(in srgb, var(--accent-green, #00ff88) 20%, transparent);
 }
 
 .bottom-nav[data-theme="light"] .active-indicator {
-  background: rgba(37, 99, 235, 0.15);
-  border: 1px solid rgba(37, 99, 235, 0.3);
+  background: color-mix(in srgb, var(--accent-green, #00ff88) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-green, #00ff88) 15%, transparent);
 }
 
+/* Active indicator - LED underglow */
 .active-indicator {
   position: absolute;
   inset: 0;
-  background: rgba(37, 99, 235, 0.2);
+  background: color-mix(in srgb, var(--accent-green, #00ff88) 6%, transparent);
   border-radius: var(--radius-md, 0.5rem);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid color-mix(in srgb, var(--accent-green, #00ff88) 15%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent-green, #00ff88) 8%, transparent);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -140,14 +157,83 @@ const tabs = [
   height: var(--icon-sm, 1.25rem);
   position: relative;
   z-index: 10;
+  transition: filter 0.2s;
 }
 
+.nav-button.active .nav-icon {
+  filter: drop-shadow(0 0 4px var(--glow-green, rgba(0, 255, 136, 0.4)));
+}
+
+/* Laser-etched label */
 .nav-label {
   font-size: var(--text-xs, 0.75rem);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   position: relative;
   z-index: 10;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+}
+
+/* ============ ORIGINAL STYLE (Metal Shader OFF) ============ */
+.bottom-nav[data-shader="original"] {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(128, 128, 128, 0.2);
+  box-shadow: none;
+}
+
+.bottom-nav[data-shader="original"] .nav-button {
+  color: rgba(156, 163, 175, 0.8);
+}
+
+.bottom-nav[data-shader="original"] .nav-button:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bottom-nav[data-shader="original"] .nav-button.active {
+  background: color-mix(in srgb, var(--accent-green) 15%, transparent);
+  color: var(--accent-green);
+  border: 1px solid color-mix(in srgb, var(--accent-green) 30%, transparent);
+  box-shadow: none;
+}
+
+.bottom-nav[data-shader="original"] .active-indicator {
+  background: color-mix(in srgb, var(--accent-green) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-green) 20%, transparent);
+  box-shadow: none;
+}
+
+.bottom-nav[data-shader="original"] .nav-button.active .nav-icon {
+  filter: none;
+}
+
+.bottom-nav[data-shader="original"] .nav-label {
+  text-shadow: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  letter-spacing: 0.05em;
+}
+
+/* Light theme original */
+.bottom-nav[data-shader="original"][data-theme="light"] {
+  background: rgba(255, 255, 255, 0.85);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.bottom-nav[data-shader="original"][data-theme="light"] .nav-button {
+  color: #64748b;
+}
+
+.bottom-nav[data-shader="original"][data-theme="light"] .nav-button.active {
+  color: var(--accent-green-dim);
+  background: color-mix(in srgb, var(--accent-green) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-green) 20%, transparent);
+}
+
+.bottom-nav[data-shader="original"][data-theme="light"] .active-indicator {
+  background: color-mix(in srgb, var(--accent-green) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-green) 15%, transparent);
 }
 </style>

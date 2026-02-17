@@ -1,5 +1,5 @@
 <template>
-  <div class="horizontal-tachometer" @dblclick="toggleTestMode">
+  <div class="horizontal-tachometer" :data-shader="isMetalShader ? 'metal' : 'original'" @dblclick="toggleTestMode" @touchend="handleTap">
     <div class="tft-display">
       <!-- Top Tachometer Bar -->
       <div class="tachometer-bar">
@@ -110,6 +110,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useSettings } from '../../composables/useSettings'
+import { useGaugeColors } from '../../composables/useGaugeColors'
 
 interface Props {
   speed: number
@@ -117,6 +119,8 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { isMetalShader } = useSettings()
+const { colors: gaugeColors } = useGaugeColors()
 
 const testMode = ref(false)
 const testSpeed = ref(0)
@@ -124,19 +128,13 @@ const displaySpeed = computed(() => testMode.value ? testSpeed.value : props.spe
 const maxSpeed = computed(() => props.unit === 'mph' ? 93 : 150)
 const speedPercentage = computed(() => Math.min((displaySpeed.value / maxSpeed.value), 1))
 
-const colors = {
-  cyan: '#00ffd5',
-  amber: '#ffb800',
-  orange: '#ff6b35',
-  red: '#ff0a4a'
-}
-
 const gaugeColor = computed(() => {
+  const c = gaugeColors.value
   const percentage = speedPercentage.value
-  if (percentage < 4/15) return colors.cyan
-  if (percentage < 7/15) return colors.amber
-  if (percentage < 10/15) return colors.orange
-  return colors.red
+  if (percentage < 4/15) return c.zone1
+  if (percentage < 7/15) return c.zone2
+  if (percentage < 10/15) return c.zone3
+  return c.zone4
 })
 
 const totalSegments = 60
@@ -179,20 +177,22 @@ const segments = computed(() => {
 })
 
 const activeSegments = computed(() => {
+  const c = gaugeColors.value
   const activeCount = Math.floor(speedPercentage.value * totalSegments)
   return segments.value.slice(0, activeCount).map((seg, i) => {
     const percentage = i / totalSegments
     let color
-    if (percentage < 4/15) color = colors.cyan
-    else if (percentage < 7/15) color = colors.amber
-    else if (percentage < 10/15) color = colors.orange
-    else color = colors.red
+    if (percentage < 4/15) color = c.zone1
+    else if (percentage < 7/15) color = c.zone2
+    else if (percentage < 10/15) color = c.zone3
+    else color = c.zone4
 
     return { ...seg, color }
   })
 })
 
 const ticks = computed(() => {
+  const c = gaugeColors.value
   const tickList = []
   const startX = 40
   const endX = 760
@@ -221,10 +221,10 @@ const ticks = computed(() => {
 
     let color
     const tickMark = i
-    if (tickMark < 4) color = colors.cyan
-    else if (tickMark < 7) color = colors.amber
-    else if (tickMark < 10) color = colors.orange
-    else color = colors.red
+    if (tickMark < 4) color = c.zone1
+    else if (tickMark < 7) color = c.zone2
+    else if (tickMark < 10) color = c.zone3
+    else color = c.zone4
 
     tickList.push({
       x1: x,
@@ -265,6 +265,14 @@ const animateTestSpeed = () => {
     }
   }, 100)
 }
+let lastTapTime = 0
+const handleTap = () => {
+  const now = Date.now()
+  if (now - lastTapTime < 300) {
+    toggleTestMode()
+  }
+  lastTapTime = now
+}
 </script>
 
 <style scoped>
@@ -302,8 +310,8 @@ const animateTestSpeed = () => {
 }
 
 .segment-bg {
-  fill: rgba(80, 110, 140, 0.35);
-  stroke: rgba(100, 140, 180, 0.25);
+  fill: rgba(37, 43, 51, 0.6);
+  stroke: rgba(90, 101, 119, 0.2);
   stroke-width: 1;
 }
 
@@ -318,7 +326,7 @@ const animateTestSpeed = () => {
 
 /* SVG text uses viewBox-relative units */
 .unit-indicator {
-  fill: rgba(160, 190, 220, 0.9);
+  fill: var(--metal-shine, rgba(136, 153, 170, 0.9));
   font-size: 12px;
   font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
   font-weight: 600;
@@ -355,12 +363,13 @@ const animateTestSpeed = () => {
 
 .speed-unit {
   font-size: clamp(0.875rem, 2.5vw, 1.25rem);
-  color: rgba(120, 150, 180, 0.9);
+  color: var(--metal-shine, rgba(136, 153, 170, 0.9));
   font-weight: 700;
   letter-spacing: 0.125em;
   text-transform: uppercase;
   margin-top: var(--space-xs, 0.25rem);
   font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 }
 
 .test-indicator {
@@ -368,7 +377,7 @@ const animateTestSpeed = () => {
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, #ff0a4a, #ff4060);
+  background: linear-gradient(135deg, var(--accent-red-dim, #cc1236), var(--accent-red, #ff1744));
   color: white;
   padding: var(--space-xs, 0.375rem) var(--space-md, 1rem);
   border-radius: var(--radius-sm, 0.25rem);
@@ -378,14 +387,15 @@ const animateTestSpeed = () => {
   letter-spacing: 0.0625em;
   text-transform: uppercase;
   animation: pulse 1.5s infinite;
-  box-shadow: 0 0 1.25rem rgba(255, 10, 74, 0.5);
+  box-shadow: 0 0 1.25rem var(--glow-red, rgba(255, 23, 68, 0.4));
+  border: 1px solid var(--accent-red, #ff1744);
   z-index: 2;
   white-space: nowrap;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 1.25rem rgba(255, 10, 74, 0.5); }
-  50% { opacity: 0.8; box-shadow: 0 0 1.875rem rgba(255, 10, 74, 0.8); }
+  0%, 100% { opacity: 1; box-shadow: 0 0 1.25rem var(--glow-red, rgba(255, 23, 68, 0.4)); }
+  50% { opacity: 0.7; box-shadow: 0 0 1.875rem rgba(255, 23, 68, 0.6); }
 }
 
 /* Portrait mode adjustments */
@@ -416,5 +426,28 @@ const animateTestSpeed = () => {
   .horizontal-tachometer {
     max-width: 100%;
   }
+}
+
+/* ============ ORIGINAL STYLE (Metal Shader OFF) ============ */
+.horizontal-tachometer[data-shader="original"] .segment-bg {
+  fill: rgba(255, 255, 255, 0.06);
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.horizontal-tachometer[data-shader="original"] .unit-indicator {
+  fill: rgba(156, 163, 175, 0.9);
+}
+
+.horizontal-tachometer[data-shader="original"] .speed-unit {
+  color: rgba(156, 163, 175, 0.9);
+  text-shadow: none;
+}
+
+.horizontal-tachometer[data-shader="original"] .tick-text {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.horizontal-tachometer[data-shader="original"] .speed-value {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 </style>

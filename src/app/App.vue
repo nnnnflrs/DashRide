@@ -3,6 +3,8 @@
   <div
     class="app-container"
     :data-theme="currentTheme"
+    :data-shader="metalShader === 'pag-asa' ? 'pag-asa' : 'metal'"
+    :data-accent="metalShader"
     :class="{ 'native-map-active': activeTab === 'nav' }"
     :style="{
       paddingLeft: isNavigationBarVisible && navBarPosition === 'left' ? `${leftInset}px` : '0px',
@@ -10,9 +12,13 @@
     }"
   >
     <div class="background-gradient" />
+    <div v-if="isMetalShader" class="carbon-fiber-texture" />
 
     <div class="glow-top" />
     <div class="glow-bottom" />
+
+    <!-- Glass overlay with subtle imperfections -->
+    <div v-if="isMetalShader" class="glass-overlay" />
 
     <div class="content-wrapper">
       <StatusBar :isGpsActive="isTracking" :theme="currentTheme" />
@@ -169,7 +175,7 @@
 
               <!-- Center section for time and music (circular gauge) -->
               <div v-if="gaugeSkin === 'circular'" class="circular-center-section" :style="{ marginBottom: isNavigationBarVisible && navBarPosition === 'bottom' ? `${bottomInset}px` : '0px' }">
-                <div class="circular-time">{{ currentTime }}</div>
+                <div v-if="!showStatusBar" class="circular-time">{{ currentTime }}</div>
                 <div v-if="showMiniPlayer && musicCurrentTrack && activeTab === 'riding'" class="mini-music-player">
                   <div class="mini-music-info">
                     <div class="mini-album-art">
@@ -253,7 +259,7 @@
 
               <!-- Center - Music Player and Time -->
               <div class="bottom-center-section">
-                 <div class="bottom-time">{{ currentTime }}</div>
+                 <div v-if="!showStatusBar" class="bottom-time">{{ currentTime }}</div>
                 <div v-if="showMiniPlayer && musicCurrentTrack" class="bottom-music-player">
                   <div class="bottom-music-info">
                     <div class="bottom-album-art">
@@ -531,7 +537,7 @@ const isSearchingLocation = ref(false)
 const activeTooltip = ref<string | null>(null)
 let tooltipTimeout: number | null = null
 
-const { theme, unit, keepScreenOn, showMinimap, showDetailsOnNavigation, mapStyle, gaugeSkin } = useSettings()
+const { theme, unit, keepScreenOn, showMinimap, showDetailsOnNavigation, mapStyle, gaugeSkin, metalShader, isMetalShader, showStatusBar } = useSettings()
 
 const currentTheme = computed(() => {
   if (theme.value === 'auto') {
@@ -953,40 +959,84 @@ watch(isNavigating, (navigating) => {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Dark Theme (Default) */
+/* Dark Theme (Default) - Gunmetal & Carbon Fiber */
 .app-container[data-theme="dark"] {
-  background: black;
-  color: white;
+  background: var(--metal-darkest);
+  color: var(--chrome-highlight);
 }
 
 .app-container[data-theme="dark"] .background-gradient {
-  background: linear-gradient(to bottom right, rgb(3, 7, 18), black, rgb(17, 24, 39));
+  background:
+    linear-gradient(135deg,
+      var(--metal-darkest) 0%,
+      var(--metal-dark) 25%,
+      var(--metal-base) 50%,
+      var(--metal-dark) 75%,
+      var(--metal-darkest) 100%);
+}
+
+.carbon-fiber-texture {
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.03) 2px,
+      rgba(255, 255, 255, 0.03) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.03) 2px,
+      rgba(255, 255, 255, 0.03) 4px
+    );
+  background-size: 4px 4px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.glass-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background:
+    /* Ambient top-left lighting */
+    radial-gradient(ellipse at 15% 10%, rgba(255, 255, 255, 0.03) 0%, transparent 50%),
+    /* Subtle bloom on center */
+    radial-gradient(ellipse at 50% 40%, rgba(200, 220, 240, 0.015) 0%, transparent 60%);
+  /* Micro-scratch texture */
+  mask-image: linear-gradient(180deg, transparent 0%, black 2%, black 98%, transparent 100%);
 }
 
 .app-container[data-theme="dark"] .glow-top {
-  background: rgba(59, 130, 246, 0.1);
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-green, #00ff88) 6%, transparent) 0%, transparent 70%);
 }
 
 .app-container[data-theme="dark"] .glow-bottom {
-  background: rgba(34, 197, 94, 0.1);
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-cyan, #00ffd5) 4%, transparent) 0%, transparent 70%);
 }
 
-/* Light Theme - TFT Display Style */
+/* Light Theme - Brushed Steel */
 .app-container[data-theme="light"] {
-  background: linear-gradient(to bottom right, rgb(30, 41, 59), rgb(51, 65, 85), rgb(71, 85, 105));
-  color: rgb(226, 232, 240);
+  background: linear-gradient(135deg, #2a3038, #3a424d, #4a5568);
+  color: var(--chrome-highlight);
 }
 
 .app-container[data-theme="light"] .background-gradient {
-  background: linear-gradient(to bottom right, rgb(30, 41, 59), rgb(51, 65, 85), rgb(71, 85, 105));
+  background: linear-gradient(135deg, #2a3038, #3a424d, #4a5568);
 }
 
 .app-container[data-theme="light"] .glow-top {
-  background: rgba(56, 189, 248, 0.15);
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-green, #00ff88) 8%, transparent) 0%, transparent 60%);
 }
 
 .app-container[data-theme="light"] .glow-bottom {
-  background: rgba(34, 211, 238, 0.15);
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-cyan, #00ffd5) 6%, transparent) 0%, transparent 60%);
 }
 
 .app-container[data-theme="light"] .info-value,
@@ -996,8 +1046,8 @@ watch(isNavigating, (navigating) => {
 .app-container[data-theme="light"] .toggle-title,
 .app-container[data-theme="light"] .about-title,
 .app-container[data-theme="light"] .bold {
-  color: rgb(224, 242, 254);
-  text-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+  color: var(--chrome-highlight);
+  text-shadow: 0 0 6px var(--glow-green, rgba(0, 255, 136, 0.3));
 }
 
 .app-container[data-theme="light"] .info-label,
@@ -1007,143 +1057,145 @@ watch(isNavigating, (navigating) => {
 .app-container[data-theme="light"] .about-content,
 .app-container[data-theme="light"] .music-text,
 .app-container[data-theme="light"] .info-text{
-  color: rgb(186, 230, 253);
+  color: var(--aluminum-shine);
 }
 
 .app-container[data-theme="light"] .setting-card {
-  background: linear-gradient(to bottom right, rgba(51, 65, 85, 0.9), rgba(71, 85, 105, 0.9));
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(145deg, var(--metal-mid), var(--metal-base));
+  border: var(--border-metal);
+  box-shadow: var(--card-shadow);
 }
 
 .app-container[data-theme="light"] .center-bottom-info {
-  background: rgba(51, 65, 85, 0.85);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  background: rgba(37, 43, 51, 0.9);
+  border: var(--border-metal);
+  box-shadow: var(--card-shadow);
 }
 
 .app-container[data-theme="light"] .unit-button,
 .app-container[data-theme="light"] .theme-button {
-  background: rgba(71, 85, 105, 0.8);
-  color: rgb(186, 230, 253);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: var(--metal-mid);
+  color: var(--aluminum-shine);
+  border: var(--border-metal);
 }
 
 .app-container[data-theme="light"] .unit-button:hover,
 .app-container[data-theme="light"] .theme-button:hover {
-  background: rgba(71, 85, 105, 0.95);
-  border-color: rgba(56, 189, 248, 0.5);
+  background: var(--metal-light);
+  border-color: var(--metal-highlight);
 }
 
 .app-container[data-theme="light"] .unit-button.active,
 .app-container[data-theme="light"] .theme-button.active {
-  background: rgb(14, 165, 233);
-  color: white;
-  border: 1px solid rgb(2, 132, 199);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+  background: linear-gradient(135deg, var(--accent-green-dim), var(--accent-green));
+  color: var(--metal-darkest);
+  border: 1px solid var(--accent-green);
+  box-shadow: 0 0 12px var(--glow-green);
+  font-weight: 700;
 }
 
 .app-container[data-theme="light"] .info-icon {
-  color: rgb(56, 189, 248);
-  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.6));
+  color: var(--accent-cyan);
+  filter: drop-shadow(0 0 4px var(--glow-cyan));
 }
 
 .app-container[data-theme="light"] .info-icon.weather {
-  color: rgb(56, 189, 248);
-  filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.6));
+  color: var(--accent-cyan);
+  filter: drop-shadow(0 0 4px var(--glow-cyan));
 }
 
 .app-container[data-theme="light"] .bottom-icon {
-  color: rgb(56, 189, 248);
-  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.6));
+  color: var(--accent-cyan);
+  filter: drop-shadow(0 0 4px var(--glow-cyan));
 }
 
 .app-container[data-theme="light"] .bottom-icon.active {
-  color: rgb(34, 211, 238);
-  filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.6));
+  color: var(--accent-green);
+  filter: drop-shadow(0 0 4px var(--glow-green));
 }
 
 .app-container[data-theme="light"] .mini-music-player,
 .app-container[data-theme="light"] .bottom-music-player {
-  background: rgba(51, 65, 85, 0.95);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(145deg, var(--metal-mid), var(--metal-dark));
+  border: var(--border-metal);
+  box-shadow: var(--panel-shadow);
 }
 
 .app-container[data-theme="light"] .mini-album-art,
 .app-container[data-theme="light"] .bottom-album-art {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(34, 211, 238, 0.3));
+  background: linear-gradient(135deg, var(--metal-light), var(--metal-mid));
 }
 
 .app-container[data-theme="light"] .mini-music-icon {
-  color: rgb(125, 211, 252);
+  color: var(--accent-cyan);
 }
 
 .app-container[data-theme="light"] .mini-track-title {
-  color: rgb(224, 242, 254);
+  color: var(--chrome-highlight);
 }
 
 .app-container[data-theme="light"] .mini-track-artist {
-  color: rgb(186, 230, 253);
+  color: var(--aluminum-light);
 }
 
 .app-container[data-theme="light"] .mini-control-btn,
 .app-container[data-theme="light"] .bottom-control-btn {
-  background: rgba(71, 85, 105, 0.7);
+  background: var(--metal-mid);
+  border: var(--border-subtle);
 }
 
 .app-container[data-theme="light"] .mini-control-btn:hover,
 .app-container[data-theme="light"] .bottom-control-btn:hover {
-  background: rgba(71, 85, 105, 0.95);
+  background: var(--metal-light);
 }
 
 .app-container[data-theme="light"] .mini-play-btn,
 .app-container[data-theme="light"] .bottom-play-btn {
-  background: linear-gradient(135deg, rgb(14, 165, 233), rgb(6, 182, 212));
+  background: linear-gradient(135deg, var(--accent-green-dim), var(--accent-green));
+  border: 1px solid var(--accent-green);
 }
 
 .app-container[data-theme="light"] .mini-play-btn:hover,
 .app-container[data-theme="light"] .bottom-play-btn:hover {
-  background: linear-gradient(135deg, rgb(2, 132, 199), rgb(8, 145, 178));
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 12px var(--glow-green);
 }
 
 .app-container[data-theme="light"] .mini-close-btn,
 .app-container[data-theme="light"] .bottom-close-btn {
-  background: rgba(71, 85, 105, 0.7);
+  background: var(--metal-mid);
 }
 
 .app-container[data-theme="light"] .mini-close-btn:hover,
 .app-container[data-theme="light"] .bottom-close-btn:hover {
-  background: rgba(71, 85, 105, 0.95);
+  background: var(--metal-light);
 }
 
 .app-container[data-theme="light"] .fuel-input {
-  background: rgba(241, 245, 249, 0.9);
-  color: rgb(15, 23, 42);
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: var(--metal-dark);
+  color: var(--chrome-highlight);
+  border: var(--border-metal);
 }
 
 .app-container[data-theme="light"] .fuel-input:focus {
-  border-color: rgb(59, 130, 246);
-  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--accent-green);
+  box-shadow: 0 0 6px var(--glow-green);
 }
 
 .app-container[data-theme="light"] .toggle-button {
-  background: rgba(148, 163, 184, 0.5);
+  background: var(--metal-light);
 }
 
 .app-container[data-theme="light"] .toggle-button.active {
-  background: rgb(37, 99, 235);
+  background: var(--accent-green);
 }
 
 .app-container[data-theme="light"] .bottom-icon {
-  color: rgb(100, 116, 139);
+  color: var(--metal-highlight);
 }
 
 .app-container[data-theme="light"] .bottom-icon.active {
-  color: rgb(34, 197, 94);
-  filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.6));
+  color: var(--accent-green);
+  filter: drop-shadow(0 0 4px var(--glow-green));
 }
 
 .background-gradient {
@@ -1400,17 +1452,17 @@ watch(isNavigating, (navigating) => {
   100% { transform: translateX(-100%); }
 }
 
-/* Bottom Music Player */
+/* Bottom Music Player - Recessed metal panel */
 .bottom-music-player {
   display: flex;
   align-items: center;
   gap: 1rem;
   padding: 0.75rem 1rem;
-  background: rgba(17, 24, 39, 0.95);
+  background: linear-gradient(145deg, var(--metal-base), var(--metal-dark));
   backdrop-filter: blur(12px);
   border-radius: 12px;
-  border: 1px solid rgba(75, 85, 99, 0.4);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: var(--border-metal);
+  box-shadow: var(--panel-shadow);
   max-width: min(500px, 90vw);
   min-width: min(320px, 80vw);
 }
@@ -1428,11 +1480,12 @@ watch(isNavigating, (navigating) => {
   height: clamp(2.5rem, 8vw, 3rem);
   border-radius: var(--radius-md, 0.375rem);
   overflow: hidden;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(147, 51, 234, 0.2));
+  background: linear-gradient(135deg, var(--metal-light), var(--metal-mid));
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border: 1px solid var(--metal-highlight);
 }
 
 .bottom-album-art img {
@@ -1480,39 +1533,40 @@ watch(isNavigating, (navigating) => {
   width: clamp(2.25rem, 6vw, 2.5rem);
   height: clamp(2.25rem, 6vw, 2.5rem);
   border-radius: 50%;
-  border: none;
-  background: rgba(55, 65, 81, 0.6);
+  border: var(--border-subtle);
+  background: linear-gradient(145deg, var(--metal-light), var(--metal-mid));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 4px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
-  /* Ensure touch target minimum size */
   min-width: var(--touch-target-min, 44px);
   min-height: var(--touch-target-min, 44px);
 }
 
 .bottom-control-btn:hover {
-  background: rgba(55, 65, 81, 0.9);
+  background: linear-gradient(145deg, var(--metal-highlight), var(--metal-light));
   transform: scale(1.05);
 }
 
 .bottom-control-btn:active {
   transform: scale(0.95);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .bottom-play-btn {
   width: clamp(2.5rem, 7vw, 2.75rem);
   height: clamp(2.5rem, 7vw, 2.75rem);
-  background: linear-gradient(135deg, rgb(59, 130, 246), rgb(37, 99, 235));
-  /* Ensure touch target minimum size */
+  background: linear-gradient(135deg, var(--accent-green-dim), var(--accent-green));
+  border: 1px solid var(--accent-green);
+  box-shadow: 0 0 8px var(--glow-green), inset 0 1px 0 rgba(255, 255, 255, 0.15);
   min-width: var(--touch-target-min, 44px);
   min-height: var(--touch-target-min, 44px);
 }
 
 .bottom-play-btn:hover {
-  background: linear-gradient(135deg, rgb(37, 99, 235), rgb(29, 78, 216));
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 16px var(--glow-green), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .bottom-control-icon {
@@ -1530,8 +1584,8 @@ watch(isNavigating, (navigating) => {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: none;
-  background: rgba(55, 65, 81, 0.6);
+  border: var(--border-subtle);
+  background: linear-gradient(145deg, var(--metal-light), var(--metal-mid));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1541,7 +1595,7 @@ watch(isNavigating, (navigating) => {
 }
 
 .bottom-close-btn:hover {
-  background: rgba(55, 65, 81, 0.9);
+  background: linear-gradient(145deg, var(--metal-highlight), var(--metal-light));
   transform: scale(1.05);
 }
 
@@ -1684,20 +1738,21 @@ watch(isNavigating, (navigating) => {
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
 }
 
-/* Tooltip */
+/* Tooltip - Machined metal popup */
 .info-tooltip {
   position: absolute;
-  background: rgba(17, 24, 39, 0.95);
-  color: white;
+  background: linear-gradient(145deg, var(--metal-mid), var(--metal-dark));
+  color: var(--chrome-highlight);
   padding: 0.5rem 0.75rem;
   border-radius: 0.375rem;
   font-size: 0.875rem;
   font-weight: 500;
   white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--panel-shadow), 0 0 1px rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(75, 85, 99, 0.5);
+  border: var(--border-metal);
   z-index: 1000;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 }
 
 /* Landscape mode - left side shows tooltip on the right, right side shows on the left (towards center) */
@@ -1768,49 +1823,49 @@ watch(isNavigating, (navigating) => {
   }
 }
 
-/* Info Icons - TFT Digital Colors */
+/* Info Icons - LED Glow through Metal */
 .info-icon {
   width: 1.75rem;
   height: 1.75rem;
-  color: #00ffd5;
+  color: var(--accent-green);
   flex-shrink: 0;
-  filter: drop-shadow(0 0 4px rgba(0, 255, 213, 0.5));
+  filter: drop-shadow(0 0 4px var(--glow-green));
 }
 
 .info-icon.weather {
-  color: #00ffd5;
-  filter: drop-shadow(0 0 4px rgba(0, 255, 213, 0.5));
+  color: var(--accent-green);
+  filter: drop-shadow(0 0 4px var(--glow-cyan));
 }
 
 .info-icon.slope-uphill {
-  color: #ff0a4a;
-  filter: drop-shadow(0 0 4px rgba(255, 10, 74, 0.5));
+  color: var(--accent-red);
+  filter: drop-shadow(0 0 4px var(--glow-red));
 }
 
 .info-icon.slope-downhill {
-  color: #00ffd5;
-  filter: drop-shadow(0 0 4px rgba(0, 255, 213, 0.5));
+  color: var(--accent-green);
+  filter: drop-shadow(0 0 4px var(--glow-green));
 }
 
 .info-icon.slope-flat {
-  color: #00ffd5;
-  filter: drop-shadow(0 0 3px rgba(100, 130, 160, 0.4));
+  color: var(--metal-shine);
+  filter: drop-shadow(0 0 3px rgba(136, 153, 170, 0.3));
 }
 
 /* Trip indicator superscript */
 .trip-indicator {
   font-size: 0.6rem;
   font-weight: 700;
-  color: #00ffd5;
+  color: var(--accent-green);
   margin-left: -0.15rem;
   margin-right: 0.2rem;
   vertical-align: super;
-  filter: drop-shadow(0 0 2px rgba(0, 255, 213, 0.5));
+  filter: drop-shadow(0 0 2px var(--glow-green));
 }
 
 .app-container[data-theme="light"] .trip-indicator {
-  color: rgb(56, 189, 248);
-  filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.5));
+  color: var(--accent-green);
+  filter: drop-shadow(0 0 2px var(--glow-green));
 }
 
 /* TFT Digital text styles for horizontal gauge mode */
@@ -1842,15 +1897,16 @@ watch(isNavigating, (navigating) => {
 .info-value {
   font-size: 1.2rem;
   font-weight: 600;
-  color: rgba(200, 220, 240, 0.95);
-  text-shadow: 0 0 8px rgba(0, 255, 213, 0.2);
+  color: var(--chrome-highlight);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6), 0 0 6px color-mix(in srgb, var(--accent-green, #00ff88) 15%, transparent);
+  letter-spacing: 0.02em;
 }
 
 .info-value-large {
   font-size: 1.6rem;
   font-weight: 700;
-  color: white;
-  text-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
+  color: var(--chrome-white);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6), 0 0 8px color-mix(in srgb, var(--accent-green, #00ff88) 20%, transparent);
 }
 
 /* Marquee effect for long destination names */
@@ -1887,11 +1943,11 @@ watch(isNavigating, (navigating) => {
   align-items: center;
   gap: 1rem;
   padding: 0.5rem 1rem;
-  background: rgba(17, 24, 39, 0.8);
+  background: linear-gradient(145deg, var(--metal-base), var(--metal-dark));
   backdrop-filter: blur(8px);
   border-radius: 8px;
-  border: 1px solid rgba(75, 85, 99, 0.3);
-  /* Note: This element is not currently in use in the template */
+  border: var(--border-metal);
+  box-shadow: var(--card-shadow);
 }
 
 .bottom-icon {
@@ -1944,7 +2000,7 @@ watch(isNavigating, (navigating) => {
   transform: none;
 }
 
-/* Mini Music Player */
+/* Mini Music Player - Metal Panel */
 .mini-music-player {
   position: absolute;
   bottom: 0;
@@ -1954,11 +2010,11 @@ watch(isNavigating, (navigating) => {
   align-items: center;
   gap: 1rem;
   padding: 0.75rem 1rem;
-  background: rgba(17, 24, 39, 0.95);
+  background: linear-gradient(145deg, var(--metal-base), var(--metal-dark));
   backdrop-filter: blur(12px);
   border-radius: 12px;
-  border: 1px solid rgba(75, 85, 99, 0.4);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: var(--border-metal);
+  box-shadow: var(--panel-shadow);
   min-width: 320px;
   max-width: 400px;
 }
@@ -1976,11 +2032,12 @@ watch(isNavigating, (navigating) => {
   height: 48px;
   border-radius: 6px;
   overflow: hidden;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(147, 51, 234, 0.2));
+  background: linear-gradient(135deg, var(--metal-light), var(--metal-mid));
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border: 1px solid var(--metal-highlight);
 }
 
 .mini-album-art img {
@@ -2028,8 +2085,9 @@ watch(isNavigating, (navigating) => {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: none;
-  background: rgba(55, 65, 81, 0.6);
+  border: var(--border-subtle);
+  background: linear-gradient(145deg, var(--metal-light), var(--metal-mid));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 4px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2038,23 +2096,25 @@ watch(isNavigating, (navigating) => {
 }
 
 .mini-control-btn:hover {
-  background: rgba(55, 65, 81, 0.9);
+  background: linear-gradient(145deg, var(--metal-highlight), var(--metal-light));
   transform: scale(1.05);
 }
 
 .mini-control-btn:active {
   transform: scale(0.95);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .mini-play-btn {
   width: 42px;
   height: 42px;
-  background: linear-gradient(135deg, rgb(59, 130, 246), rgb(37, 99, 235));
+  background: linear-gradient(135deg, var(--accent-green-dim), var(--accent-green));
+  border: 1px solid var(--accent-green);
+  box-shadow: 0 0 8px var(--glow-green), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .mini-play-btn:hover {
-  background: linear-gradient(135deg, rgb(37, 99, 235), rgb(29, 78, 216));
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 16px var(--glow-green), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .mini-control-icon {
@@ -2072,8 +2132,8 @@ watch(isNavigating, (navigating) => {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: none;
-  background: rgba(55, 65, 81, 0.6);
+  border: var(--border-subtle);
+  background: linear-gradient(145deg, var(--metal-light), var(--metal-mid));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2083,12 +2143,13 @@ watch(isNavigating, (navigating) => {
 }
 
 .mini-close-btn:hover {
-  background: rgba(55, 65, 81, 0.9);
+  background: linear-gradient(145deg, var(--metal-highlight), var(--metal-light));
   transform: scale(1.05);
 }
 
 .mini-close-btn:active {
   transform: scale(0.95);
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.4);
 }
 
 .mini-close-icon {
@@ -2271,12 +2332,12 @@ watch(isNavigating, (navigating) => {
   display: flex;
   align-items: center;
   gap: 1rem;
-  background: rgba(0, 0, 0, 0.6);
+  background: linear-gradient(145deg, var(--metal-base), var(--metal-dark));
   backdrop-filter: blur(12px);
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
-  border: 1px solid rgba(31, 41, 55, 0.5);
-  /* Note: This element is not currently in use in the template */
+  border: var(--border-metal);
+  box-shadow: var(--card-shadow);
 }
 
 .time-display {
@@ -2410,15 +2471,17 @@ watch(isNavigating, (navigating) => {
     width: 100%;
   }
 
-  /* Info items in portrait - grid handles sizing automatically */
+  /* Info items in portrait - metal card tiles */
   .info-items-row .info-item {
     padding: 0.75rem 0.5rem !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
-    background: rgba(17, 24, 39, 0.6) !important;
+    background: linear-gradient(145deg, var(--metal-mid), var(--metal-dark)) !important;
     border-radius: 8px !important;
     backdrop-filter: blur(8px) !important;
+    border: var(--border-subtle) !important;
+    box-shadow: var(--card-shadow) !important;
   }
 
   /* Last item stretches full width if odd number (3 items) */
@@ -2469,9 +2532,11 @@ watch(isNavigating, (navigating) => {
   .info-item {
     justify-content: flex-start;
     padding: 0.5rem;
-    background: rgba(17, 24, 39, 0.6);
+    background: linear-gradient(145deg, var(--metal-mid), var(--metal-dark));
     border-radius: 8px;
     backdrop-filter: blur(8px);
+    border: var(--border-subtle);
+    box-shadow: var(--card-shadow);
   }
 
   .info-item.right-align {
@@ -2514,8 +2579,8 @@ watch(isNavigating, (navigating) => {
 
   /* Light theme portrait adjustments */
   .app-container[data-theme="light"] .info-item {
-    background: rgba(51, 65, 85, 0.7);
-    border: 1px solid rgba(56, 189, 248, 0.3);
+    background: linear-gradient(145deg, var(--metal-mid), var(--metal-base));
+    border: var(--border-metal);
   }
 }
 
@@ -2782,5 +2847,229 @@ watch(isNavigating, (navigating) => {
 .modal-fade-leave-to .landscape-hint-modal {
   transform: scale(0.9) translateY(10px);
   opacity: 0;
+}
+
+/* ============================================
+   ORIGINAL THEME OVERRIDES (Metal Shader OFF)
+   ============================================ */
+
+/* Dark theme - original TFT style */
+.app-container[data-shader="original"][data-theme="dark"] {
+  background: #000000;
+  color: #e0e0e0;
+}
+
+.app-container[data-shader="original"][data-theme="dark"] .background-gradient {
+  background: linear-gradient(135deg, #000000 0%, #111827 50%, #000000 100%);
+}
+
+.app-container[data-shader="original"][data-theme="dark"] .glow-top {
+  background: radial-gradient(circle, rgba(0, 255, 213, 0.08) 0%, transparent 70%);
+}
+
+.app-container[data-shader="original"][data-theme="dark"] .glow-bottom {
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-green) 6%, transparent) 0%, transparent 70%);
+}
+
+/* Light theme - original style */
+.app-container[data-shader="original"][data-theme="light"] {
+  background: linear-gradient(135deg, #f8fafc, #e2e8f0, #f1f5f9);
+  color: #1e293b;
+}
+
+.app-container[data-shader="original"][data-theme="light"] .background-gradient {
+  background: linear-gradient(135deg, #f8fafc, #e2e8f0, #f1f5f9);
+}
+
+.app-container[data-shader="original"][data-theme="light"] .glow-top {
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-green) 10%, transparent) 0%, transparent 60%);
+}
+
+.app-container[data-shader="original"][data-theme="light"] .glow-bottom {
+  background: radial-gradient(circle, rgba(147, 51, 234, 0.08) 0%, transparent 60%);
+}
+
+/* Original info icons - accent colored */
+.app-container[data-shader="original"] .info-icon {
+  color: var(--accent-green);
+  filter: none;
+}
+
+.app-container[data-shader="original"] .info-icon.weather {
+  color: var(--accent-green);
+  filter: none;
+}
+
+.app-container[data-shader="original"] .info-icon.slope-uphill {
+  color: #ff1744;
+  filter: none;
+}
+
+.app-container[data-shader="original"] .info-icon.slope-downhill {
+  color: var(--accent-green);
+  filter: none;
+}
+
+.app-container[data-shader="original"] .info-icon.slope-flat {
+  color: rgba(156, 163, 175, 0.7);
+  filter: none;
+}
+
+.app-container[data-shader="original"] .trip-indicator {
+  color: var(--accent-green);
+  filter: none;
+}
+
+/* Original info values - white text, no metal tones */
+.app-container[data-shader="original"] .info-value {
+  color: white;
+  text-shadow: none;
+}
+
+.app-container[data-shader="original"] .info-value-large {
+  color: white;
+  text-shadow: none;
+}
+
+/* Original tooltip - simple dark glass */
+.app-container[data-shader="original"] .info-tooltip {
+  background: rgba(17, 24, 39, 0.95);
+  color: white;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  text-shadow: none;
+}
+
+/* Original bottom time */
+.app-container[data-shader="original"] .bottom-time {
+  color: white;
+}
+
+.app-container[data-shader="original"] .circular-time {
+  color: white;
+}
+
+/* Original music player - simple dark glass */
+.app-container[data-shader="original"] .mini-music-player,
+.app-container[data-shader="original"] .bottom-music-player {
+  background: rgba(17, 24, 39, 0.95);
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.app-container[data-shader="original"] .mini-album-art,
+.app-container[data-shader="original"] .bottom-album-art {
+  background: rgba(55, 65, 81, 0.6);
+  border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+/* Original control buttons - simple flat style */
+.app-container[data-shader="original"] .mini-control-btn,
+.app-container[data-shader="original"] .bottom-control-btn {
+  background: rgba(55, 65, 81, 0.6);
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  box-shadow: none;
+}
+
+.app-container[data-shader="original"] .mini-control-btn:hover,
+.app-container[data-shader="original"] .bottom-control-btn:hover {
+  background: rgba(75, 85, 99, 0.8);
+}
+
+/* Original play button - accent colored */
+.app-container[data-shader="original"] .mini-play-btn,
+.app-container[data-shader="original"] .bottom-play-btn {
+  background: linear-gradient(135deg, var(--accent-green-dim), var(--accent-green));
+  border: 1px solid var(--accent-green);
+  box-shadow: 0 0 8px var(--glow-green);
+}
+
+.app-container[data-shader="original"] .mini-play-btn:hover,
+.app-container[data-shader="original"] .bottom-play-btn:hover {
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent-green) 50%, transparent);
+}
+
+/* Original close button */
+.app-container[data-shader="original"] .mini-close-btn,
+.app-container[data-shader="original"] .bottom-close-btn {
+  background: rgba(55, 65, 81, 0.6);
+  border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.app-container[data-shader="original"] .mini-close-btn:hover,
+.app-container[data-shader="original"] .bottom-close-btn:hover {
+  background: rgba(75, 85, 99, 0.8);
+}
+
+/* Original bottom info */
+.app-container[data-shader="original"] .bottom-info {
+  background: rgba(17, 24, 39, 0.9);
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.app-container[data-shader="original"] .center-bottom-info {
+  background: rgba(17, 24, 39, 0.9);
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Original light theme text colors */
+.app-container[data-shader="original"][data-theme="light"] .info-value,
+.app-container[data-shader="original"][data-theme="light"] .info-value-large,
+.app-container[data-shader="original"][data-theme="light"] .bottom-time {
+  color: #1e293b;
+  text-shadow: none;
+}
+
+.app-container[data-shader="original"][data-theme="light"] .info-label,
+.app-container[data-shader="original"][data-theme="light"] .info-sublabel {
+  color: #64748b;
+}
+
+.app-container[data-shader="original"][data-theme="light"] .info-icon {
+  color: var(--accent-green-dim);
+  filter: none;
+}
+
+.app-container[data-shader="original"][data-theme="light"] .mini-music-player,
+.app-container[data-shader="original"][data-theme="light"] .bottom-music-player {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.app-container[data-shader="original"][data-theme="light"] .mini-control-btn,
+.app-container[data-shader="original"][data-theme="light"] .bottom-control-btn {
+  background: rgba(241, 245, 249, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.app-container[data-shader="original"][data-theme="light"] .info-tooltip {
+  background: rgba(255, 255, 255, 0.95);
+  color: #1e293b;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Original portrait card styles */
+@media (orientation: portrait) {
+  .app-container[data-shader="original"] .info-item {
+    background: rgba(17, 24, 39, 0.6) !important;
+    border: 1px solid rgba(128, 128, 128, 0.2) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  .app-container[data-shader="original"] .info-items-row .info-item {
+    background: rgba(17, 24, 39, 0.6) !important;
+    border: 1px solid rgba(128, 128, 128, 0.2) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  .app-container[data-shader="original"][data-theme="light"] .info-item {
+    background: rgba(255, 255, 255, 0.8) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  }
 }
 </style>

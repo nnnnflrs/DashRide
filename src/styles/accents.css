@@ -1,0 +1,266 @@
+/* ============================================================
+   DASHRIDE ACCENT THEME SYSTEM
+   Each [data-accent] block defines the accent color palette.
+   Variables cascade from the app container to all children.
+   ============================================================ */
+
+/* Shared aliases: map semantic names to legacy CSS variable names.
+   These resolve on the [data-accent] element where --accent-primary etc. are defined. */
+[data-accent] {
+  --accent-green: var(--accent-primary);
+  --accent-green-dim: var(--accent-primary-dim);
+  --accent-amber: var(--accent-secondary);
+  --accent-amber-dim: var(--accent-secondary-dim);
+  --accent-red: var(--accent-danger);
+  --accent-red-dim: var(--accent-danger-dim);
+  --accent-cyan: var(--accent-info);
+  --accent-blue: var(--accent-utility);
+  --glow-green: var(--glow-primary);
+  --glow-amber: var(--glow-secondary);
+  --glow-red: var(--glow-danger);
+  --glow-cyan: var(--glow-info);
+  --glow-blue: var(--glow-utility);
+}
+
+/* === HIRAYA MANAWARI — Imagination (Default) === */
+[data-accent="hiraya"] {
+  --accent-primary: #00ff88;
+  --accent-primary-dim: #00cc6a;
+  --glow-primary: rgba(0, 255, 136, 0.4);
+  --accent-secondary: #ffb800;
+  --accent-secondary-dim: #cc9300;
+  --glow-secondary: rgba(255, 184, 0, 0.4);
+  --accent-danger: #ff1744;
+  --accent-danger-dim: #cc1236;
+  --glow-danger: rgba(255, 23, 68, 0.4);
+  --accent-info: #00ffd5;
+  --glow-info: rgba(0, 255, 213, 0.4);
+  --accent-utility: #448aff;
+  --glow-utility: rgba(68, 138, 255, 0.3);
+}
+
+/* === SINTA — Beloved === */
+[data-accent="sinta"] {
+  --accent-primary: #ff1744;
+  --accent-primary-dim: #cc1236;
+  --glow-primary: rgba(255, 23, 68, 0.4);
+  --accent-secondary: #ffb800;
+  --accent-secondary-dim: #cc9300;
+  --glow-secondary: rgba(255, 184, 0, 0.4);
+  --accent-danger: #ff5252;
+  --accent-danger-dim: #d32f2f;
+  --glow-danger: rgba(255, 82, 82, 0.4);
+  --accent-info: #ff6b35;
+  --glow-info: rgba(255, 107, 53, 0.4);
+  --accent-utility: #ffab40;
+  --glow-utility: rgba(255, 171, 64, 0.3);
+  /* Darker gunmetal base */
+  --metal-darkest: #050608;
+  --metal-dark: #0e1014;
+  --metal-base: #14181c;
+}
+
+/* === DALISAY — Pure === */
+[data-accent="dalisay"] {
+  --accent-primary: #00ffd5;
+  --accent-primary-dim: #00ccaa;
+  --glow-primary: rgba(0, 255, 213, 0.4);
+  --accent-secondary: #00bcd4;
+  --accent-secondary-dim: #0097a7;
+  --glow-secondary: rgba(0, 188, 212, 0.4);
+  --accent-danger: #ff1744;
+  --accent-danger-dim: #cc1236;
+  --glow-danger: rgba(255, 23, 68, 0.4);
+  --accent-info: #00e5ff;
+  --glow-info: rgba(0, 229, 255, 0.4);
+  --accent-utility: #18ffff;
+  --glow-utility: rgba(24, 255, 255, 0.3);
+  /* Satin titanium */
+  --aluminum-base: #50606e;
+  --aluminum-light: #7a8a98;
+}
+
+/* === TANGLAW — Illuminate === */
+[data-accent="tanglaw"] {
+  --accent-primary: #ffd700;
+  --accent-primary-dim: #ccac00;
+  --glow-primary: rgba(255, 215, 0, 0.4);
+  --accent-secondary: #ffecb3;
+  --accent-secondary-dim: #ffe082;
+  --glow-secondary: rgba(255, 236, 179, 0.3);
+  --accent-danger: #ff1744;
+  --accent-danger-dim: #cc1236;
+  --glow-danger: rgba(255, 23, 68, 0.4);
+  --accent-info: #fff8e1;
+  --glow-info: rgba(255, 248, 225, 0.3);
+  --accent-utility: #ffb300;
+  --glow-utility: rgba(255, 179, 0, 0.3);
+  /* Champagne gold material */
+  --metal-base: #1f2228;
+  --chrome-light: #b8a88a;
+  --chrome-highlight: #ddd0b8;
+}
+
+/* === TADHANA — Destiny === */
+[data-accent="tadhana"] {
+  --accent-primary: #7c3aed;
+  --accent-primary-dim: #6d28d9;
+  --glow-primary: rgba(124, 58, 237, 0.4);
+  --accent-secondary: #818cf8;
+  --accent-secondary-dim: #6366f1;
+  --glow-secondary: rgba(129, 140, 248, 0.3);
+  --accent-danger: #f43f5e;
+  --accent-danger-dim: #e11d48;
+  --glow-danger: rgba(244, 63, 94, 0.4);
+  --accent-info: #a78bfa;
+  --glow-info: rgba(167, 139, 250, 0.3);
+  --accent-utility: #6366f1;
+  --glow-utility: rgba(99, 102, 241, 0.3);
+  /* Matte black steel */
+  --metal-darkest: #050507;
+  --metal-dark: #0a0a0e;
+  --metal-base: #111115;
+  --metal-mid: #1a1a20;
+}
+
+/* === BIGHANI — Enchantment === */
+[data-accent="bighani"] {
+  --accent-primary: #bf00ff;
+  --accent-primary-dim: #9900cc;
+  --glow-primary: rgba(191, 0, 255, 0.4);
+  --accent-secondary: #00ffd5;
+  --accent-secondary-dim: #00ccaa;
+  --glow-secondary: rgba(0, 255, 213, 0.4);
+  --accent-danger: #ff1744;
+  --accent-danger-dim: #cc1236;
+  --glow-danger: rgba(255, 23, 68, 0.4);
+  --accent-info: #e040fb;
+  --glow-info: rgba(224, 64, 251, 0.4);
+  --accent-utility: #00ffd5;
+  --glow-utility: rgba(0, 255, 213, 0.3);
+  /* Black chrome */
+  --metal-darkest: #060608;
+  --chrome-dark: #2d2040;
+  --chrome-base: #4a3560;
+}
+
+/* === MARILAG — Grace === */
+[data-accent="marilag"] {
+  --accent-primary: #e0f0ff;
+  --accent-primary-dim: #b0d0ee;
+  --glow-primary: rgba(224, 240, 255, 0.35);
+  --accent-secondary: #90caf9;
+  --accent-secondary-dim: #64b5f6;
+  --glow-secondary: rgba(144, 202, 249, 0.3);
+  --accent-danger: #ff1744;
+  --accent-danger-dim: #cc1236;
+  --glow-danger: rgba(255, 23, 68, 0.4);
+  --accent-info: #bbdefb;
+  --glow-info: rgba(187, 222, 251, 0.3);
+  --accent-utility: #82b1ff;
+  --glow-utility: rgba(130, 177, 255, 0.3);
+  /* Mirror chrome - brighter highlights */
+  --chrome-highlight: #e8eef5;
+  --chrome-white: #f5f8fc;
+  --aluminum-bright: #dde5ee;
+}
+
+/* === GABAY — Guidance === */
+[data-accent="gabay"] {
+  --accent-primary: #4db6ac;
+  --accent-primary-dim: #399e92;
+  --glow-primary: rgba(77, 182, 172, 0.35);
+  --accent-secondary: #80cbc4;
+  --accent-secondary-dim: #4db6ac;
+  --glow-secondary: rgba(128, 203, 196, 0.3);
+  --accent-danger: #ff1744;
+  --accent-danger-dim: #cc1236;
+  --glow-danger: rgba(255, 23, 68, 0.4);
+  --accent-info: #80cbc4;
+  --glow-info: rgba(128, 203, 196, 0.3);
+  --accent-utility: #4dd0e1;
+  --glow-utility: rgba(77, 208, 225, 0.3);
+  /* Smoked steel */
+  --metal-light: #333a44;
+  --metal-highlight: #4a5260;
+}
+
+/* === HIWAGA — Mystery (NEW) === */
+[data-accent="hiwaga"] {
+  --accent-primary: #448aff;
+  --accent-primary-dim: #2962ff;
+  --glow-primary: rgba(68, 138, 255, 0.4);
+  --accent-secondary: #82b1ff;
+  --accent-secondary-dim: #448aff;
+  --glow-secondary: rgba(130, 177, 255, 0.3);
+  --accent-danger: #ff1744;
+  --accent-danger-dim: #cc1236;
+  --glow-danger: rgba(255, 23, 68, 0.4);
+  --accent-info: #40c4ff;
+  --glow-info: rgba(64, 196, 255, 0.4);
+  --accent-utility: #536dfe;
+  --glow-utility: rgba(83, 109, 254, 0.3);
+  /* Deep midnight steel */
+  --metal-darkest: #060810;
+  --metal-dark: #0c1018;
+  --metal-base: #141a24;
+}
+
+/* === MALAYA — Freedom (NEW) === */
+[data-accent="malaya"] {
+  --accent-primary: #ff6d00;
+  --accent-primary-dim: #e65100;
+  --glow-primary: rgba(255, 109, 0, 0.4);
+  --accent-secondary: #ffab40;
+  --accent-secondary-dim: #ff9100;
+  --glow-secondary: rgba(255, 171, 64, 0.4);
+  --accent-danger: #ff1744;
+  --accent-danger-dim: #cc1236;
+  --glow-danger: rgba(255, 23, 68, 0.4);
+  --accent-info: #ffd740;
+  --glow-info: rgba(255, 215, 64, 0.4);
+  --accent-utility: #ffab40;
+  --glow-utility: rgba(255, 171, 64, 0.3);
+  /* Warm brushed copper */
+  --metal-base: #1c1814;
+  --chrome-light: #a08a70;
+  --chrome-highlight: #c8b098;
+}
+
+/* === PANALANGIN — Prayer (NEW) === */
+[data-accent="panalangin"] {
+  --accent-primary: #fbbf24;
+  --accent-primary-dim: #f59e0b;
+  --glow-primary: rgba(251, 191, 36, 0.4);
+  --accent-secondary: #fde68a;
+  --accent-secondary-dim: #fbbf24;
+  --glow-secondary: rgba(253, 230, 138, 0.3);
+  --accent-danger: #ff1744;
+  --accent-danger-dim: #cc1236;
+  --glow-danger: rgba(255, 23, 68, 0.4);
+  --accent-info: #fde68a;
+  --glow-info: rgba(253, 230, 138, 0.3);
+  --accent-utility: #f59e0b;
+  --glow-utility: rgba(245, 158, 11, 0.3);
+  /* Warm aged brass */
+  --metal-base: #1a1810;
+  --chrome-light: #b8a878;
+  --chrome-highlight: #d8c898;
+}
+
+/* === PAG-ASA — Hope (non-metal flat style) === */
+[data-accent="pag-asa"] {
+  --accent-primary: #f472b6;
+  --accent-primary-dim: #ec4899;
+  --glow-primary: rgba(244, 114, 182, 0.35);
+  --accent-secondary: #f9a8d4;
+  --accent-secondary-dim: #f472b6;
+  --glow-secondary: rgba(249, 168, 212, 0.3);
+  --accent-danger: #ef4444;
+  --accent-danger-dim: #dc2626;
+  --glow-danger: rgba(239, 68, 68, 0.3);
+  --accent-info: #f9a8d4;
+  --glow-info: rgba(249, 168, 212, 0.3);
+  --accent-utility: #a78bfa;
+  --glow-utility: rgba(167, 139, 250, 0.3);
+}

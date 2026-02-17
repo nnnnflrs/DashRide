@@ -1,4 +1,5 @@
 @import './fonts.css';
+@import './accents.css';
 
 * {
   margin: 0;
@@ -10,9 +11,62 @@
   /* Base font size - responsive */
   --font-size-base: clamp(14px, 2vw, 18px);
 
-  /* Color tokens */
-  --background: #000000;
-  --foreground: #ffffff;
+  /* === METAL SHADER COLOR SYSTEM === */
+  --background: #0a0a0a;
+  --foreground: #e0e0e0;
+
+  /* Gunmetal & Steel palette */
+  --metal-darkest: #080a0c;
+  --metal-dark: #12161a;
+  --metal-base: #1a1f25;
+  --metal-mid: #252b33;
+  --metal-light: #3a424d;
+  --metal-highlight: #5a6577;
+  --metal-shine: #8899aa;
+  --metal-bright: #b0bec5;
+
+  /* Brushed aluminum tones */
+  --aluminum-dark: #2a3038;
+  --aluminum-base: #4a5568;
+  --aluminum-light: #718096;
+  --aluminum-shine: #a0aec0;
+  --aluminum-bright: #cbd5e0;
+
+  /* Chrome & reflections */
+  --chrome-dark: #3d4f5f;
+  --chrome-base: #607080;
+  --chrome-light: #90a4ae;
+  --chrome-highlight: #cfd8dc;
+  --chrome-white: #eceff1;
+
+  /* Accent colors - defaults (overridden by [data-accent] in accents.css) */
+  --accent-green: #00ff88;
+  --accent-green-dim: #00cc6a;
+  --accent-amber: #ffb800;
+  --accent-amber-dim: #cc9300;
+  --accent-red: #ff1744;
+  --accent-red-dim: #cc1236;
+  --accent-cyan: #00ffd5;
+  --accent-blue: #448aff;
+
+  /* Glow intensities - defaults (overridden by [data-accent] in accents.css) */
+  --glow-green: rgba(0, 255, 136, 0.4);
+  --glow-amber: rgba(255, 184, 0, 0.4);
+  --glow-red: rgba(255, 23, 68, 0.4);
+  --glow-cyan: rgba(0, 255, 213, 0.4);
+  --glow-blue: rgba(68, 138, 255, 0.3);
+
+  /* Bevel & shadow system */
+  --bevel-light: rgba(255, 255, 255, 0.06);
+  --bevel-dark: rgba(0, 0, 0, 0.5);
+  --inset-shadow: inset 0 1px 0 var(--bevel-light), inset 0 -1px 0 var(--bevel-dark);
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --panel-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  /* Border system */
+  --border-subtle: 1px solid rgba(90, 101, 119, 0.25);
+  --border-metal: 1px solid rgba(90, 101, 119, 0.4);
+  --border-chrome: 1px solid rgba(144, 164, 174, 0.3);
 
   /* Safe area insets - fallback to 0 */
   --safe-area-inset-top: env(safe-area-inset-top, 0px);

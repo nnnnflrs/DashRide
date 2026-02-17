@@ -1,15 +1,22 @@
 <template>
-  <div class="gauge-container" @dblclick="toggleTestMode" >
+  <div class="gauge-container" :data-shader="isMetalShader ? 'metal' : 'original'" @dblclick="toggleTestMode" @touchend="handleTap" >
     <svg class="gauge-svg" viewBox="0 0 300 180" :style="{ filter: gaugeGlow }">
       <defs>
-        <!-- TFT Digital color gradient -->
-        <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#00ffd5" />
-          <stop offset="47%" stop-color="#ffb800" />
-          <stop offset="67%" stop-color="#ff6b35" />
-          <stop offset="100%" stop-color="#ff0a4a" />
+        <!-- Chrome ring gradient - polished metal -->
+        <linearGradient id="chromeRing" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#3d4f5f" />
+          <stop offset="20%" stop-color="#90a4ae" />
+          <stop offset="40%" stop-color="#607080" />
+          <stop offset="60%" stop-color="#cfd8dc" />
+          <stop offset="80%" stop-color="#607080" />
+          <stop offset="100%" stop-color="#3d4f5f" />
         </linearGradient>
-        <!-- Glow filters for TFT effect -->
+        <!-- Radial highlight for chrome ring -->
+        <radialGradient id="chromeHighlight" cx="30%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.12)" />
+          <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+        </radialGradient>
+        <!-- Glow filters for LED effect -->
         <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="2" result="blur" />
           <feMerge>
@@ -17,13 +24,41 @@
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        <!-- Ambient bloom filter -->
+        <filter id="ambientBloom" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="4" result="bloom" />
+          <feMerge>
+            <feMergeNode in="bloom" />
+            <feMergeNode in="bloom" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
-      
-      <!-- Background Arc (subtle) -->
+
+      <!-- Chrome ring background - polished bezel (metal shader only) -->
+      <template v-if="isMetalShader">
+        <path
+          d="M 30 150 A 120 120 0 0 1 270 150"
+          fill="none"
+          stroke="url(#chromeRing)"
+          stroke-width="22"
+          stroke-linecap="butt"
+          opacity="0.6"
+        />
+        <!-- Chrome ring highlight -->
+        <path
+          d="M 30 150 A 120 120 0 0 1 270 150"
+          fill="none"
+          stroke="url(#chromeHighlight)"
+          stroke-width="22"
+          stroke-linecap="butt"
+        />
+      </template>
+      <!-- Background Arc (recessed track) -->
       <path
         d="M 30 150 A 120 120 0 0 1 270 150"
         fill="none"
-        stroke="rgba(255, 255, 255, 0.05)"
+        stroke="rgba(255, 255, 255, 0.04)"
         stroke-width="18"
         stroke-linecap="butt"
       />
@@ -91,6 +126,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useSettings } from '../../composables/useSettings'
+import { useGaugeColors } from '../../composables/useGaugeColors'
 
 interface Props {
   speed: number
@@ -98,6 +135,8 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const { isMetalShader } = useSettings()
+const { colors: gaugeColors } = useGaugeColors()
 
 const testMode = ref(false)
 const testSpeed = ref(0)
@@ -107,20 +146,23 @@ const displaySpeed = computed(() => testMode.value ? testSpeed.value : props.spe
 const maxSpeed = computed(() => props.unit === 'mph' ? 140 : 220)
 const speedPercentage = computed(() => Math.min((displaySpeed.value / maxSpeed.value), 1))
 
-const colors = {
-  cyan: '#00ffd5',      // Digital cyan/teal (0-4)
-  amber: '#ffb800',     // Digital amber (4-7)
-  orange: '#ff6b35',    // Electric orange (7-10)
-  red: '#ff0a4a'        // Neon red (10-15)
+let lastTapTime = 0
+const handleTap = () => {
+  const now = Date.now()
+  if (now - lastTapTime < 300) {
+    toggleTestMode()
+  }
+  lastTapTime = now
 }
 
 // Color based on actual speed value (km/h)
 const gaugeColor = computed(() => {
+  const c = gaugeColors.value
   const percentage = speedPercentage.value
-  if (percentage < 4/15) return colors.cyan
-  if (percentage < 7/15) return colors.amber
-  if (percentage < 10/15) return colors.orange
-  return colors.red
+  if (percentage < 4/15) return c.zone1
+  if (percentage < 7/15) return c.zone2
+  if (percentage < 10/15) return c.zone3
+  return c.zone4
 })
 
 const gaugeGlow = computed(() => {
@@ -230,7 +272,7 @@ const animateTestSpeed = () => {
 
 .mark-text {
   font-weight: 600;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
   transition: fill 0.3s ease;
 }
 
@@ -242,19 +284,20 @@ const animateTestSpeed = () => {
   transition: stroke 0.3s ease;
 }
 
-/* SVG text uses viewBox-relative units, these are correct as-is */
+/* Speed text - laser-etched into chrome */
 .speed-text {
   font-size: 55px;
   font-weight: 700;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
   transition: fill 0.3s ease, filter 0.3s ease;
 }
 
 .unit-text {
   font-size: 16px;
-  fill: rgba(156, 163, 175, 1);
+  fill: var(--metal-shine, rgba(136, 153, 170, 1));
   font-weight: 600;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  letter-spacing: 0.1em;
 }
 
 .value-path {
@@ -266,23 +309,43 @@ const animateTestSpeed = () => {
   bottom: var(--space-sm, 0.5rem);
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(239, 68, 68, 0.9);
+  background: linear-gradient(135deg, var(--accent-red-dim, #cc1236), var(--accent-red, #ff1744));
   color: white;
   padding: var(--space-xs, 0.25rem) var(--space-sm, 0.75rem);
   border-radius: var(--radius-lg, 0.75rem);
   font-size: var(--text-xs, 0.75rem);
-  font-weight: 600;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  letter-spacing: 0.05em;
   animation: pulse 2s infinite;
   z-index: 2;
   white-space: nowrap;
+  box-shadow: 0 0 12px var(--glow-red, rgba(255, 23, 68, 0.4));
+  border: 1px solid var(--accent-red, #ff1744);
 }
 
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
+    box-shadow: 0 0 12px var(--glow-red, rgba(255, 23, 68, 0.4));
   }
   50% {
-    opacity: 0.6;
+    opacity: 0.7;
+    box-shadow: 0 0 20px var(--glow-red, rgba(255, 23, 68, 0.6));
   }
+}
+
+/* ============ ORIGINAL STYLE (Metal Shader OFF) ============ */
+.gauge-container[data-shader="original"] .mark-text {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.gauge-container[data-shader="original"] .speed-text {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.gauge-container[data-shader="original"] .unit-text {
+  fill: rgba(156, 163, 175, 0.9);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 </style>

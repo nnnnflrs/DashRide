@@ -1,5 +1,5 @@
 <template>
-  <div ref="containerRef" class="mini-map" :data-style="mapStyle" @dblclick="$emit('expand')">
+  <div ref="containerRef" class="mini-map" :data-style="mapStyle" :data-shader="isMetalShader ? 'metal' : 'original'" @dblclick="$emit('expand')">
     <div class="distance-badge">
       <TrendingUp class="badge-icon" />
       <span class="badge-text">{{ displayDistance }}</span>
@@ -23,6 +23,9 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Navigation, TrendingUp } from 'lucide-vue-next'
 import { GoogleMapsNative } from '../../plugins/googlemaps'
+import { useSettings } from '../../composables/useSettings'
+
+const { isMetalShader } = useSettings()
 
 interface Props {
   distance: number
@@ -333,37 +336,39 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Metal-framed map widget */
 .mini-map {
   position: relative;
   width: 100%;
   height: 100%;
   border-radius: 0.5rem;
-  border: 1px solid rgba(55, 65, 81, 0.5);
+  border: 1px solid rgba(90, 101, 119, 0.35);
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .mini-map[data-style="dark"] {
-  background: linear-gradient(to bottom right, rgb(17, 24, 39), rgb(31, 41, 55));
+  background: linear-gradient(145deg, var(--metal-base, #1a1f25), var(--metal-dark, #12161a));
 }
 
 .mini-map[data-style="light"] {
-  background: linear-gradient(to bottom right, rgb(241, 245, 249), rgb(226, 232, 240));
-  border-color: rgba(148, 163, 184, 0.5);
+  background: linear-gradient(145deg, var(--metal-mid, #252b33), var(--metal-base, #1a1f25));
+  border-color: rgba(90, 101, 119, 0.4);
 }
 
 .mini-map:hover {
   transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .distance-badge {
   position: absolute;
   top: 0.5rem;
   left: 0.5rem;
-  background: rgba(0, 0, 0, 0.7);
+  background: linear-gradient(145deg, var(--metal-mid, #252b33), var(--metal-dark, #12161a));
   backdrop-filter: blur(8px);
   padding: 0.375rem 0.625rem;
   border-radius: 0.375rem;
@@ -371,20 +376,21 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.375rem;
   z-index: 10;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   pointer-events: none;
+  border: 1px solid rgba(90, 101, 119, 0.2);
 }
 
 .mini-map[data-style="light"] .distance-badge {
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: linear-gradient(145deg, var(--metal-mid, #252b33), var(--metal-dark, #12161a));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .zoom-hint {
   position: absolute;
   bottom: 3.5rem;
   right: 0.5rem;
-  background: rgba(0, 0, 0, 0.6);
+  background: linear-gradient(145deg, var(--metal-mid, #252b33), var(--metal-dark, #12161a));
   backdrop-filter: blur(8px);
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
@@ -392,6 +398,7 @@ onUnmounted(() => {
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: none;
+  border: 1px solid rgba(90, 101, 119, 0.2);
 }
 
 .mini-map:hover .zoom-hint {
@@ -400,36 +407,38 @@ onUnmounted(() => {
 
 .hint-text {
   font-size: 0.625rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--chrome-highlight, #cfd8dc);
   font-weight: 500;
 }
 
 .mini-map[data-style="light"] .zoom-hint {
-  background: rgba(255, 255, 255, 0.9);
+  background: linear-gradient(145deg, var(--metal-mid, #252b33), var(--metal-dark, #12161a));
 }
 
 .mini-map[data-style="light"] .hint-text {
-  color: rgba(71, 85, 105, 0.9);
+  color: var(--aluminum-light, #718096);
 }
 
 .badge-icon {
   width: 0.75rem;
   height: 0.75rem;
-  color: rgb(74, 222, 128);
+  color: var(--accent-green, #00ff88);
+  filter: drop-shadow(0 0 2px var(--glow-green, rgba(0, 255, 136, 0.4)));
 }
 
 .badge-text {
   font-size: 0.8125rem;
   font-weight: 700;
-  color: white;
+  color: var(--chrome-highlight, #cfd8dc);
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
 }
 
 .mini-map[data-style="light"] .badge-text {
-  color: rgb(30, 41, 59);
+  color: var(--chrome-highlight, #cfd8dc);
 }
 
 .mini-map[data-style="light"] .badge-icon {
-  color: rgb(22, 163, 74);
+  color: var(--accent-green, #00ff88);
 }
 
 .turn-info {
@@ -437,29 +446,30 @@ onUnmounted(() => {
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: linear-gradient(0deg, rgba(18, 22, 26, 0.9), rgba(18, 22, 26, 0.7));
   padding: 0.625rem 0.875rem;
   display: flex;
   align-items: center;
   gap: 0.625rem;
-  border-top: 1px solid rgba(55, 65, 81, 0.5);
+  border-top: 1px solid rgba(90, 101, 119, 0.3);
   pointer-events: none;
 }
 
 .mini-map[data-style="light"] .turn-info {
-  background: rgba(255, 255, 255, 0.95);
-  border-top-color: rgba(203, 213, 225, 0.8);
+  background: linear-gradient(0deg, rgba(18, 22, 26, 0.85), rgba(18, 22, 26, 0.65));
+  border-top-color: rgba(90, 101, 119, 0.35);
 }
 
 .turn-icon {
   width: 1.125rem;
   height: 1.125rem;
-  color: rgb(74, 222, 128);
+  color: var(--accent-green, #00ff88);
   flex-shrink: 0;
+  filter: drop-shadow(0 0 3px var(--glow-green, rgba(0, 255, 136, 0.4)));
 }
 
 .mini-map[data-style="light"] .turn-icon {
-  color: rgb(22, 163, 74);
+  color: var(--accent-green, #00ff88);
 }
 
 .turn-details {
@@ -469,24 +479,86 @@ onUnmounted(() => {
 
 .turn-label {
   font-size: 0.75rem;
-  color: rgba(156, 163, 175, 1);
+  color: var(--metal-shine, rgba(136, 153, 170, 1));
   font-weight: 500;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 }
 
 .mini-map[data-style="light"] .turn-label {
-  color: rgb(100, 116, 139);
+  color: var(--aluminum-light, #718096);
 }
 
 .turn-street {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: white;
+  color: var(--chrome-highlight, #cfd8dc);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
 }
 
 .mini-map[data-style="light"] .turn-street {
-  color: rgb(15, 23, 42);
+  color: var(--chrome-highlight, #cfd8dc);
+}
+
+/* ============ ORIGINAL STYLE (Metal Shader OFF) ============ */
+.mini-map[data-shader="original"] {
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.mini-map[data-shader="original"][data-style="dark"] {
+  background: rgba(17, 24, 39, 0.8);
+}
+
+.mini-map[data-shader="original"][data-style="light"] {
+  background: rgba(241, 245, 249, 0.8);
+}
+
+.mini-map[data-shader="original"] .distance-badge {
+  background: rgba(17, 24, 39, 0.9);
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.mini-map[data-shader="original"] .badge-icon {
+  color: #00ffd5;
+  filter: none;
+}
+
+.mini-map[data-shader="original"] .badge-text {
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.mini-map[data-shader="original"] .zoom-hint {
+  background: rgba(17, 24, 39, 0.9);
+  border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.mini-map[data-shader="original"] .hint-text {
+  color: rgba(156, 163, 175, 0.9);
+}
+
+.mini-map[data-shader="original"] .turn-info {
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.6));
+  border-top: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.mini-map[data-shader="original"] .turn-icon {
+  color: #00ffd5;
+  filter: none;
+}
+
+.mini-map[data-shader="original"] .turn-label {
+  color: rgba(156, 163, 175, 0.9);
+  text-shadow: none;
+}
+
+.mini-map[data-shader="original"] .turn-street {
+  color: white;
+  text-shadow: none;
 }
 </style>

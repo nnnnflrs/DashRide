@@ -1055,12 +1055,12 @@ onUnmounted(() => {
 }
 
 .control-icon.active {
-  color: rgb(96, 165, 250);
+  color: var(--accent-green);
 }
 
 /* Light Theme Active Control Icons */
 .music-player[data-theme="light"] .control-icon.active {
-  color: rgb(37, 99, 235);
+  color: var(--accent-green-dim);
 }
 
 .play-btn {

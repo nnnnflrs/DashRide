@@ -71,7 +71,7 @@ const distanceUnit = computed(() => props.unit === 'mph' ? 'mi' : 'km')
 .info-icon {
   width: clamp(1rem, 2.8vw, 1.25rem);
   height: clamp(1rem, 2.8vw, 1.25rem);
-  color: rgb(59, 130, 246);
+  color: var(--accent-green, #f472b6);
   flex-shrink: 0;
 }
 

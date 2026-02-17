@@ -1,5 +1,5 @@
 <template>
-  <div v-if="showStatusBar" class="status-bar" :data-theme="theme" :style="{ paddingTop: isNavigationBarVisible && navBarPosition === 'top' ? `${topInset}px` : '0px' }">
+  <div v-if="showStatusBar" class="status-bar" :data-theme="theme" :data-shader="isMetalShader ? 'metal' : 'original'" :style="{ paddingTop: isNavigationBarVisible && navBarPosition === 'top' ? `${topInset}px` : '0px' }">
     <div class="left">
       <span class="time-label">{{ currentTime }}</span>
       <template v-if="isGpsActive">
@@ -30,7 +30,7 @@ import { BleClient } from '@capacitor-community/bluetooth-le'
 import { useSettings } from '@/composables/useSettings'
 import { useSafeArea } from '@/composables/useSafeArea'
 
-const { showStatusBar } = useSettings()
+const { showStatusBar, isMetalShader } = useSettings()
 const { topInset, navBarPosition, isNavigationBarVisible } = useSafeArea()
 
 interface Props {
@@ -129,22 +129,41 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Dark Theme (Default) */
+/* Dark Theme (Default) - Brushed aluminum status bar */
 .status-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 1rem;
-  background: rgba(0, 0, 0, 0.4);
+  background: linear-gradient(180deg,
+    rgba(42, 48, 56, 0.95) 0%,
+    rgba(26, 31, 37, 0.95) 100%);
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(128, 128, 128, 0.5);
+  border-bottom: 1px solid rgba(90, 101, 119, 0.3);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+/* Brushed aluminum anisotropic streak */
+.status-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.008) 1px,
+    transparent 2px
+  );
+  pointer-events: none;
 }
 
 /* Light Theme */
 .status-bar[data-theme="light"] {
-  background: rgba(255, 255, 255, 0.85);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+  background: linear-gradient(180deg,
+    rgba(58, 66, 77, 0.95) 0%,
+    rgba(37, 43, 51, 0.95) 100%);
+  border-bottom: 1px solid rgba(90, 101, 119, 0.4);
 }
 
 .left, .right {
@@ -165,16 +184,18 @@ onUnmounted(() => {
 .icon {
   width: var(--icon-sm, 1rem);
   height: var(--icon-sm, 1rem);
-  color: rgba(156, 163, 175, 1);
+  color: var(--metal-shine, rgba(136, 153, 170, 1));
   transition: color 0.3s;
 }
 
 .icon.connected {
-  color: rgba(74, 222, 128, 1);
+  color: var(--accent-green, #00ff88);
+  filter: drop-shadow(0 0 3px var(--glow-green, rgba(0, 255, 136, 0.4)));
 }
 
 .gps-icon {
-  color: rgba(74, 222, 128, 1);
+  color: var(--accent-green, #00ff88);
+  filter: drop-shadow(0 0 3px var(--glow-green, rgba(0, 255, 136, 0.4)));
 }
 
 .battery {
@@ -184,62 +205,142 @@ onUnmounted(() => {
 }
 
 .battery-icon {
-  color: rgba(74, 222, 128, 1);
+  color: var(--accent-green, #00ff88);
+  filter: drop-shadow(0 0 3px var(--glow-green, rgba(0, 255, 136, 0.4)));
 }
 
 .battery-low {
-  color: rgba(239, 68, 68, 1);
+  color: var(--accent-red, #ff1744);
+  filter: drop-shadow(0 0 3px var(--glow-red, rgba(255, 23, 68, 0.4)));
 }
 
 .bluetooth-icon {
-  color: rgba(96, 165, 250, 1);
+  color: var(--accent-blue, #448aff);
+  filter: drop-shadow(0 0 3px var(--glow-blue, rgba(68, 138, 255, 0.3)));
 }
 
+/* Laser-etched text effect */
 .label {
   font-size: var(--text-xs, 0.75rem);
-  color: rgba(156, 163, 175, 1);
+  color: var(--metal-shine, rgba(136, 153, 170, 1));
   transition: color 0.3s ease;
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 }
 
 .time-label {
   font-size: var(--text-sm, 0.875rem);
-  font-weight: 600;
-  color: white;
+  font-weight: 700;
+  color: var(--chrome-highlight, #cfd8dc);
   margin-right: var(--space-sm, 0.5rem);
   padding-left: var(--space-sm, 0.75rem);
   transition: color 0.3s ease;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5), 0 0 6px color-mix(in srgb, var(--accent-green) 10%, transparent);
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
 }
 
 /* Light Theme Status Bar */
 .status-bar[data-theme="light"] .icon {
-  color: rgb(100, 116, 139);
+  color: var(--aluminum-light, #718096);
 }
 
 .status-bar[data-theme="light"] .icon.connected {
-  color: rgb(34, 197, 94);
+  color: var(--accent-green, #00ff88);
 }
 
 .status-bar[data-theme="light"] .gps-icon {
-  color: rgb(34, 197, 94);
+  color: var(--accent-green, #00ff88);
 }
 
 .status-bar[data-theme="light"] .battery-icon {
-  color: rgb(34, 197, 94);
+  color: var(--accent-green, #00ff88);
 }
 
 .status-bar[data-theme="light"] .battery-low {
-  color: rgb(239, 68, 68);
+  color: var(--accent-red, #ff1744);
 }
 
 .status-bar[data-theme="light"] .bluetooth-icon {
-  color: rgb(59, 130, 246);
+  color: var(--accent-blue, #448aff);
 }
 
 .status-bar[data-theme="light"] .label {
-  color: rgb(100, 116, 139);
+  color: var(--aluminum-light, #718096);
 }
 
 .status-bar[data-theme="light"] .time-label {
-  color: rgb(15, 23, 42);
+  color: var(--chrome-highlight, #cfd8dc);
+}
+
+/* ============ ORIGINAL STYLE (Metal Shader OFF) ============ */
+.status-bar[data-shader="original"] {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+  box-shadow: none;
+}
+
+.status-bar[data-shader="original"]::before {
+  display: none;
+}
+
+.status-bar[data-shader="original"] .icon {
+  color: rgba(156, 163, 175, 0.7);
+  filter: none;
+}
+
+.status-bar[data-shader="original"] .icon.connected {
+  color: #4ade80;
+  filter: none;
+}
+
+.status-bar[data-shader="original"] .gps-icon {
+  color: #4ade80;
+  filter: none;
+}
+
+.status-bar[data-shader="original"] .battery-icon {
+  color: #4ade80;
+  filter: none;
+}
+
+.status-bar[data-shader="original"] .battery-low {
+  color: #ef4444;
+  filter: none;
+}
+
+.status-bar[data-shader="original"] .bluetooth-icon {
+  color: #60a5fa;
+  filter: none;
+}
+
+.status-bar[data-shader="original"] .label {
+  color: rgba(156, 163, 175, 0.9);
+  text-shadow: none;
+}
+
+.status-bar[data-shader="original"] .time-label {
+  color: white;
+  text-shadow: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Light theme original */
+.status-bar[data-shader="original"][data-theme="light"] {
+  background: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.status-bar[data-shader="original"][data-theme="light"] .icon {
+  color: #64748b;
+}
+
+.status-bar[data-shader="original"][data-theme="light"] .label {
+  color: #64748b;
+}
+
+.status-bar[data-shader="original"][data-theme="light"] .time-label {
+  color: #1e293b;
 }
 </style>
