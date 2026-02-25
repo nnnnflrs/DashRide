@@ -122,6 +122,15 @@ const { colors: gaugeColors } = useGaugeColors()
 
 const testMode = ref(false)
 const testSpeed = ref(0)
+let lastTapTime = 0
+
+const handleTap = () => {
+  const now = Date.now()
+  if (now - lastTapTime < 300) {
+    toggleTestMode()
+  }
+  lastTapTime = now
+}
 const displaySpeed = computed(() => testMode.value ? testSpeed.value : props.speed)
 const maxSpeed = computed(() => props.unit === 'mph' ? 93 : 150)
 const speedPercentage = computed(() => Math.min((displaySpeed.value / maxSpeed.value), 1))
@@ -262,14 +271,6 @@ const animateTestSpeed = () => {
       testSpeed.value = 0
     }
   }, 100)
-}
-let lastTapTime = 0
-const handleTap = () => {
-  const now = Date.now()
-  if (now - lastTapTime < 300) {
-    toggleTestMode()
-  }
-  lastTapTime = now
 }
 </script>
 

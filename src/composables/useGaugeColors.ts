@@ -2,7 +2,7 @@ import { computed } from 'vue'
 import { useSettings } from './useSettings'
 
 const GAUGE_COLORS: Record<string, { zone1: string; zone2: string; zone3: string; zone4: string }> = {
-  'hiraya': { zone1: '#00ff88', zone2: '#ffb800', zone3: '#ff6b35', zone4: '#ff1744' },
+  'hiraya':          { zone1: '#00ff88', zone2: '#ffb800', zone3: '#ff6b35', zone4: '#ff1744' },
   sinta:             { zone1: '#ff1744', zone2: '#ff5722', zone3: '#ff8f00', zone4: '#ffb800' },
   dalisay:           { zone1: '#00ffd5', zone2: '#00bcd4', zone3: '#ff6b35', zone4: '#ff1744' },
   tanglaw:           { zone1: '#ffd700', zone2: '#ffb300', zone3: '#ff8f00', zone4: '#ff1744' },

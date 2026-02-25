@@ -138,13 +138,8 @@ const { colors: gaugeColors } = useGaugeColors()
 
 const testMode = ref(false)
 const testSpeed = ref(0)
-
-const displaySpeed = computed(() => testMode.value ? testSpeed.value : props.speed)
-
-const maxSpeed = computed(() => props.unit === 'mph' ? 140 : 220)
-const speedPercentage = computed(() => Math.min((displaySpeed.value / maxSpeed.value), 1))
-
 let lastTapTime = 0
+
 const handleTap = () => {
   const now = Date.now()
   if (now - lastTapTime < 300) {
@@ -152,6 +147,11 @@ const handleTap = () => {
   }
   lastTapTime = now
 }
+
+const displaySpeed = computed(() => testMode.value ? testSpeed.value : props.speed)
+
+const maxSpeed = computed(() => props.unit === 'mph' ? 140 : 220)
+const speedPercentage = computed(() => Math.min((displaySpeed.value / maxSpeed.value), 1))
 
 // Color based on actual speed value (km/h)
 const gaugeColor = computed(() => {

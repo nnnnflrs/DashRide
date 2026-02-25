@@ -4,6 +4,8 @@
 <dict>
     <key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
+	<key>GMSApiKey</key>
+	<string>AIzaSyDMKjPXLF5Ujo-F43zsjLnQBMPPASqc45c</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
@@ -51,5 +53,10 @@
 	<string>DashRide needs access to your location to show your position on the map and provide navigation features.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>DashRide needs access to your location to track your rides and provide real-time navigation.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>location</string>
+	</array>
 </dict>
 </plist>

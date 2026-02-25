@@ -448,6 +448,8 @@ const initMap = async () => {
 
   try {
 
+    if(Capacitor.getPlatform() === 'web') return
+
     await requestLocationPermission()
 
     // Get immediate location to initialize map quickly
@@ -1403,8 +1405,16 @@ onUnmounted(async () => {
   pointer-events: none;
 }
 
-/* Re-enable pointer events for interactive UI elements */
-.navigation-map-container > * {
+/* Only enable pointer events on specific interactive elements */
+.search-container,
+.directions-button,
+.loading-routes,
+.route-info-bar,
+.stop-nav-button,
+.loading-overlay,
+.error-overlay,
+.location-button,
+.info-panel {
   pointer-events: auto;
 }
 
